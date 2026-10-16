@@ -1,0 +1,10 @@
+{
+  "name": "cartblox-server",
+  "version": "0.2.0",
+  "description": "Cartblox multiplayer game server (WebSocket rooms)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" },
+  "license": "MIT"
+}

@@ -1,0 +1,8 @@
+# Optional: lets Render create the service from this repo ("New > Blueprint").
+services:
+  - type: web
+    name: cartblox-server
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
