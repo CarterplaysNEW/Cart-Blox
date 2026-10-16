@@ -2,9 +2,9 @@
 //  CARTBLOX CONFIG  -  the only file you need to edit after deploying
 // =====================================================================
 window.CARTBLOX_CONFIG = {
-  // 1) Your Render web-service URL (no key needed), e.g. "https://cartblox-server.onrender.com"
-  //    Leave it empty and the games run in single-player mode.
-  serverUrl: "",
+  // 1) Your Render web-service URL (no key needed)
+  serverUrl: "https://cart-blox.onrender.com",
+};
 
   // 2) Firebase (Realtime Database) - used for chat, the home feed and community catalog items.
   firebase: {
