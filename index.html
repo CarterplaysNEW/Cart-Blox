@@ -598,6 +598,12 @@ label.chk input{ margin-top:2px; width:16px; height:16px; flex:none; accent-colo
 .cs-row .tw{ width:12px; display:inline-block; color:#556; cursor:pointer; font-size:10px; }
 .cs-row.sel .tw{ color:#fff; }
 .cs-add{ margin-left:auto; width:18px; height:16px; padding:0; font:bold 12px/12px Arial; border:1px solid #8a97ab; border-radius:3px; background:#fff; color:#2a7a14; cursor:pointer; }
+.cs-addmenu{ margin:2px 6px 4px 30px; border:1px solid #8a97ab; border-radius:3px; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); }
+.cs-addmenu button{ display:flex; align-items:center; gap:6px; width:100%; padding:4px 8px; border:0; background:none; font:12px var(--font); text-align:left; cursor:pointer; color:#1d2a38; }
+.cs-addmenu button:hover{ background:#dfeaf8; }
+.cs-addmenu .ico svg{ width:14px; height:14px; display:block; }
+.se-side{ display:inline-flex; align-items:center; gap:4px; font-size:12px; margin-right:8px; }
+.se-side select{ font:12px var(--font); }
 .cs-multi{ padding:6px; margin-bottom:6px; background:#fff4e0; border:1px solid #f0b040; border-radius:3px; font-size:11px; }
 .cs-multi div{ margin-top:4px; }
 .cs-pt{ font-weight:bold; color:#16335e; margin-bottom:6px; }
@@ -646,6 +652,10 @@ label.chk input{ margin-top:2px; width:16px; height:16px; flex:none; accent-colo
 .gbutton{ pointer-events:auto; cursor:pointer; border-radius:5px; box-shadow:0 2px 0 rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.4) inset; }
 .gbutton:hover{ filter:brightness(1.1); }
 .gbutton:active{ transform:translateY(1px); }
+.gkeys{ position:absolute; right:calc(var(--sar) + 112px); bottom:calc(var(--sab) + 108px); display:none; gap:8px; flex-wrap:wrap-reverse; justify-content:flex-end; max-width:200px; }
+#game.touchmode .gkeys{ display:flex; }
+.gkey{ pointer-events:auto; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.2); border:2px solid rgba(255,255,255,.55); color:#fff; font:bold 18px var(--font-hud); text-shadow:0 1px 2px #000; touch-action:none; }
+.gkey:active{ background:rgba(255,255,255,.4); }
 @media (max-width:560px){ .gpos-top{ top:calc(var(--sat) + 150px); max-width:80%; } .gpos-bottom{ bottom:calc(var(--sab) + 210px); } }
 
 /* ---------- toasts + badges ---------- */
@@ -1947,6 +1957,7 @@ const Tools = {
     if (!lunge && (R.cd[t.id] || 0) > 0) return;
     if (aim && t.id !== 'cola' && t.id !== 'sword') this.faceToward(aim);   // classic swords swing the way you face
     R.cd[t.id] = COOLDOWN[t.id] || 0.3;
+    Scripts.fire('tooluse');
     switch (t.id) {
       case 'sword': this.swing(lunge); break;
       case 'slingshot': this.fire('pellet', aim); Sfx.play('sling'); break;
@@ -1955,7 +1966,7 @@ const Tools = {
       case 'trowel': this.trowel(aim); break;
       case 'cola':
         this.act('drink', 1.3); Sfx.play('drink');
-        R.timers.push({ t: 0.95, fn: () => { if (R.P.alive) { R.P.health = Math.min(100, R.P.health + 30); updateHealth(); } } });
+        R.timers.push({ t: 0.95, fn: () => { if (R.P.alive) { R.P.health = Math.min(100, R.P.health + 30); updateHealth(); Net.send({ t: 'heal', d: 30 }); } } });
         R.timers.push({ t: 1.2, fn: () => Sfx.play('burp') });
         break;
       case 'popper': {
@@ -1979,7 +1990,7 @@ const Tools = {
       const dx = tg.x - P.x, dz = tg.z - P.z, dy = tg.y - P.y, d = Math.hypot(dx, dz);
       if (d > range || Math.abs(dy) > 5) continue;
       if (d > 1 && (dx * fx + dz * fz) / d < 0.2) continue;
-      this.damage(tg, lunge ? 30 : 10, [fx * (lunge ? 45 : 20), lunge ? 24 : 10, fz * (lunge ? 45 : 20)]);
+      this.damage(tg, lunge ? 30 : 10, [fx * (lunge ? 45 : 20), lunge ? 24 : 10, fz * (lunge ? 45 : 20)], 'm');
     }
   },
   fire(kind, aim) {
@@ -2139,21 +2150,29 @@ const Tools = {
     if (includeMe && R.P.alive) out.push({ kind: 'me', x: R.P.x, y: R.P.y, z: R.P.z });
     return out;
   },
-  damage(tg, d, kb) {
+  damage(tg, d, kb, w) {
     if (tg.kind === 'me') return;
     Sfx.play('hit');
-    if (tg.kind === 'remote') { Net.send({ t: 'hit', to: tg.id, d, kb: kb.map(v => +v.toFixed(1)) }); return; }
+    // other players: the server checks the hit and owns their health (it tells everyone the result)
+    if (tg.kind === 'remote') { Net.send({ t: 'hit', to: tg.id, d, kb: kb.map(v => +v.toFixed(1)), w: w === 'm' ? 'm' : 'r' }); return; }
     const du = tg.ref; if (!du.alive) return;
     du.hp -= d; du.vx += kb[0] * 0.6; du.vz += kb[2] * 0.6; du.vy = Math.max(du.vy, kb[1] * 0.6); du.tagDirty = true;
     if (du.hp <= 0) this.killDummy(du, true);
   },
-  applyDamage(d, by, kb) {
+  knock(kb) { const P = R.P; if (kb) { P.kx += kb[0] || 0; P.kz += kb[2] || 0; if (kb[1]) { P.vy = Math.max(P.vy, 0) + kb[1]; P.onGround = false; P.ground = null; } } },
+  ouch() { Sfx.play('hurt'); const h = $('#hurt'); if (h) { h.classList.remove('on'); void h.offsetWidth; h.classList.add('on'); } },
+  applyDamage(d, by, kb) {                                          // old servers / my own rocket
     const P = R.P; if (!P.alive) return;
-    if (kb) { P.kx += kb[0] || 0; P.kz += kb[2] || 0; if (kb[1]) { P.vy = Math.max(P.vy, 0) + kb[1]; P.onGround = false; P.ground = null; } }
+    this.knock(kb);
     if (P.ff > 0 || !(d > 0)) return;
-    P.health -= d; updateHealth(); Sfx.play('hurt');
-    const h = $('#hurt'); if (h) { h.classList.remove('on'); void h.offsetWidth; h.classList.add('on'); }
+    P.health -= d; updateHealth(); this.ouch();
+    if (by == null && Net.authority()) Net.send({ t: 'self', d: Math.round(d) });
     if (P.health <= 0) die(by);
+  },
+  serverHurt(m) {                                                   // the server says someone hit me
+    const P = R.P; if (!P.alive) return;
+    this.knock(Array.isArray(m.kb) ? m.kb.map(v => clamp(Number(v) || 0, -200, 200)) : null);
+    P.health = clamp(Number(m.hp) || 0, 0, 100); updateHealth(); this.ouch();     // when it reaches 0 the server sends "die"
   },
   addKO(name) {
     Badges.award('ko');
@@ -2187,7 +2206,7 @@ const Tools = {
       if (d.hp < 100) { const o = Math.ceil(d.hp); d.hp = Math.min(100, d.hp + dt * 4); if (Math.ceil(d.hp) !== o) d.tagDirty = true; }
       d.ch.root.position.set(d.x, d.y, d.z); d.ch.root.rotation.y = d.face;
       if (d.tagDirty) { d.tagDirty = false; if (d.tag) { R.scene.remove(d.tag); disposeObject(d.tag); } d.tag = healthTag('Dummy', d.hp); R.scene.add(d.tag); }
-      d.tag.visible = true; d.tag.position.set(d.x, d.y + 6.4, d.z);
+      setOpacity(d.tag, tagSight(d, d.x, d.y + 5.6, d.z, dt)); d.tag.position.set(d.x, d.y + 6.4, d.z);
     }
   },
   /* ---------- other players' tools ---------- */
@@ -2494,11 +2513,11 @@ function placePart(w, q, ctx) {
   if (q.s === 'block' && quarter) {
     const odd = (ry / 90) % 2 === 1, kind = (beh === 'kill' || beh === 'bounce') ? 'neon' : (q.st === 0 ? 'plain' : 'plastic'), s = odd ? [q.z[2], q.z[1], q.z[0]] : q.z;
     part = w.brick(Object.assign({ p: q.p, s, kind }, common));
-    part.mk = { block: true, kind, t: common.t };
+    part.mk = { block: true, kind, t: common.t, c: q.c };
     if (q.dc && part.mesh) part.mesh.add(decalPlane(rotateFace(q.dc.f, ry), s[0] / 2, s[1] / 2, s[2] / 2, q.dc.img));
   } else {
     part = w.shape(Object.assign({ s: q.s, p: q.p, z: q.z, r }, common));
-    part.mk = { block: false, s: q.s, t: common.t };
+    part.mk = { block: false, s: q.s, t: common.t, c: q.c };
     if (q.dc && part.mesh) part.mesh.add(decalPlane(q.dc.f, 0.5, 0.5, 0.5, q.dc.img));
   }
   if (q.t >= 1 && part.mesh) part.mesh.visible = false;                      // fully transparent = invisible (still solid)
@@ -2663,7 +2682,7 @@ const Cloud = {
 /* ====================== online: multiplayer (WebSocket to the Render server) ====================== */
 const Net = {
   enabled: !!(CFG.serverUrl && String(CFG.serverUrl).trim()),
-  ws: null, id: null, status: 'off',               // off | connecting | online | offline
+  ws: null, id: null, status: 'off', v: 0, host: null,   // status: off | connecting | online | offline; v = server version
   h: null, game: null, tries: 0, timer: 0, wake: 0, closing: false, join: null,
   base() { let u = String(CFG.serverUrl).trim().replace(/\/+$/, ''); if (!/^(https?|wss?):\/\//i.test(u)) u = 'https://' + u; return u; },
   wsUrl() { return this.base().replace(/^http/i, 'ws'); },
@@ -2688,12 +2707,16 @@ const Net = {
       let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
       const h = this.h || {};
       switch (m.t) {
-        case 'welcome': this.id = m.id; this.tries = 0; this.setStatus('online', m); if (h.onWelcome) h.onWelcome(m); break;
+        case 'welcome': this.id = m.id; this.v = Number(m.v) || 0; this.host = m.host != null ? String(m.host) : null; this.tries = 0; this.setStatus('online', m); if (h.onWelcome) h.onWelcome(m); break;
+        case 'host': this.host = String(m.id); if (h.onHost) h.onHost(this.host); break;
+        case 'hurt': if (h.onHurt) h.onHurt(m); break;
+        case 'hp': if (h.onHp) h.onHp(m.id, m.hp); break;
+        case 'sx': if (h.onSx) h.onSx(m); break;
         case 'join': if (h.onJoin) h.onJoin(m.p); break;
         case 'leave': if (h.onLeave) h.onLeave(m.id); break;
         case 's': if (h.onState) h.onState(m.a); break;
         case 'chat': if (h.onChat) h.onChat(m); break;
-        case 'die': if (h.onDie) h.onDie(m.id, m.by); break;
+        case 'die': if (h.onDie) h.onDie(m.id, m.by, m.kos); break;
         case 'hit': if (h.onHit) h.onHit(m.by, m.d, m.kb); break;
         case 'fx': if (h.onFx) h.onFx(m.id, m); break;
         case 'spawn': if (h.onSpawn) h.onSpawn(m.id); break;
@@ -2711,11 +2734,14 @@ const Net = {
     };
     ws.onclose = dropped; ws.onerror = () => { /* onclose follows */ };
   },
+  // true = this player runs "Server" timer scripts for the room (offline / single player: always)
+  isHost() { return this.status !== 'online' || !this.v || this.host == null || String(this.host) === String(this.id); },
+  authority() { return this.status === 'online' && this.v >= 4; },   // the server owns health + KOs
   send(obj) { if (this.ws && this.ws.readyState === 1 && this.status === 'online') this.ws.send(JSON.stringify(obj)); },
   close() {
     this.closing = true; clearTimeout(this.timer); clearTimeout(this.wake);
     if (this.ws) { const w = this.ws; this.ws = null; try { w.close(); } catch (e) { /* ignore */ } }
-    this.status = 'off'; this.id = null; this.h = null;
+    this.status = 'off'; this.id = null; this.h = null; this.v = 0; this.host = null;
   }
 };
 
@@ -2987,42 +3013,64 @@ document.addEventListener('click', async e => {
 
 /* ====================== PLACE SCRIPTS ("When ... do ..." rules), StarterGui and Sounds ======================
    Scripts are data, not code: every game runs the same safe interpreter below, so a published game can never run
-   harmful code on someone else's computer. Scripts run for each player on their own screen. */
+   harmful code on someone else's computer.
+   Side "Server" (like a Roblox Script): world changes (hide/move/color parts, sounds, announcements) are sent through the
+   game server so EVERY player sees them, and timer scripts run once for the whole room (on the host).
+   Side "Client" (like a LocalScript): everything happens only on that player's own screen.
+   Scripts in ServerScriptService run by themselves. ModuleScripts (and scripts kept in ReplicatedStorage) only run when
+   another script uses "Run a ModuleScript". RemoteEvents let scripts talk to each other (and to every player). */
+const KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').concat(['Space', 'Shift']);
 const SCRIPT_EVENTS = [
   ['start', 'When the game starts', []],
   ['touch', 'When the player touches a part', [['part', 'part', 'Part']]],
   ['timer', 'Every few seconds', [['num', 'num', 'Seconds', 5]]],
+  ['key', 'When a key is pressed', [['key', 'key', 'Key', 'E']]],
   ['chat', 'When the player chats', [['text', 'text', 'Message contains', 'hello']]],
   ['click', 'When a GUI button is clicked', [['gui', 'gui', 'Button']]],
+  ['remote', 'When a RemoteEvent fires', [['rem', 'remote', 'RemoteEvent']]],
+  ['tooluse', 'When the player uses a tool', []],
+  ['spawn', 'When the player respawns', []],
   ['die', 'When the player is knocked out', []],
   ['points', 'When the player reaches some points', [['num', 'num', 'Points', 10]]]
 ];
 const SCRIPT_ACTIONS = [
   ['msg', 'Show a message', [['text', 'text', 'Text', 'Hello, {name}!']]],
   ['hint', 'Show a hint at the top', [['text', 'text', 'Text', 'Find the exit!']]],
+  ['announce', 'Announce in the chat', [['text', 'text', 'Text', '{name} found the secret!']]],
   ['points', 'Give points', [['num', 'num', 'Points', 1]]],
+  ['ifpts', 'Only go on if points are at least', [['num', 'num', 'Points', 5]]],
   ['tool', 'Give a tool', [['tool', 'tool', 'Tool']]],
   ['tp', 'Teleport the player to a part', [['part', 'part', 'Part']]],
   ['heal', 'Heal the player', [['num', 'num', 'Health', 25]]],
   ['kill', 'Knock out the player', []],
   ['speed', 'Set walk speed', [['num', 'num', 'Speed (normal 16)', 16]]],
   ['jump', 'Set jump power', [['num', 'num', 'Power (normal 50)', 50]]],
+  ['gravity', 'Set gravity', [['num', 'num', 'Gravity (normal 196)', 196]]],
+  ['fov', 'Set screen FOV', [['num', 'num', 'Field of view (normal 70)', 70]]],
   ['hide', 'Make a part disappear', [['part', 'part', 'Part'], ['num', 'num', 'For seconds (0 = forever)', 3]]],
   ['show', 'Make a part appear again', [['part', 'part', 'Part']]],
   ['color', 'Change a part\'s color', [['part', 'part', 'Part'], ['c', 'color', 'Color', '#c4281c']]],
+  ['trans', 'Set a part\'s transparency', [['part', 'part', 'Part'], ['num', 'num', 'Transparency (0 to 1)', 0.5]]],
+  ['move', 'Move a part', [['part', 'part', 'Part'], ['x', 'num', 'Move X', 0], ['y', 'num', 'Move Y', 5], ['z', 'num', 'Move Z', 0], ['num', 'num', 'Over seconds', 1]]],
   ['clone', 'Bring in a part from ServerStorage', [['store', 'store', 'Stored part'], ['num', 'num', 'For seconds (0 = forever)', 0]]],
   ['sound', 'Play a sound', [['snd', 'sound', 'Sound']]],
   ['stop', 'Stop a sound', [['snd', 'sound', 'Sound']]],
   ['gui', 'Change GUI text', [['gui', 'gui', 'GUI'], ['text', 'text', 'Text', 'Points: {points}']]],
   ['guivis', 'Show or hide a GUI', [['gui', 'gui', 'GUI'], ['v', 'sel', 'Make it', ['show', 'hide']]]],
+  ['fire', 'Fire a RemoteEvent', [['rem', 'remote', 'RemoteEvent']]],
+  ['require', 'Run a ModuleScript', [['mod', 'mod', 'Module']]],
   ['win', 'Celebrate (confetti!)', [['text', 'text', 'Message', 'You win, {name}!']]],
   ['wait', 'Wait', [['num', 'num', 'Seconds', 1]]]
 ];
+// what a "Server" script shares with everybody: changes to the world. Everything else is about one player.
+const WORLD_ACTS = new Set(['hide', 'show', 'color', 'trans', 'move', 'clone', 'sound', 'stop', 'announce']);
 const GUI_POS = [['top', 'Top'], ['center', 'Center'], ['bottom', 'Bottom'], ['left', 'Left side'], ['right', 'Right side']];
+const SIDES = [['server', 'Server (everyone)'], ['client', 'Client (just you)']];
 const evDef = id => SCRIPT_EVENTS.find(e => e[0] === id), actDef = id => SCRIPT_ACTIONS.find(a => a[0] === id);
 const cleanText = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').slice(0, n || 200);
 const cleanHex = (c, d) => (typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c)) ? c : d;
 const cleanNum = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+const cleanName = (v, d) => String(v || d).replace(/[^\w \-.]/g, '').slice(0, 24) || d;
 function cleanArgs(defs, src) {
   const o = {};
   for (const [k, type, , def] of defs) {
@@ -3032,17 +3080,22 @@ function cleanArgs(defs, src) {
     else if (type === 'color') o[k] = cleanHex(v, def || '#c4281c');
     else if (type === 'tool') o[k] = toolById(v) ? v : 'sword';
     else if (type === 'sel') o[k] = def.includes(v) ? v : def[0];
-    else o[k] = Number.isInteger(v) && v > 0 && v < 1e6 ? v : 0;                // part / gui / store / sound ids
+    else if (type === 'key') o[k] = KEYS.includes(v) ? v : (def || 'E');
+    else o[k] = Number.isInteger(v) && v > 0 && v < 1e6 ? v : 0;                // part / gui / store / sound / remote / module ids
   }
   return o;
 }
 function sanitizeScripts(list) {
-  return (Array.isArray(list) ? list : []).slice(0, 50).map((s, i) => {
+  return (Array.isArray(list) ? list : []).slice(0, 60).map((s, i) => {
     s = s && typeof s === 'object' ? s : {};
-    const e = evDef(s.e) ? s.e : 'start';
-    return { id: i + 1, n: String(s.n || 'Script').replace(/[^\w \-.]/g, '').slice(0, 24) || 'Script', on: s.on !== false, e, ev: cleanArgs(evDef(e)[2], s.ev),
+    const e = evDef(s.e) ? s.e : 'start', k = s.k === 'module' ? 'module' : 'script';
+    return { id: i + 1, n: cleanName(s.n, k === 'module' ? 'ModuleScript' : 'Script'), on: s.on !== false, k, p: s.p === 'rs' ? 'rs' : 'sss', side: s.side === 'client' ? 'client' : 'server',
+      cd: cleanNum(s.cd, 0, 0, 600), e, ev: cleanArgs(evDef(e)[2], s.ev),
       acts: (Array.isArray(s.acts) ? s.acts : []).slice(0, 30).filter(a => a && actDef(a.a)).map(a => Object.assign({ a: a.a }, cleanArgs(actDef(a.a)[2], a))) };
   });
+}
+function sanitizeRemotes(list) {
+  return (Array.isArray(list) ? list : []).slice(0, 30).map((r, i) => ({ id: i + 1, n: cleanName(r && r.n, 'RemoteEvent'), p: r && r.p === 'sss' ? 'sss' : 'rs' }));
 }
 function sanitizeGui(list) {
   return (Array.isArray(list) ? list : []).slice(0, 30).map((g, i) => {
@@ -3059,26 +3112,43 @@ function remapRefs(scripts, maps) {
   const fix = (args, defs) => { for (const [k, type] of defs) { const m = maps[type]; if (m) args[k] = m.has(args[k]) ? m.get(args[k]) : 0; } };
   for (const s of scripts) { fix(s.ev, evDef(s.e)[2]); for (const a of s.acts) fix(a, actDef(a.a)[2]); }
 }
-function scriptUsesPoints(doc) { return (doc.scripts || []).some(s => s.on !== false && (s.e === 'points' || (s.acts || []).some(a => a.a === 'points'))); }
+const runsAlone = s => s.k === 'script' && s.p === 'sss' && s.on !== false;      // scripts that start by themselves
+function scriptUsesPoints(doc) { return (doc.scripts || []).some(s => s.on !== false && ((runsAlone(s) && s.e === 'points') || (s.acts || []).some(a => a.a === 'points' || a.a === 'ifpts'))); }
 // a read-only, Lua-flavoured view of a script (shown in the editor so builders can learn what it means)
 function scriptPreview(s, doc) {
   const nm = (arr, id, fb) => { const x = (arr || []).find(o => o.id === id); return x ? x.n.replace(/\s+/g, '') : fb; };
   const q = t => JSON.stringify(String(t || ''));
-  const head = { start: 'game.Players.PlayerAdded:Connect(function(player)', touch: `workspace.${nm(doc.parts, s.ev.part, 'Part')}.Touched:Connect(function(hit)`, timer: `while wait(${s.ev.num}) do`, chat: `player.Chatted:Connect(function(message)  -- contains ${q(s.ev.text)}`, click: `StarterGui.${nm(doc.gui, s.ev.gui, 'Button')}.MouseButton1Click:Connect(function()`, die: 'humanoid.Died:Connect(function()', points: `leaderstats.Points.Changed:Connect(function(value)  -- reaches ${s.ev.num}` }[s.e];
+  const svc = p => (p === 'rs' ? 'ReplicatedStorage' : 'ServerScriptService');
+  const rem = id => { const r = (doc.remotes || []).find(o => o.id === id); return r ? `${svc(r.p)}.${r.n.replace(/\s+/g, '')}` : 'ReplicatedStorage.RemoteEvent'; };
+  const client = s.side === 'client';
+  const head = { start: 'game.Players.PlayerAdded:Connect(function(player)', touch: `workspace.${nm(doc.parts, s.ev.part, 'Part')}.Touched:Connect(function(hit)`, timer: `while wait(${s.ev.num}) do`,
+    key: `UserInputService.InputBegan:Connect(function(input)  -- Enum.KeyCode.${s.ev.key}`, chat: `player.Chatted:Connect(function(message)  -- contains ${q(s.ev.text)}`,
+    click: `StarterGui.${nm(doc.gui, s.ev.gui, 'Button')}.MouseButton1Click:Connect(function()`, remote: `${rem(s.ev.rem)}.${client ? 'OnClientEvent' : 'OnServerEvent'}:Connect(function(player)`,
+    tooluse: 'tool.Activated:Connect(function()', spawn: 'player.CharacterAdded:Connect(function(character)', die: 'humanoid.Died:Connect(function()', points: `leaderstats.Points.Changed:Connect(function(value)  -- reaches ${s.ev.num}` }[s.e];
+  const P = id => `workspace.${nm(doc.parts, id, 'Part')}`;
   const line = a => ({
-    msg: `showMessage(${q(a.text)})`, hint: `showHint(${q(a.text)})`, points: `leaderstats.Points.Value += ${a.num}`, tool: `giveTool(${q((toolById(a.tool) || {}).n)})`,
-    tp: `character:MoveTo(workspace.${nm(doc.parts, a.part, 'Part')}.Position)`, heal: `humanoid.Health += ${a.num}`, kill: 'humanoid.Health = 0', speed: `humanoid.WalkSpeed = ${a.num}`, jump: `humanoid.JumpPower = ${a.num}`,
-    hide: `workspace.${nm(doc.parts, a.part, 'Part')}.Transparency = 1  -- for ${a.num || 'ever'}${a.num ? 's' : ''}`, show: `workspace.${nm(doc.parts, a.part, 'Part')}.Transparency = 0`, color: `workspace.${nm(doc.parts, a.part, 'Part')}.Color = ${q(a.c)}`,
+    msg: `showMessage(${q(a.text)})`, hint: `showHint(${q(a.text)})`, announce: `TextChatService:DisplaySystemMessage(${q(a.text)})`, points: `leaderstats.Points.Value += ${a.num}`,
+    ifpts: `if leaderstats.Points.Value < ${a.num} then return end`, tool: `giveTool(${q((toolById(a.tool) || {}).n)})`,
+    tp: `character:MoveTo(${P(a.part)}.Position)`, heal: `humanoid.Health += ${a.num}`, kill: 'humanoid.Health = 0', speed: `humanoid.WalkSpeed = ${a.num}`, jump: `humanoid.JumpPower = ${a.num}`,
+    gravity: `workspace.Gravity = ${a.num}`, fov: `workspace.CurrentCamera.FieldOfView = ${a.num}`,
+    hide: `${P(a.part)}.Transparency = 1  -- for ${a.num || 'ever'}${a.num ? 's' : ''}`, show: `${P(a.part)}.Transparency = 0`, color: `${P(a.part)}.Color = ${q(a.c)}`, trans: `${P(a.part)}.Transparency = ${a.num}`,
+    move: `TweenService:Create(${P(a.part)}, TweenInfo.new(${a.num}), {Position = ${P(a.part)}.Position + Vector3.new(${a.x}, ${a.y}, ${a.z})}):Play()`,
     clone: `ServerStorage.${nm(doc.storage, a.store, 'Part')}:Clone().Parent = workspace`, sound: `workspace.${nm(doc.sounds, a.snd, 'Sound')}:Play()`, stop: `workspace.${nm(doc.sounds, a.snd, 'Sound')}:Stop()`,
-    gui: `StarterGui.${nm(doc.gui, a.gui, 'Label')}.Text = ${q(a.text)}`, guivis: `StarterGui.${nm(doc.gui, a.gui, 'Label')}.Visible = ${a.v === 'show'}`, win: `celebrate(${q(a.text)})`, wait: `wait(${a.num})`
+    gui: `StarterGui.${nm(doc.gui, a.gui, 'Label')}.Text = ${q(a.text)}`, guivis: `StarterGui.${nm(doc.gui, a.gui, 'Label')}.Visible = ${a.v === 'show'}`,
+    fire: `${rem(a.rem)}:${client ? 'FireServer()' : 'FireAllClients()'}`, require: (() => { const m = (doc.scripts || []).find(o => o.id === a.mod); return m ? `require(${svc(m.p)}.${m.n.replace(/\s+/g, '')})(player)` : 'require(nil)  -- pick a module'; })(),
+    win: `celebrate(${q(a.text)})`, wait: `wait(${a.num})`
   })[a.a] || '-- ?';
-  return `-- ${s.n}${s.on ? '' : '  (disabled)'}\n${head}\n${(s.acts.length ? s.acts.map(a => '    ' + line(a)) : ['    -- add actions below']).join('\n')}\nend${s.e === 'timer' ? '' : ')'}`;
+  const body = (s.acts.length ? s.acts.map(a => '    ' + line(a)) : ['    -- add actions below']);
+  if (s.k === 'module') return `-- ${s.n} (ModuleScript in ${svc(s.p)})\n-- runs when another script uses "Run a ModuleScript"\nreturn function(player)\n${body.join('\n')}\nend`;
+  const kind = client ? 'LocalScript: only this player sees what it does' : 'Script: runs on the server, everyone sees world changes';
+  const deb = s.cd > 0 ? [`    if debounce then return end`, `    debounce = true  -- cooldown ${s.cd}s`] : [];
+  return `-- ${s.n} (${kind})${s.on ? '' : '  (disabled)'}${s.p === 'rs' ? '\n-- in ReplicatedStorage: only runs when "Run a ModuleScript" uses it' : ''}\n${s.cd > 0 ? 'local debounce = false\n' : ''}${head}\n${deb.concat(body).join('\n')}${s.cd > 0 ? `\n    task.delay(${s.cd}, function() debounce = false end)` : ''}\nend${s.e === 'timer' ? '' : ')'}`;
 }
 
 const Scripts = {
   setup(def) {
     const d = def.place;
-    R.sc = { list: [], jobs: [], touch: new Map(), timers: [], acc: new Map(), fired: new Set(), audio: new Map(), gui: new Map(), clones: [], doc: d };
+    R.sc = { list: [], jobs: [], touch: new Map(), timers: [], acc: new Map(), fired: new Set(), audio: new Map(), gui: new Map(), clones: [], tw: [], moved: [], last: new Map(), doc: d };
     if (d && scriptUsesPoints(d)) { R.P.stage = 0; updatePlist(); }     // points start at zero (before any GUI shows them)
     this.renderGui(d ? d.gui : []);
     if (!d) return;
@@ -3089,7 +3159,8 @@ const Scripts = {
         if (s.auto && S.settings.sound) el.play().catch(() => { /* needs a click first */ });
       });
     }
-    R.sc.list = (d.scripts || []).filter(s => s.on !== false);
+    R.sc.list = (d.scripts || []).filter(runsAlone);
+    this.renderKeys();
     this.fire('start');
   },
   teardown() {
@@ -3101,56 +3172,136 @@ const Scripts = {
   vol(v) { return S.settings.sound ? clamp(v, 0, 1) * S.settings.volume / 100 : 0; },
   applyVolume() { if (R && R.sc) for (const el of R.sc.audio.values()) el.volume = this.vol(+el.dataset.vol); },
   fill(t) { return String(t || '').replace(/\{name\}/g, S.user).replace(/\{points\}/g, R ? R.P.stage : 0); },
+  online() { return Net.status === 'online' && Net.v >= 4; },
   fire(type, test) { if (!R || !R.sc) return; for (const s of R.sc.list) if (s.e === type && (!test || test(s))) this.run(s); },
-  run(s) { if (R.sc.jobs.length < 60 && s.acts.length) R.sc.jobs.push({ acts: s.acts, i: 0, wait: 0 }); },
+  run(s, ctx) {
+    const sc = R.sc;
+    if (s.cd > 0) { const t = sc.last.get(s.id); if (t != null && R.time - t < s.cd) return; sc.last.set(s.id, R.time); }   // cooldown (debounce)
+    if (sc.jobs.length < 60 && s.acts.length) sc.jobs.push({ acts: s.acts.slice(), i: 0, wait: 0, req: 0, ctx: ctx || { srv: s.side !== 'client', all: false } });
+  },
   onChat(text) { const t = String(text).toLowerCase(); this.fire('chat', s => !s.ev.text || t.includes(String(s.ev.text).toLowerCase())); },
   onDie() { this.fire('die'); },
+  onKey(code) {
+    const k = /^Key[A-Z]$/.test(code) ? code.slice(3) : code === 'Space' ? 'Space' : /^Shift/.test(code) ? 'Shift' : null;
+    if (k) this.fire('key', s => s.ev.key === k);
+  },
+  onHost() { if (R && R.sc) R.sc.acc.clear(); },
   part(id) { return R.world.byId ? R.world.byId.get(id) : null; },
   update(dt) {
     const sc = R && R.sc; if (!sc) return;
-    const P = R.P;
+    const P = R.P, host = Net.isHost();
     for (const s of sc.list) {
       if (s.e === 'touch') {
         const p = this.part(s.ev.part), on = !!(p && !p.hidden && P.alive && touches(p, P, 0.1));
         if (on && !sc.touch.get(s.id)) this.run(s);
         sc.touch.set(s.id, on);
       } else if (s.e === 'timer') {
+        const server = s.side !== 'client';
+        if (server && !host) { sc.acc.delete(s.id); continue; }       // server timers run once for the room, on the host
         const n = Math.max(0.5, s.ev.num || 5), a = (sc.acc.get(s.id) || 0) + dt;
-        if (a >= n) { sc.acc.set(s.id, a - n); this.run(s); } else sc.acc.set(s.id, a);
+        if (a >= n) { sc.acc.set(s.id, a - n); this.run(s, { srv: server, all: server }); } else sc.acc.set(s.id, a);
       }
     }
     for (let i = sc.timers.length - 1; i >= 0; i--) { const t = sc.timers[i]; t.t -= dt; if (t.t <= 0) { sc.timers.splice(i, 1); t.fn(); } }
     let budget = 300;
     for (let j = sc.jobs.length - 1; j >= 0; j--) {
       const job = sc.jobs[j]; job.wait -= dt;
-      while (job.wait <= 0 && job.i < job.acts.length && budget-- > 0) { const a = job.acts[job.i++]; if (a.a === 'wait') job.wait = Math.max(0, Math.min(600, a.num || 0)); else this.exec(a); }
+      while (job.wait <= 0 && job.i < job.acts.length && budget-- > 0) {
+        const a = job.acts[job.i++];
+        if (a.a === 'wait') job.wait = Math.max(0, Math.min(600, a.num || 0));
+        else if (a.a === 'ifpts') { if (P.stage < a.num) job.i = job.acts.length; }
+        else if (a.a === 'require') {                                 // splice the module's actions in right here
+          const m = (sc.doc.scripts || []).find(x => x.id === a.mod && (x.k === 'module' || x.p === 'rs' || x.k === 'script'));
+          if (m && m.on !== false && job.req < 20 && job.acts.length + m.acts.length < 600) { job.req++; job.acts.splice(job.i, 0, ...m.acts); }
+        } else this.exec(a, job.ctx);
+        if (!R || !R.sc) return;
+      }
       if (job.i >= job.acts.length && R.sc) sc.jobs.splice(sc.jobs.indexOf(job), 1);
-      if (!R || !R.sc) return;
     }
     for (let i = sc.clones.length - 1; i >= 0; i--) { const c = sc.clones[i]; c.life -= dt; if (c.life <= 0) { this.removeClone(c); sc.clones.splice(i, 1); } }
   },
-  exec(a) {
-    const P = R.P;
+  // one action. ctx.srv = from a Server script, ctx.all = for every player (host timers), ctx.net = it came from the network
+  exec(a, ctx) {
+    ctx = ctx || {};
+    const P = R.P, share = ctx.srv && !ctx.net && this.online();
+    if (a.a === 'move') {                                             // turn "move by" into "move to" so every screen ends up the same
+      const p = this.part(a.part); if (!p || !p.mesh) return;
+      const b = p.tgt || p.mesh.position, to = a.to || [b.x + (a.x || 0), b.y + (a.y || 0), b.z + (a.z || 0)];
+      a = Object.assign({}, a, { to: to.map(v => Math.round(v * 100) / 100) });
+    }
+    if (share && a.a === 'announce') a = Object.assign({}, a, { text: this.fill(a.text) });     // "{name}" = the player who caused it
+    if (share && WORLD_ACTS.has(a.a)) Net.send({ t: 'sx', a, k: this.logKey(a) });
+    else if (share && ctx.all && a.a !== 'fire') Net.send({ t: 'sx', a, all: true });
     switch (a.a) {
       case 'msg': showMsg(this.fill(a.text), 3500); break;
       case 'hint': showHint(this.fill(a.text), 4500); break;
+      case 'announce': chatAdd(esc(this.fill(a.text)), 'sys'); break;
       case 'points': this.addPoints(a.num); break;
       case 'tool': Tools.give(a.tool); break;
       case 'tp': { const p = this.part(a.part); if (p && P.alive) { Object.assign(P, { x: (p.x0 + p.x1) / 2, y: p.y1 + 0.05, z: (p.z0 + p.z1) / 2, vx: 0, vy: 0, vz: 0, kx: 0, kz: 0 }); R.cam.fx = P.x; R.cam.fz = P.z; R.cam.fy = P.y + 4.8; } break; }
-      case 'heal': if (P.alive) { P.health = clamp(P.health + a.num, 0, 100); updateHealth(); if (P.health <= 0) die(); } break;
+      case 'heal': if (P.alive) { P.health = clamp(P.health + a.num, 0, 100); updateHealth(); Net.send({ t: 'heal', d: Math.round(clamp(a.num, -100, 100)) }); if (P.health <= 0) die(); } break;
       case 'kill': die(); break;
       case 'speed': P.walk = clamp(a.num, 0, 100); break;
       case 'jump': P.jump = clamp(a.num, 0, 250); break;
+      case 'gravity': P.gravS = clamp(a.num, 0, 1000) / PHYS.G; break;
+      case 'fov': R.fov = clamp(a.num, 20, 120); resize(); break;
       case 'hide': this.hide(this.part(a.part), a.num); break;
       case 'show': this.show(this.part(a.part)); break;
-      case 'color': { const p = this.part(a.part); if (p && p.mesh && p.mk) p.mesh.material = p.mk.block ? brickMats(a.c, p.mk.kind, p.mk.t) : accMat(a.c, p.mk.s, p.mk.t); break; }
+      case 'color': { const p = this.part(a.part); if (p && p.mk) { p.mk.c = a.c; this.paint(p); } break; }
+      case 'trans': { const p = this.part(a.part); if (p && p.mk) { const t = clamp(a.num, 0, 1); p.mk.t = t > 0 ? 1 - t : undefined; this.paint(p); } break; }
+      case 'move': this.move(this.part(a.part), a.to, ctx.instant ? 0 : a.num); break;
       case 'clone': this.clone(a.store, a.num); break;
       case 'sound': { const el = R.sc.audio.get(a.snd); if (el) { el.currentTime = 0; el.volume = this.vol(+el.dataset.vol); el.play().catch(() => {}); } break; }
       case 'stop': { const el = R.sc.audio.get(a.snd); if (el) el.pause(); break; }
       case 'gui': { const el = R.sc.gui.get(a.gui); if (el) { el.dataset.tpl = a.text; el.textContent = this.fill(a.text); } break; }
       case 'guivis': { const el = R.sc.gui.get(a.gui); if (el) el.hidden = a.v === 'hide'; break; }
+      case 'fire': this.fireRemote(a.rem, ctx); break;
       case 'win': confetti(P.x, P.y + 4, P.z, 50); Sfx.play('win'); showMsg(this.fill(a.text || 'You win!'), 5000); break;
       default: break;
+    }
+  },
+  logKey(a) { const k = { hide: 'vis', show: 'vis', color: 'col', trans: 'tr', move: 'mv', clone: 'cl' }[a.a]; return k ? k + ':' + (a.a === 'clone' ? a.store : a.part) : undefined; },
+  // RemoteEvents: listeners on the firing side run here; a Server script also tells every other player's Client listeners
+  fireRemote(rem, ctx) {
+    const sc = R.sc, fromServer = ctx.srv;
+    if (fromServer && !ctx.net && this.online()) Net.send({ t: 'sx', a: { a: 'fire', rem } });
+    for (const s of sc.list) if (s.e === 'remote' && s.ev.rem === rem && (!ctx.net || s.side === 'client')) this.run(s, { srv: s.side !== 'client', all: false });
+  },
+  // something a Server script did on another player's screen
+  remote(m) {
+    const a = m && m.a; if (!a || typeof a.a !== 'string') return;
+    if (a.a === 'fire') return this.fireRemote(Number(a.rem) | 0, { srv: true, net: true });
+    const def = actDef(a.a); if (!def || (!WORLD_ACTS.has(a.a) && !m.all) || a.a === 'require' || a.a === 'wait' || a.a === 'ifpts') return;
+    const x = Object.assign({ a: a.a }, cleanArgs(def[2], a));
+    if (a.a === 'move') { if (!Array.isArray(a.to) || a.to.length !== 3) return; x.to = a.to.map(v => cleanNum(v, 0, -5000, 5000)); }
+    this.exec(x, { net: true, instant: m.instant });
+  },
+  applyLog(list) { if (R && R.sc) for (const a of list.slice(-400)) this.remote({ a, instant: true }); },   // catch up when joining late
+  paint(p) {
+    const t = p.mk.t; if (!p.mesh) return;
+    p.mesh.material = p.mk.block ? brickMats(p.mk.c, p.mk.kind, t) : accMat(p.mk.c, p.mk.s, t);
+    if (!p.hidden) p.mesh.visible = !(t != null && t <= 0.001);
+  },
+  move(p, to, secs) {
+    if (!p || !p.mesh || !Array.isArray(to)) return;
+    const sc = R.sc; sc.tw = sc.tw.filter(t => t.p !== p);
+    const f = p.mesh.position; p.tgt = new THREE.Vector3(to[0], to[1], to[2]);
+    sc.tw.push({ p, from: [f.x, f.y, f.z], to, t: 0, d: Math.max(0, Math.min(600, secs || 0)) });
+  },
+  phys(dt) {                                                        // called every physics step: moves parts smoothly
+    const sc = R && R.sc; if (!sc) return;
+    for (const p of sc.moved) { p.dx = p.dy = p.dz = 0; }
+    sc.moved.length = 0;
+    for (let i = sc.tw.length - 1; i >= 0; i--) {
+      const t = sc.tw[i], p = t.p; t.t += dt;
+      const k = t.d > 0 ? Math.min(1, t.t / t.d) : 1, e = k * k * (3 - 2 * k), pos = p.mesh.position;
+      const nx = t.from[0] + (t.to[0] - t.from[0]) * e, ny = t.from[1] + (t.to[1] - t.from[1]) * e, nz = t.from[2] + (t.to[2] - t.from[2]) * e;
+      const dx = nx - pos.x, dy = ny - pos.y, dz = nz - pos.z;
+      pos.set(nx, ny, nz); R.world.setBox(p);
+      for (const s of p.slices || []) { s.x0 += dx; s.x1 += dx; s.y0 += dy; s.y1 += dy; s.z0 += dz; s.z1 += dz; }
+      p.moving = true; p.dx = dx; p.dy = dy; p.dz = dz; sc.moved.push(p);
+      for (const s of p.slices || []) { s.moving = true; s.dx = dx; s.dy = dy; s.dz = dz; sc.moved.push(s); }
+      if (k >= 1) sc.tw.splice(i, 1);
     }
   },
   addPoints(n) {
@@ -3162,7 +3313,7 @@ const Scripts = {
     if (!p.hidden) { p.hidden = true; p.wasCollide = p.collide; p.collide = false; if (p.mesh) p.mesh.visible = false; }
     if (secs > 0) R.sc.timers.push({ t: secs, fn: () => this.show(p) });
   },
-  show(p) { if (p && p.hidden) { p.hidden = false; p.collide = p.wasCollide !== false; if (p.mesh) p.mesh.visible = true; } },
+  show(p) { if (p && p.hidden) { p.hidden = false; p.collide = p.wasCollide !== false; if (p.mesh) p.mesh.visible = !(p.mk && p.mk.t != null && p.mk.t <= 0.001); } },
   clone(storeId, secs) {
     const q = (R.sc.doc.storage || []).find(x => x.id === storeId); if (!q) return;
     const have = R.sc.clones.find(c => c.sid === storeId);
@@ -3192,6 +3343,16 @@ const Scripts = {
       if (R && R.sc) R.sc.gui.set(g.id, el);
       holders[g.pos].appendChild(el);
     }
+  },
+  renderKeys() {                                                    // phones and tablets get buttons for the keys scripts listen to
+    const used = [...new Set(R.sc.list.filter(s => s.e === 'key' && s.ev.key !== 'Space').map(s => s.ev.key))].slice(0, 6); if (!used.length) return;
+    const h = document.createElement('div'); h.className = 'gkeys';
+    for (const k of used) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'gkey'; b.textContent = k;
+      b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); Sfx.init(); this.fire('key', s => s.ev.key === k); });
+      h.appendChild(b);
+    }
+    $('#gamegui').appendChild(h);
   },
   refreshGui() { if (R && R.sc) for (const el of R.sc.gui.values()) if (/\{(points|name)\}/.test(el.dataset.tpl || '')) el.textContent = this.fill(el.dataset.tpl); }
 };
@@ -3307,8 +3468,9 @@ function textTag(text) {
   x.lineWidth = 7; x.strokeStyle = 'rgba(0,0,0,.85)'; x.strokeText(t, 128, 30); x.fillStyle = '#fff'; x.fillText(t, 128, 30);
   return makeSprite(c);
 }
-function bubble(ent, text) {
-  if (ent.bubble) { R.scene.remove(ent.bubble); disposeObject(ent.bubble); ent.bubble = null; }
+// chat bubbles: up to 3 per player, newest at the bottom; older ones fade out
+const BUBBLE_MAX = 3, TAG_FAR = 100, TAG_FADE = 20;
+function bubbleSprite(text) {
   const c = mkCanvasN(300, 132), x = c.getContext('2d');
   x.font = '600 24px Arial, Helvetica, sans-serif'; x.textBaseline = 'top';
   const lines = []; let cur = '';
@@ -3320,20 +3482,52 @@ function bubble(ent, text) {
   x.beginPath(); x.moveTo(150 - 10, by + h - 1); x.lineTo(150, by + h + 12); x.lineTo(150 + 10, by + h - 1); x.closePath(); x.fillStyle = '#fff'; x.fill();
   x.beginPath(); x.moveTo(150 - 10, by + h); x.lineTo(150, by + h + 12); x.lineTo(150 + 10, by + h); x.stroke();
   x.fillStyle = '#1a1a1a'; L.forEach((l, i) => x.fillText(l, bx + 13, by + 10 + i * 28));
-  const s = makeSprite(c); s.center.set(0.5, -18 / (c.height * 0.5));
-  ent.bubble = s; ent.bubbleT = 7 + Math.min(4, String(text).length / 25); R.scene.add(s);
+  const s = makeSprite(c); s.userData.ph = h + 16; s.userData.ch = c.height;
+  return s;
 }
+function bubble(ent, text) {
+  const list = ent.bubbles || (ent.bubbles = []);
+  while (list.length >= BUBBLE_MAX) { const old = list.shift(); R.scene.remove(old.s); disposeObject(old.s); }
+  const s = bubbleSprite(text);
+  list.push({ s, t: 0, life: 9 + Math.min(5, String(text).length / 20) }); R.scene.add(s);
+}
+function clearBubbles(ent) { for (const b of ent.bubbles || []) { R.scene.remove(b.s); disposeObject(b.s); } ent.bubbles = []; }
+// a name/bubble is shown only if it is close enough and no wall is between it and the camera
+function tagSight(e, x, y, z, dt) {
+  const cp = R.camera.position, dx = x - cp.x, dy = y - cp.y, dz = z - cp.z, d = Math.hypot(dx, dy, dz);
+  if (d > TAG_FAR) { e.seen = 0; return 0; }
+  e.rayT = (e.rayT || 0) - dt;
+  if (e.rayT <= 0 || e.blocked == null) {                      // ray-test a few times a second, not every frame
+    e.rayT = 0.12 + Math.random() * 0.06;
+    e.blocked = d > 1 && R.world.rayDist(cp.x, cp.y, cp.z, dx / d, dy / d, dz / d, d) < d - 1.2;
+  }
+  const want = e.blocked ? 0 : 1;
+  e.seen = e.seen == null ? want : clamp(e.seen + (want ? 1 : -1) * dt * 8, 0, 1);
+  return e.seen * clamp((TAG_FAR - d) / TAG_FADE, 0, 1);
+}
+function setOpacity(sp, a) { sp.visible = a > 0.02; if (sp.visible) sp.material.opacity = a; }
 function entPos(e) { return e.isMe ? R.P : e; }
 function updateTags(dt) {
   const list = [R.me].concat([...R.remote.values()]);
   for (const e of list) {
     const p = entPos(e), alive = e.isMe ? R.P.alive : e.alive;
-    const show = alive && !(e.isMe && R.fp);
-    if (e.tag) { e.tag.visible = show; e.tag.position.set(p.x, p.y + 6.3, p.z); }
-    if (e.bubble) {
-      e.bubbleT -= dt;
-      if (e.bubbleT <= 0) { R.scene.remove(e.bubble); disposeObject(e.bubble); e.bubble = null; }
-      else { e.bubble.visible = show; e.bubble.position.set(p.x, p.y + 6.3, p.z); }
+    if (!e.isMe) {                                                   // other players: health bar while hurt
+      if (e.alive && e.hp < 100) e.hp = Math.min(100, e.hp + 1.2 * dt);
+      const want = e.alive && e.hp < 99.5 ? Math.max(1, Math.ceil(e.hp)) : 0;
+      if (want !== e.tagHp) { e.tagHp = want; R.scene.remove(e.tag); disposeObject(e.tag); e.tag = want ? healthTag(e.name, want) : textTag(e.name); R.scene.add(e.tag); }
+    }
+    const vis = alive && !(e.isMe && R.fp) ? (e.isMe ? 1 : tagSight(e, p.x, p.y + 5.6, p.z, dt)) : 0;
+    if (e.tag) { setOpacity(e.tag, vis); e.tag.position.set(p.x, p.y + 6.3, p.z); }
+    const bl = e.bubbles; if (!bl || !bl.length) continue;
+    let off = e.tag ? 40 : 18;                             // pixels above the head (above the name tag)
+    for (let i = bl.length - 1; i >= 0; i--) {
+      const b = bl[i]; b.t += dt;
+      if (b.t >= b.life) { R.scene.remove(b.s); disposeObject(b.s); bl.splice(i, 1); continue; }
+      const age = bl.length - 1 - i;                                 // 0 = newest
+      const fade = clamp((b.life - b.t) / 2.5, 0, 1) * (age === 0 ? 1 : age === 1 ? 0.75 : 0.5);
+      b.s.center.set(0.5, -off / b.s.userData.ch);
+      b.s.position.set(p.x, p.y + 6.3, p.z); setOpacity(b.s, vis * fade);
+      off += b.s.userData.ph + 4;
     }
   }
 }
@@ -3382,7 +3576,7 @@ function breakApart(ch, vx, vz, life) {                           // the classic
     });
   }
 }
-function die(by) {
+function die(by, fromServer) {
   if (!R) return;
   const P = R.P; if (!P.alive) return;
   P.alive = false; P.health = 0; P.deadT = 0; P.ff = 0; updateHealth();
@@ -3393,9 +3587,9 @@ function die(by) {
   breakApart(R.ch, P.vx, P.vz, 0);
   const killer = by != null ? R.remote.get(String(by)) : null;
   if (killer) chatAdd(esc(killer.name) + ' knocked you out!', 'sys');
-  Net.send(killer ? { t: 'die', by: killer.id } : { t: 'die' });
+  if (!fromServer) Net.send(killer && !Net.authority() ? { t: 'die', by: killer.id } : { t: 'die' });   // new servers work out who did it
 }
-function respawn() { clearDebris(); spawnPlayer(); Net.send({ t: 'spawn' }); }
+function respawn() { clearDebris(); spawnPlayer(); Net.send({ t: 'spawn' }); Scripts.fire('spawn'); }
 function confetti(x, y, z, n) {
   if (!R) return;
   const geo = (window.__cbConfGeo || (window.__cbConfGeo = new THREE.BoxGeometry(0.7, 0.7, 0.7)));
@@ -3430,7 +3624,7 @@ function setCheckpoint(cp) {
 function addRemote(p) {
   const id = String(p.id); if (R.remote.has(id)) return null;
   const s = p.s || {}, ch = buildCharacter(p.look), rp = {
-    id, name: p.name, look: p.look, ch, alive: true, fresh: false, phase: 0, emote: null, emoteT: 0, speed: 0, air: false, f: 0, st: s.st || 1, bubble: null, bubbleT: 0,
+    id, name: p.name, look: p.look, ch, alive: true, fresh: false, phase: 0, emote: null, emoteT: 0, speed: 0, air: false, f: 0, st: s.st || 1, bubbles: [], hp: 100, tagHp: 0,
     x: s.x || 0, y: s.y || 0, z: s.z || 0, ry: s.ry || 0, tx: s.x || 0, ty: s.y || 0, tz: s.z || 0, tr: s.ry || 0
   };
   ch.root.position.set(rp.x, rp.y, rp.z); R.scene.add(ch.root);
@@ -3442,7 +3636,7 @@ function removeRemote(id) {
   const rp = R.remote.get(String(id)); if (!rp) return;
   R.scene.remove(rp.ch.root); disposeObject(rp.ch.root); rp.ch.dispose();
   R.scene.remove(rp.tag); disposeObject(rp.tag);
-  if (rp.bubble) { R.scene.remove(rp.bubble); disposeObject(rp.bubble); }
+  clearBubbles(rp);
   R.remote.delete(String(id)); updatePlist();
 }
 function onNetState(arr) {
@@ -3483,25 +3677,34 @@ function netHandlers() {
       if (!R) return;
       for (const id of [...R.remote.keys()]) removeRemote(id);
       m.players.forEach(addRemote);
+      (Array.isArray(m.hp) ? m.hp : []).forEach(a => { const rp = R.remote.get(String(a[0])); if (rp) rp.hp = clamp(Number(a[1]) || 0, 0, 100); });
       sys(`Connected! ${m.players.length ? plural(m.players.length, 'other player') + ' here.' : 'You are the first one here.'}`);
+      if (!(Net.v >= 4)) sys('Heads up: the game server is an old version, so other players will not see your tool effects or server scripts. Redeploy it on Render (see the README).');
+      if (Array.isArray(m.log)) Scripts.applyLog(m.log);
       updatePlist();
     },
     onJoin(p) { if (!R) return; const rp = addRemote(p); if (rp) { rp.fresh = true; sys(`${esc(p.name)} joined the game.`); } },
     onLeave(id) { if (!R) return; const rp = R.remote.get(String(id)); if (rp) { sys(`${esc(rp.name)} left the game.`); removeRemote(id); } },
     onState: onNetState,
     onChat(m) { if (R && !R.cloudChat) chatIncoming({ name: m.name, text: m.text, pid: m.id }); },
-    onDie(id, by) {
-      const rp = R && R.remote.get(String(id)); if (!rp || !rp.alive) return;
+    onDie(id, by, kos) {
+      if (!R) return;
+      if (Net.id && String(id) === String(Net.id)) { if (R.P.alive) die(by, true); return; }     // the server knocked me out
+      const rp = R.remote.get(String(id)); if (!rp || !rp.alive) return;
       rp.alive = false; Tools.detach(rp.ch); rp.toolI = -1; breakApart(rp.ch, 0, 0, 2.3);
       if (by != null && Net.id && String(by) === String(Net.id)) Tools.addKO(rp.name);
       else if (by != null) { const k = R.remote.get(String(by)); if (k) sys(esc(k.name) + ' knocked out ' + esc(rp.name) + '!'); }
     },
+    onHurt(m) { if (R && R.bp) Tools.serverHurt(m); },
+    onHp(id, hp) { const rp = R && R.remote.get(String(id)); if (rp) rp.hp = clamp(Number(hp) || 0, 0, 100); },
+    onHost() { if (R && R.sc) Scripts.onHost(); },
+    onSx(m) { if (R && R.sc) Scripts.remote(m); },
     onHit(by, d, kb) { if (R && R.bp) Tools.applyDamage(Math.max(0, Math.min(100, Number(d) || 0)), by, Array.isArray(kb) ? kb.map(v => clamp(Number(v) || 0, -200, 200)) : null); },
     onFx(id, m) { Tools.onFx(id, m); },
     onSpawn(id) {
       const rp = R && R.remote.get(String(id)); if (!rp) return;
       R.scene.remove(rp.ch.root); disposeObject(rp.ch.root); rp.ch.dispose();
-      rp.ch = buildCharacter(rp.look); rp.alive = true; rp.fresh = true; rp.toolI = -1; R.scene.add(rp.ch.root);
+      rp.ch = buildCharacter(rp.look); rp.alive = true; rp.fresh = true; rp.toolI = -1; rp.hp = 100; R.scene.add(rp.ch.root);
     },
     onLook(id, look) { const rp = R && R.remote.get(String(id)); if (rp) { rp.look = look; rp.ch.apply(look); } }
   };
@@ -3605,6 +3808,7 @@ function physics(dt) {
   w.updateMovers(R.time);
   w.updateVanishers(dt, P);
   for (const u of w.updaters) u(dt, R.time);
+  Scripts.phys(dt);                                                 // parts moved by scripts (players ride them)
   if (!P.alive) { P.deadT += dt; if (P.deadT > 2.3) respawn(); return; }
 
   const g = P.ground;
@@ -3622,7 +3826,7 @@ function physics(dt) {
   P.coyote -= dt;
   if (P.onGround) P.coyote = 0.09;
   if (!busy && (keys.Space || jumpHeld) && P.coyote > 0) { P.vy = P.jump != null ? P.jump : PHYS.JUMP; P.coyote = 0; P.onGround = false; Sfx.play('jump'); }
-  P.vy = Math.max(P.vy - PHYS.G * (P.gravMul || 1) * dt, -280);
+  P.vy = Math.max(P.vy - PHYS.G * (P.gravMul || 1) * (P.gravS == null ? 1 : P.gravS) * dt, -280);
 
   const was = P.onGround;
   P.onGround = false; P.ground = null;
@@ -3772,7 +3976,8 @@ function resize() {
   const g = $('#game'), w = g.clientWidth || window.innerWidth, h = g.clientHeight || window.innerHeight;
   renderer.setSize(w, h, false);
   // keep a sensible horizontal view on tall (portrait) screens
-  R.camera.fov = h > w ? clamp(2 * Math.atan(Math.tan(35 * Math.PI / 180) / (w / h)) * 180 / Math.PI, 70, 92) : 70;
+  const base = R.fov || 70;                                          // scripts can change the field of view
+  R.camera.fov = h > w ? clamp(2 * Math.atan(Math.tan(base / 2 * Math.PI / 180) / (w / h)) * 180 / Math.PI, base, base + 22) : base;
   R.camera.aspect = w / h; R.camera.updateProjectionMatrix();
 }
 function applyQuality() {
@@ -3802,7 +4007,7 @@ function startRun(def) {
   world.updateMovers(0); world.clearMoverDeltas();
   R = {
     def, scene, camera, world, env, ch: null, ff: null, fp: false, debris: [], acc: 0, time: 0, raf: 0, menuOpen: false, netT: 0, plistDirty: false, idleT: 0, walletT: 0,
-    remote: new Map(), me: { isMe: true, tag: null, bubble: null, bubbleT: 0 }, cloudChat: false, channel: String(def.id).replace(/[^\w\-]/g, '_'),
+    remote: new Map(), me: { isMe: true, tag: null, bubbles: [] }, cloudChat: false, channel: String(def.id).replace(/[^\w\-]/g, '_'),
     last: performance.now() / 1000,
     P: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, face: Math.PI, onGround: false, ground: null, coyote: 0, alive: true, health: 100, deadT: 0, ff: 0, stage: 1, cp: null, phase: 0, emote: null, emoteT: 0, speed: 0, air: false },
     cam: { yaw: 0, pitch: 0.34, dist: 14, distT: 14, fx: 0, fy: 0, fz: 0 }
@@ -3838,7 +4043,7 @@ function stopRun() {
   Scripts.teardown();
   for (const id of [...R.remote.keys()]) removeRemote(id);
   if (R.me.tag) disposeObject(R.me.tag);
-  if (R.me.bubble) disposeObject(R.me.bubble);
+  clearBubbles(R.me);
   R.env.dispose();
   R.world.dispose();
   disposeObject(R.scene);
@@ -3918,6 +4123,7 @@ function initGameUI() {
     if (e.code === 'Tab') { $('#plist').classList.toggle('hide'); e.preventDefault(); return; }
     const dg = /^Digit(\d)$/.exec(e.code); if (dg && R.bp && R.bp.length) { Tools.equip((+dg[1] + 9) % 10); e.preventDefault(); return; }
     if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+    if (!e.repeat) Scripts.onKey(e.code);
     keys[e.code] = true; Sfx.init();
     $('#game').classList.remove('touchmode');
   });
@@ -4694,6 +4900,10 @@ const ICONS = {
   storage: '<svg viewBox="0 0 24 24"><path d="M3 8l9-4 9 4v10l-9 4-9-4z" fill="#d7b98a" stroke="#7a5a28"/><path d="M3 8l9 4 9-4M12 12v10" fill="none" stroke="#7a5a28"/></svg>',
   gui: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" fill="#f2f6fb" stroke="#1d4f8c"/><rect x="2" y="4" width="20" height="4" fill="#5aa0e6"/><rect x="6" y="12" width="12" height="4" fill="#a3a2a5" stroke="#555"/></svg>',
   pack: '<svg viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="14" rx="3" fill="#c4281c" stroke="#7a1810"/><path d="M9 7V5h6v2" fill="none" stroke="#7a1810" stroke-width="2"/><rect x="8" y="12" width="8" height="4" fill="#e8655a"/></svg>',
+  rs: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="#e3f2e3" stroke="#2a7a3a"/><path d="M7 10h7M7 14h10" stroke="#2a7a3a" stroke-width="1.6"/><path d="M15 7l3 3-3 3" fill="none" stroke="#2a7a3a" stroke-width="1.6"/></svg>',
+  module: '<svg viewBox="0 0 24 24"><path d="M5 2h10l4 4v16H5z" fill="#fff" stroke="#555"/><rect x="8" y="9" width="8" height="8" fill="#9b6bd6" stroke="#5a3a8c"/></svg>',
+  remote: '<svg viewBox="0 0 24 24"><path d="M13 2L5 14h6l-2 8 9-13h-6z" fill="#f5cd30" stroke="#8a6a00"/></svg>',
+  local: '<svg viewBox="0 0 24 24"><path d="M5 2h10l4 4v16H5z" fill="#fff" stroke="#555"/><circle cx="12" cy="10.5" r="2.6" fill="#1d6bc3"/><path d="M7.5 18.5c0-3.6 9-3.6 9 0z" fill="#1d6bc3"/></svg>',
   script: '<svg viewBox="0 0 24 24"><path d="M5 2h10l4 4v16H5z" fill="#fff" stroke="#555"/><path d="M8 9h8M8 12h8M8 15h5" stroke="#1d6bc3" stroke-width="1.5"/></svg>',
   sound: '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#5aa0e6" stroke="#1d4f8c"/><path d="M16 8c2 2 2 6 0 8M18.5 5.5c3.5 3.5 3.5 9.5 0 13" fill="none" stroke="#1d4f8c" stroke-width="1.5"/></svg>',
   label: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" fill="#a3a2a5" stroke="#333"/><path d="M8 10h8M12 10v6" stroke="#111" stroke-width="2"/></svg>',
@@ -4705,7 +4915,7 @@ const MENUS_PLACE = {
   File: [['New Place', 'act:new'], ['Open Place...', 'act:open'], ['Save Place', 'act:save', 'Ctrl+S'], ['Game Settings...', 'act:settings'], ['Save a Copy...', 'act:saveas'], '-', ['Export to Text...', 'act:export'], ['Import from Text...', 'act:import'], '-', ['Exit CartStudio', 'act:exit']],
   Edit: [['Undo', 'act:undo', 'Ctrl+Z'], ['Redo', 'act:redo', 'Ctrl+Y'], '-', ['Duplicate', 'act:dup', 'Ctrl+D'], ['Delete', 'act:del', 'Del'], ['Rotate 90 degrees', 'act:rot90', 'Ctrl+R'], '-', ['Save Selection as Model...', 'act:savemodel'], ['Move to ServerStorage', 'act:tostorage']],
   View: [['Toolbox', 'pan:left'], ['Explorer and Properties', 'pan:right'], ['Output', 'pan:output'], '-', ['Focus on Selection', 'act:focus', 'F']],
-  Insert: [['Block', 'ins:block'], ['Ball', 'ins:ball'], ['Cylinder', 'ins:cylinder'], ['Wedge', 'ins:wedge'], ['Cone', 'ins:cone'], ['Pyramid', 'ins:pyramid'], ['Torus', 'ins:torus'], '-', ['Spawn Location', 'ins:@spawn'], ['Checkpoint', 'ins:@check'], ['Kill Brick', 'ins:@kill'], ['Bounce Pad', 'ins:@bounce'], '-', ['Script', 'act:newscript'], ['TextLabel (GUI)', 'act:newlabel'], ['TextButton (GUI)', 'act:newbutton']],
+  Insert: [['Block', 'ins:block'], ['Ball', 'ins:ball'], ['Cylinder', 'ins:cylinder'], ['Wedge', 'ins:wedge'], ['Cone', 'ins:cone'], ['Pyramid', 'ins:pyramid'], ['Torus', 'ins:torus'], '-', ['Spawn Location', 'ins:@spawn'], ['Checkpoint', 'ins:@check'], ['Kill Brick', 'ins:@kill'], ['Bounce Pad', 'ins:@bounce'], '-', ['Script', 'act:newobj:script:sss'], ['LocalScript', 'act:newobj:local:sss'], ['ModuleScript', 'act:newobj:module:rs'], ['RemoteEvent', 'act:newobj:remote:rs'], '-', ['TextLabel (GUI)', 'act:newlabel'], ['TextButton (GUI)', 'act:newbutton']],
   Format: [['Lighting...', 'act:lighting'], ['Sky: Day', 'env:day'], ['Sky: Sunset', 'env:dusk'], ['Sky: Night', 'env:night'], ['Sky: Overcast', 'env:overcast'], '-', ['Snap to Grid on/off', 'act:snap']],
   Tools: [['Select', 'tool:select', '1'], ['Move', 'tool:translate', '2'], ['Scale', 'tool:scale', '3'], ['Rotate', 'tool:rotate', '4']],
   Test: [['Play Solo', 'act:test', 'F5']],
@@ -4734,7 +4944,8 @@ function normalizeDoc(doc) {
   if (!doc.light || typeof doc.light !== 'object') doc.light = { sky: doc.env === 'dusk' ? 'dusk' : 'day', bright: 1, fog: 2600 };
   if (!SKIES[doc.light.sky]) doc.light.sky = 'day';
   doc.env = doc.light.sky;
-  ['pack', 'gui', 'scripts', 'sounds', 'storage'].forEach(k => { if (!Array.isArray(doc[k])) doc[k] = []; });
+  ['pack', 'gui', 'scripts', 'sounds', 'storage', 'remotes'].forEach(k => { if (!Array.isArray(doc[k])) doc[k] = []; });
+  doc.scripts.forEach(x => { if (x.k !== 'module') x.k = 'script'; if (x.p !== 'rs') x.p = 'sss'; if (x.side !== 'client') x.side = 'server'; if (!(x.cd >= 0)) x.cd = 0; });
   return doc;
 }
 const nextOf = list => 1 + list.reduce((m, x) => Math.max(m, x.id || 0), 0);
@@ -4743,13 +4954,14 @@ function sanitizeDoc(txt) {                           // accepts text or an obje
   if (!o || !Array.isArray(o.parts) || !o.parts.length) return null;
   const parts = o.parts.slice(0, 600).map(sanitizePart), storage = (Array.isArray(o.storage) ? o.storage : []).slice(0, 200).map(sanitizePart);
   const srcSounds = (Array.isArray(o.sounds) ? o.sounds : []).slice(0, 20).filter(x => x && ASSET_ID.test(x.a)), srcGui = (Array.isArray(o.gui) ? o.gui : []).slice(0, 30);
-  const gui = sanitizeGui(srcGui), sounds = sanitizeSounds(srcSounds), scripts = sanitizeScripts(o.scripts);
+  const gui = sanitizeGui(srcGui), sounds = sanitizeSounds(srcSounds), scripts = sanitizeScripts(o.scripts), remotes = sanitizeRemotes(o.remotes);
   const idMap = (src, out) => { const m = new Map(); src.forEach((x, i) => { if (x && Number.isInteger(x.id) && out[i]) m.set(x.id, out[i].id); }); return m; };
-  remapRefs(scripts, { part: idMap(o.parts.slice(0, 600), parts), store: idMap((o.storage || []).slice(0, 200), storage), gui: idMap(srcGui, gui), sound: idMap(srcSounds, sounds) });
+  remapRefs(scripts, { part: idMap(o.parts.slice(0, 600), parts), store: idMap((o.storage || []).slice(0, 200), storage), gui: idMap(srcGui, gui), sound: idMap(srcSounds, sounds),
+    remote: idMap((Array.isArray(o.remotes) ? o.remotes : []).slice(0, 30), remotes), mod: idMap((Array.isArray(o.scripts) ? o.scripts : []).slice(0, 60), scripts) });
   const L = o.light && typeof o.light === 'object' ? o.light : {};
   const light = { sky: SKIES[L.sky] ? L.sky : (o.env === 'dusk' ? 'dusk' : 'day'), bright: cleanNum(L.bright, 1, 0.2, 2), fog: cleanNum(L.fog, 2600, 80, 2600) };
   const pack = [...new Set((Array.isArray(o.pack) ? o.pack : []).filter(t => toolById(t)))].slice(0, 10);
-  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', desc: cleanText(o.desc, 300), env: light.sky, gear: o.gear === true, light, pack, gui, scripts, sounds, storage, parts };
+  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', desc: cleanText(o.desc, 300), env: light.sky, gear: o.gear === true, light, pack, gui, scripts, remotes, sounds, storage, parts };
 }
 function placeRun(doc, base) {                       // a CartStudio place -> a runnable game definition
   const d = sanitizeDoc(doc) || normalizeDoc(JSON.parse(JSON.stringify(doc)));
@@ -4761,7 +4973,7 @@ function testDef(doc) {
 const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
 const cleanTitle = v => String(v || '').replace(/[^\w \-.!'&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
 const compactPart = p => { const o = { id: p.id, n: p.n, s: p.s, p: p.p.map(r2), z: p.z.map(r2), r: p.r, c: p.c, b: p.b, q: p.q, st: p.st }; if (p.b === 'tool') o.tl = p.tl; if (p.t > 0) o.t = p.t; if (p.dc) o.dc = p.dc; return o; };
-function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, gear: !!doc.gear, light: doc.light, pack: doc.pack, gui: doc.gui, scripts: doc.scripts, sounds: doc.sounds, storage: (doc.storage || []).map(compactPart), parts: doc.parts.map(compactPart) }); }
+function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, gear: !!doc.gear, light: doc.light, pack: doc.pack, gui: doc.gui, scripts: doc.scripts, remotes: doc.remotes || [], sounds: doc.sounds, storage: (doc.storage || []).map(compactPart), parts: doc.parts.map(compactPart) }); }
 const assetIdsOf = doc => [].concat((doc.parts || []).concat(doc.storage || []).filter(p => p.dc).map(p => p.dc.img), (doc.sounds || []).map(s => s.a));
 function authHint(err) {
   err = String(err || '');
@@ -5132,7 +5344,9 @@ class Studio {
       this.load(doc); this.log('Imported "' + doc.name + '".'); return;
     }
     if (a === 'test') return this.test();
-    if (a === 'newscript') return this.newScript();
+    if (a === 'newscript') return this.newObj('script', 'sss');
+    if (a.indexOf('newobj:') === 0) { const [, k, p] = a.split(':'); this.addMenu = null; return this.newObj(k, p === 'rs' ? 'rs' : 'sss'); }
+    if (a.indexOf('addmenu:') === 0) { const key = a.slice(8); this.addMenu = this.addMenu === key ? null : key; this.open[key] = true; return this.renderExplorer(); }
     if (a === 'newlabel' || a === 'newbutton') return this.newGui(a === 'newbutton' ? 'button' : 'label');
     if (a === 'savemodel') return this.saveModel();
     if (a === 'tostorage') return this.toStorage();
@@ -5351,13 +5565,17 @@ class Studio {
     const d = this.doc, o = this.open, os = this.osel, isSel = (k, id) => os && os.k === k && os.id === id;
     const tw = key => `<span class="tw" data-cs="tw:${key}">${o[key] ? '&#9662;' : '&#9656;'}</span>`;
     const add = (a, tip) => `<button class="cs-add" data-cs="act:${a}" title="${tip}" type="button">+</button>`;
+    const addMenu = key => this.addMenu === key ? `<div class="cs-addmenu">${[['script', 'Script'], ['local', 'LocalScript'], ['module', 'ModuleScript'], ['remote', 'RemoteEvent']].map(([k, l]) => `<button type="button" data-cs="act:newobj:${k}:${key}"><span class="ico">${ICONS[k]}</span>${l}</button>`).join('')}</div>` : '';
+    const scrow = x => orow('script', x, x.k === 'module' ? 'module' : x.side === 'client' ? 'local' : 'script', (x.on ? '' : ' <small>(off)</small>') + (x.k === 'module' ? ' <small>(module)</small>' : x.side === 'client' ? ' <small>(client)</small>' : ''));
+    const kids = key => addMenu(key) + d.scripts.filter(x => x.p === key).map(scrow).join('') + (d.remotes || []).filter(r => r.p === key).map(r => orow('remote', r, 'remote')).join('');
     const svc = (key, label, icon, kids, extra) => `<div class="cs-row svc${isSel(key, 0) ? ' sel' : ''}" data-cs="obj:${key}:0">${kids === null ? '<span class="tw"></span>' : tw(key)}<span class="ico">${ICONS[icon]}</span>${label}${extra || ''}</div>${kids && o[key] ? kids : ''}`;
     const prow = q => `<div class="cs-row ch${q.id === this.sel || this.multi.has(q.id) ? ' sel' : ''}" data-cs="sel:${q.id}"><span class="ico">${ICONS[q.b === 'tool' ? 'tool' : q.b && SPECIALS[q.b] ? q.b : q.s] || ''}</span>${esc(q.n)}${q.dc ? ' <small>(decal)</small>' : ''}</div>`;
     const orow = (k, x, icon, extra) => `<div class="cs-row ch${isSel(k, x.id) ? ' sel' : ''}" data-cs="obj:${k}:${x.id}"><span class="ico">${ICONS[icon] || ''}</span>${esc(x.n)}${extra || ''}</div>`;
     el.innerHTML =
       svc('ws', 'Workspace', 'ws', d.parts.map(prow).join('') + d.sounds.map(s => orow('sound', s, 'sound')).join('') || '<div class="cs-row ch muted">empty</div>') +
       svc('light', 'Lighting', 'light', null, ` <small>${esc(SKY_LABEL[d.light.sky])}</small>`) +
-      svc('sss', 'ServerScriptService', 'sss', d.scripts.map(s => orow('script', s, 'script', s.on ? '' : ' <small>(off)</small>')).join(''), add('newscript', 'Insert a Script')) +
+      svc('rs', 'ReplicatedStorage', 'rs', kids('rs'), add('addmenu:rs', 'Insert a Script, ModuleScript or RemoteEvent')) +
+      svc('sss', 'ServerScriptService', 'sss', kids('sss'), add('addmenu:sss', 'Insert a Script, ModuleScript or RemoteEvent')) +
       svc('storage', 'ServerStorage', 'storage', d.storage.map(s => orow('stored', s, s.s)).join('')) +
       svc('gui', 'StarterGui', 'gui', d.gui.map(g => orow('gui', g, g.k === 'button' ? 'button' : 'label')).join(''), add('newlabel', 'Insert a TextLabel')) +
       svc('pack', 'StarterPack', 'pack', d.pack.map(t => `<div class="cs-row ch" data-cs="obj:pack:0"><span class="ico">${ICONS.tool}</span>${esc((toolById(t) || {}).n || t)}</div>`).join(''));
@@ -5366,7 +5584,7 @@ class Studio {
     this.multi.clear(); this.sel = null; this.helper.visible = false; this.tc.detach(); this.refreshMulti();
     this.osel = { k, id }; this.renderExplorer(); this.renderProps();
   }
-  objOf(os) { const list = { script: this.doc.scripts, gui: this.doc.gui, sound: this.doc.sounds, stored: this.doc.storage }[os && os.k]; return list ? list.find(x => x.id === os.id) || null : null; }
+  objOf(os) { const list = { script: this.doc.scripts, remote: this.doc.remotes, gui: this.doc.gui, sound: this.doc.sounds, stored: this.doc.storage }[os && os.k]; return list ? list.find(x => x.id === os.id) || null : null; }
   renderObjProps() {
     const el = $('#cs-props'), os = this.osel, d = this.doc, x = this.objOf(os);
     const row = (label, html) => `<div class="cs-prow"><label>${label}</label>${html}</div>`;
@@ -5385,9 +5603,17 @@ class Studio {
       h = `<div class="cs-pt">StarterPack</div><div class="cs-empty">Every player starts with these tools.</div>` + TOOLS.map(t => `<label class="cs-prow cs-ck"><input type="checkbox" data-o="pack:${t.id}"${d.pack.includes(t.id) ? ' checked' : ''}> ${esc(t.n)}</label>`).join('');
     } else if (!x) h = '<div class="cs-empty">Select something to see its properties.</div>';
     else if (os.k === 'script') {
-      const ev = evDef(x.e);
-      h = `<div class="cs-pt">Script</div>` + row('Name', txt('n', x.n)) + row('Enabled', chk('on', x.on)) +
-        `<div class="cs-empty"><b>${esc(ev[1])}</b>, do ${plural(x.acts.length, 'action')}.</div><div class="cs-prow"><label></label><button class="btn btn-sm btn-blue" data-cs="act:editscript" type="button">Edit Script</button></div>` + del;
+      const ev = evDef(x.e), mod = x.k === 'module';
+      h = `<div class="cs-pt">${mod ? 'ModuleScript' : x.side === 'client' ? 'LocalScript' : 'Script'}</div>` + row('Name', txt('n', x.n)) + row('Enabled', chk('on', x.on)) +
+        row('Parent', sel('p', [['sss', 'ServerScriptService'], ['rs', 'ReplicatedStorage']], x.p)) +
+        (mod ? '' : row('Side', sel('side', SIDES, x.side)) + row('Cooldown (s)', `<input type="number" data-o="cd" min="0" max="600" step="0.1" value="${x.cd || 0}">`)) +
+        `<div class="cs-empty">${mod ? `Runs ${plural(x.acts.length, 'action')} when another script uses <b>Run a ModuleScript</b>. Great for code you use in many scripts.` : `<b>${esc(ev[1])}</b>, do ${plural(x.acts.length, 'action')}.` +
+          (x.p === 'rs' ? '<br>Scripts in ReplicatedStorage only run when "Run a ModuleScript" picks them.' : x.side === 'client' ? '<br><b>Client:</b> what it does only happens on that player\'s screen.' : '<br><b>Server:</b> part changes, sounds and announcements are seen by everyone.')}</div>` +
+        `<div class="cs-prow"><label></label><button class="btn btn-sm btn-blue" data-cs="act:editscript" type="button">Edit Script</button></div>` + del;
+    } else if (os.k === 'remote') {
+      const users = d.scripts.filter(s => (s.e === 'remote' && s.ev.rem === x.id) || s.acts.some(a => a.a === 'fire' && a.rem === x.id)).length;
+      h = `<div class="cs-pt">RemoteEvent</div>` + row('Name', txt('n', x.n)) + row('Parent', sel('p', [['rs', 'ReplicatedStorage'], ['sss', 'ServerScriptService']], x.p)) +
+        `<div class="cs-empty">A message scripts can send each other. One script uses <b>Fire a RemoteEvent</b>, and scripts with <b>When a RemoteEvent fires</b> run. A <b>Server</b> script firing it also runs every player's <b>Client</b> scripts. Used by ${plural(users, 'script')}.</div>` + del;
     } else if (os.k === 'gui') {
       h = `<div class="cs-pt">${x.k === 'button' ? 'TextButton' : 'TextLabel'}</div>` + row('Name', txt('n', x.n)) + row('Type', sel('k', [['label', 'TextLabel'], ['button', 'TextButton']], x.k)) +
         row('Text', txt('text', x.text, 200)) + row('Position', sel('pos', GUI_POS, x.pos)) + row('Text size', `<input type="number" data-o="size" min="10" max="48" value="${x.size}">`) +
@@ -5419,6 +5645,9 @@ class Studio {
       const x = this.objOf(os); if (!x) return;
       if (key === 'n') x.n = String(val).replace(/[^\w \-.]/g, '').slice(0, 24) || x.n;
       else if (key === 'on' || key === 'vis' || key === 'loop' || key === 'auto') x[key] = !!val;
+      else if (key === 'p') { x.p = os.k === 'remote' ? (val === 'sss' ? 'sss' : 'rs') : (val === 'rs' ? 'rs' : 'sss'); this.open[x.p] = true; }
+      else if (key === 'side') x.side = val === 'client' ? 'client' : 'server';
+      else if (key === 'cd') x.cd = Math.round(clamp(+val || 0, 0, 600) * 10) / 10;
       else if (key === 'k') { x.k = val === 'button' ? 'button' : 'label'; if (/^Text(Label|Button)\d*$/.test(x.n)) x.n = x.k === 'button' ? 'TextButton' : 'TextLabel'; }
       else if (key === 'text') x.text = cleanText(val, 200);
       else if (key === 'pos') x.pos = GUI_POS.some(p => p[0] === val) ? val : 'top';
@@ -5429,12 +5658,21 @@ class Studio {
     }
     this.renderExplorer(); this.renderProps(); this.commit();
   }
-  newScript() {
-    const d = this.doc; if (d.scripts.length >= 50) return dialog({ title: BRAND, html: '<p>A place can have up to 50 scripts.</p>' });
+  newObj(kind, parent) {
+    const d = this.doc, where = parent === 'rs' ? 'ReplicatedStorage' : 'ServerScriptService';
+    if (kind === 'remote') {
+      if (d.remotes.length >= 30) return dialog({ title: BRAND, html: '<p>A place can have up to 30 RemoteEvents.</p>' });
+      const id = nextOf(d.remotes); d.remotes.push({ id, n: 'RemoteEvent' + (id > 1 ? id : ''), p: parent });
+      this.open[parent] = true; this.selectObj('remote', id); this.commit();
+      return this.log('Inserted a RemoteEvent into ' + where + '. Scripts can fire it and listen for it.');
+    }
+    if (d.scripts.length >= 60) return dialog({ title: BRAND, html: '<p>A place can have up to 60 scripts and modules.</p>' });
     const id = nextOf(d.scripts), target = this.part() || d.parts.find(p => p.n !== 'Baseplate') || d.parts[0];
-    d.scripts.push({ id, n: 'Script' + id, on: true, e: target ? 'touch' : 'start', ev: target ? { part: target.id } : {}, acts: [{ a: 'msg', text: 'Hello, {name}!' }] });
-    this.open.sss = true; this.selectObj('script', id); this.commit(); this.openScript(id);
-    this.log('Inserted Script' + id + ' into ServerScriptService.');
+    const mod = kind === 'module', label = mod ? 'ModuleScript' : kind === 'local' ? 'LocalScript' : 'Script';
+    d.scripts.push(mod ? { id, n: 'ModuleScript' + id, on: true, k: 'module', p: parent, side: 'server', cd: 0, e: 'start', ev: {}, acts: [{ a: 'msg', text: 'Hello from a module, {name}!' }] }
+      : { id, n: label + id, on: true, k: 'script', p: parent, side: kind === 'local' ? 'client' : 'server', cd: 0, e: kind === 'local' ? 'key' : target ? 'touch' : 'start', ev: kind === 'local' ? { key: 'E' } : target ? { part: target.id } : {}, acts: [kind === 'local' ? { a: 'fov', num: 50 } : { a: 'msg', text: 'Hello, {name}!' }] });
+    this.open[parent] = true; this.selectObj('script', id); this.commit(); this.openScript(id);
+    this.log('Inserted ' + label + id + ' into ' + where + '.');
   }
   newGui(kind) {
     const d = this.doc; if (d.gui.length >= 30) return dialog({ title: BRAND, html: '<p>StarterGui can hold up to 30 items.</p>' });
@@ -5444,7 +5682,7 @@ class Studio {
   }
   delObj() {
     const os = this.osel, d = this.doc; if (!os) return;
-    const key = { script: 'scripts', gui: 'gui', sound: 'sounds', stored: 'storage' }[os.k]; if (!key) return;
+    const key = { script: 'scripts', remote: 'remotes', gui: 'gui', sound: 'sounds', stored: 'storage' }[os.k]; if (!key) return;
     d[key] = d[key].filter(x => x.id !== os.id); if (this.scriptId === os.id && os.k === 'script') this.closeScript();
     this.osel = null; this.renderExplorer(); this.renderProps(); this.commit();
   }
@@ -5475,7 +5713,8 @@ class Studio {
   /* ---------------- Script editor ---------------- */
   defaultArgs(defs) {
     const d = this.doc, o = cleanArgs(defs, {});
-    const first = { part: (this.part() || d.parts.find(p => p.n !== 'Baseplate') || d.parts[0] || {}).id, store: (d.storage[0] || {}).id, gui: (d.gui.find(g => g.k === 'button') || d.gui[0] || {}).id, sound: (d.sounds[0] || {}).id };
+    const first = { part: (this.part() || d.parts.find(p => p.n !== 'Baseplate') || d.parts[0] || {}).id, store: (d.storage[0] || {}).id, gui: (d.gui.find(g => g.k === 'button') || d.gui[0] || {}).id, sound: (d.sounds[0] || {}).id,
+      remote: (d.remotes[0] || {}).id, mod: (d.scripts.find(x => x.k === 'module' && x.id !== this.scriptId) || {}).id };
     for (const [k, type] of defs) if (first[type] != null) o[k] = first[type];
     return o;
   }
@@ -5488,6 +5727,9 @@ class Studio {
       case 'store': return opts(d.storage, o => o.n + ' (ServerStorage)');
       case 'gui': return opts(d.gui, o => o.n + (o.k === 'button' ? ' (button)' : ''));
       case 'sound': return opts(d.sounds, o => o.n);
+      case 'remote': return opts(d.remotes, o => o.n + (o.p === 'rs' ? '' : ' (ServerScriptService)'));
+      case 'mod': return opts(d.scripts.filter(o => o.id !== this.scriptId && (o.k === 'module' || o.p === 'rs')), o => o.n + (o.k === 'module' ? ' (ModuleScript)' : ' (Script in ReplicatedStorage)'));
+      case 'key': return `<select data-se="arg:${path}">${KEYS.map(k => `<option${k === val ? ' selected' : ''}>${k}</option>`).join('')}</select>`;
       case 'tool': return `<select data-se="arg:${path}">${TOOLS.map(t => `<option value="${t.id}"${t.id === val ? ' selected' : ''}>${esc(t.n)}</option>`).join('')}</select>`;
       case 'sel': return `<select data-se="arg:${path}">${def.map(v => `<option${v === val ? ' selected' : ''}>${v}</option>`).join('')}</select>`;
       case 'num': return `<input type="number" step="any" data-se="arg:${path}" value="${val}">`;
@@ -5500,26 +5742,29 @@ class Studio {
     if (!s) return this.closeScript();
     const args = (defs, obj, path) => defs.map(([k, type, label, def]) => `<label class="se-arg"><span>${esc(label)}</span>${this.argInput(type, obj[k], path + '.' + k, def)}</label>`).join('');
     ov.hidden = false;
-    ov.innerHTML = `<div class="se-head">${ICONS.script}<b>${esc(s.n)}</b><span class="muted small">ServerScriptService</span><span class="cs-sp"></span><label class="chk"><input type="checkbox" data-se="on"${s.on ? ' checked' : ''}> Enabled</label><button class="btn btn-sm" data-se="close" type="button">Close</button></div>
+    const mod = s.k === 'module', where = s.p === 'rs' ? 'ReplicatedStorage' : 'ServerScriptService';
+    ov.innerHTML = `<div class="se-head">${ICONS[mod ? 'module' : s.side === 'client' ? 'local' : 'script']}<b>${esc(s.n)}</b><span class="muted small">${mod ? 'ModuleScript' : s.side === 'client' ? 'LocalScript' : 'Script'} in ${where}</span><span class="cs-sp"></span>${mod ? '' : `<label class="se-side">Side <select data-se="side">${SIDES.map(o => `<option value="${o[0]}"${o[0] === s.side ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>`}<label class="chk"><input type="checkbox" data-se="on"${s.on ? ' checked' : ''}> Enabled</label><button class="btn btn-sm" data-se="close" type="button">Close</button></div>
       <div class="se-body"><div class="se-col">
-        <div class="se-when"><div class="se-lab">When</div><select data-se="e">${SCRIPT_EVENTS.map(e => `<option value="${e[0]}"${e[0] === s.e ? ' selected' : ''}>${esc(e[1])}</option>`).join('')}</select>${args(evDef(s.e)[2], s.ev, 'ev')}</div>
+        ${mod ? '<div class="se-when"><div class="se-lab">ModuleScript</div><span class="small">These actions run when another script uses <b>Run a ModuleScript</b> and picks this one. They act on the same player.</span></div>' : `<div class="se-when"><div class="se-lab">When</div><select data-se="e">${SCRIPT_EVENTS.map(e => `<option value="${e[0]}"${e[0] === s.e ? ' selected' : ''}>${esc(e[1])}</option>`).join('')}</select>${args(evDef(s.e)[2], s.ev, 'ev')}<label class="se-arg"><span>Cooldown (s)</span><input type="number" min="0" max="600" step="0.1" data-se="cd" value="${s.cd || 0}"></label></div>`}
         <div class="se-lab">Do these, in order</div>
         ${s.acts.map((a, i) => `<div class="se-act"><span class="se-n">${i + 1}</span><select data-se="act:${i}">${SCRIPT_ACTIONS.map(x => `<option value="${x[0]}"${x[0] === a.a ? ' selected' : ''}>${esc(x[1])}</option>`).join('')}</select>${args(actDef(a.a)[2], a, 'acts.' + i)}<span class="se-btns"><button data-se="up:${i}" type="button" title="Move up">&#9650;</button><button data-se="down:${i}" type="button" title="Move down">&#9660;</button><button data-se="del:${i}" type="button" title="Remove">&times;</button></span></div>`).join('') || '<div class="cs-empty">No actions yet.</div>'}
         <button class="btn btn-sm btn-blue" data-se="add" type="button">+ Add action</button>
-        <p class="small muted">Tips: use <b>{name}</b> and <b>{points}</b> in any text. "Wait" pauses before the next action. Scripts run for each player on their own screen.</p>
+        <p class="small muted">Tips: use <b>{name}</b> and <b>{points}</b> in any text. "Wait" pauses before the next action. "Only go on if points are at least" stops the script early. <b>Server</b> scripts share part changes, sounds and announcements with every player; <b>Client</b> scripts only change your own screen. Cooldown stops a script from running again too soon (like a debounce).</p>
       </div><div class="se-code"><div class="se-lab">Code view</div><pre>${esc(scriptPreview(s, this.doc))}</pre></div></div>`;
   }
   onScriptInput(el) {
     const s = this.doc.scripts.find(x => x.id === this.scriptId); if (!s) return;
     const k = el.dataset.se;
     if (k === 'on') s.on = el.checked;
+    else if (k === 'side') s.side = el.value === 'client' ? 'client' : 'server';
+    else if (k === 'cd') s.cd = Math.round(clamp(+el.value || 0, 0, 600) * 10) / 10;
     else if (k === 'e') { s.e = evDef(el.value) ? el.value : 'start'; s.ev = this.defaultArgs(evDef(s.e)[2]); }
     else if (k.indexOf('act:') === 0) { const i = +k.slice(4), a = actDef(el.value); if (a && s.acts[i]) s.acts[i] = Object.assign({ a: a[0] }, this.defaultArgs(a[2])); }
     else if (k.indexOf('arg:') === 0) {
       const path = k.slice(4).split('.'), obj = path[0] === 'ev' ? s.ev : s.acts[+path[1]], key = path[path.length - 1];
       const defs = path[0] === 'ev' ? evDef(s.e)[2] : actDef(obj.a)[2], def = defs.find(x => x[0] === key); if (!obj || !def) return;
       const type = def[1];
-      obj[key] = type === 'num' ? cleanNum(el.value, def[3] || 0, -100000, 100000) : ['part', 'store', 'gui', 'sound'].includes(type) ? (parseInt(el.value, 10) || 0) : type === 'text' ? cleanText(el.value, 200) : type === 'color' ? cleanHex(el.value, def[3]) : el.value;
+      obj[key] = type === 'num' ? cleanNum(el.value, def[3] || 0, -100000, 100000) : ['part', 'store', 'gui', 'sound', 'remote', 'mod'].includes(type) ? (parseInt(el.value, 10) || 0) : type === 'key' ? (KEYS.includes(el.value) ? el.value : 'E') : type === 'text' ? cleanText(el.value, 200) : type === 'color' ? cleanHex(el.value, def[3]) : el.value;
     }
     this.commit(); this.renderScript(); this.renderExplorer(); if (this.osel && this.osel.k === 'script') this.renderProps();
   }
@@ -5852,7 +6097,8 @@ async function runStatus() {
       if (r.ok && j && j.ok) {
         set('st-health', 'OK (' + (ms > 3000 ? (ms / 1000).toFixed(1) + ' s, it was asleep' : ms + ' ms') + ')', 'good');
         const s = await Net.stats(); set('st-stats', s ? plural(s.players, 'player') + ' in ' + plural(s.rooms, 'room') : 'unknown');
-        set('st-hint', 'The server is public and running. Games connect to it automatically.');
+        if ((Number(j.v) || 0) >= 4) set('st-hint', 'The server is public, running and up to date (version ' + j.v + '). Games connect to it automatically.');
+        else { set('st-health', 'Running, but it is an OLD version' + (j.v ? ' (' + esc(j.v) + ')' : '') + '. It needs version 4.', 'bad'); set('st-hint', 'Tools and Server scripts need the new server. Upload the new <b>server/server.js</b> to GitHub; Render redeploys by itself (or press <b>Manual Deploy</b> > <b>Deploy latest commit</b> in Render). Then check here again.'); }
       } else {
         set('st-health', 'Something answered (HTTP ' + r.status + ') but it is not the Cartblox server.', 'bad'); set('st-stats', '-');
         set('st-hint', 'In Render, open your service: it must be a <b>Web Service</b> built from the <b>Dockerfile</b> (Language: Docker) and show <b>Live</b>. Then open ' + esc(Net.httpUrl()) + '/health in a new tab: you should see {"ok":true}.');
