@@ -776,6 +776,13 @@ a.pcard:hover{ text-decoration:none; color:inherit; border-color:#bdd0e3; backgr
 .an-idbox{ width:100%; font:14px monospace; padding:6px; }
 code.aid{ font-size:11px; background:#eef2f8; padding:1px 4px; border-radius:3px; }
 @media (max-width:820px){ .an-body{ grid-template-columns:1fr; } }
+#plist .pr.tm{ color:#fff; font-size:12px; padding:2px 9px; text-shadow:0 1px 2px #000; }
+.se-tabs{ display:flex; gap:3px; flex-wrap:wrap; margin:8px 0 4px; border-bottom:1px solid #98a5b8; }
+.se-tabs button{ padding:3px 9px; font:bold 11px "Segoe UI",Arial; border:1px solid #98a5b8; border-bottom:0; border-radius:4px 4px 0 0; background:#e4eaf3; cursor:pointer; color:#223; }
+.se-tabs button.on{ background:#fff; color:#1d4f8c; position:relative; top:1px; }
+.se-br{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:6px; background:#fff8e6; border:1px solid #e3c77a; border-radius:4px; margin-bottom:6px; font-size:12px; }
+.se-br input, .se-br select{ font:12px "Segoe UI",Arial; }
+.se-br p{ flex-basis:100%; margin:0; }
 
 </style>
 </head>
@@ -2427,12 +2434,12 @@ const Tools = {
   /* ---------- script attacks: hitboxes, projectiles, explosions ---------- */
   aimPoint(dist) { const P = R.P; return R.aim && R.time - R.aimT < 1.5 ? R.aim.clone() : new THREE.Vector3(P.x + Math.sin(P.face) * (dist || 60), P.y + 2.5, P.z + Math.cos(P.face) * (dist || 60)); },
   hbCenter(x, y, z, face, fwd, sy) { return new THREE.Vector3(x + Math.sin(face) * fwd, y + Math.max(2.5, sy / 2), z + Math.cos(face) * fwd); },
-  hitbox(a, mine, owner, at) {
+  hitbox(a, mine, owner, at, ctx) {
     const P = R.P, sz = [clamp(+a.x || 1, 0.3, 80), clamp(+a.y || 1, 0.3, 80), clamp(+a.z || 1, 0.3, 80)], fwd = clamp(a.fwd != null ? +a.fwd : 3, -60, 60);
     const life = clamp(+a.num || 0.3, 0.05, 30), follow = a.follow !== 'false', show = a.show !== 'no';
     if (mine && !P.alive) return;
     const src = owner || P, face = owner ? owner.ry : P.face;
-    const hb = { sz, fwd, life, t: 0, follow, owner: owner || null, mine, dmg: Math.max(0, +a.dmg || 0), hit: new Set(), face, pos: at || this.hbCenter(src.x, src.y, src.z, face, fwd, sz[1]), m: null };
+    const hb = { sz, fwd, life, t: 0, follow, owner: owner || null, mine, dmg: Math.max(0, +a.dmg || 0), hit: new Set(), face, ctx, onhit: a.onhit | 0, pos: at || this.hbCenter(src.x, src.y, src.z, face, fwd, sz[1]), m: null };
     if (show) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(sz[0], sz[1], sz[2]), new THREE.MeshBasicMaterial({ color: 0xff3b2f, transparent: true, opacity: 0.28, depthWrite: false }));
       const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: 0xff6a5c, transparent: true, opacity: 0.9 }));
@@ -2457,24 +2464,26 @@ const Tools = {
         hb.hit.add(tg.ref);
         const dx = tg.x - R.P.x, dz = tg.z - R.P.z, d = Math.max(0.5, Math.hypot(dx, dz));
         if (hb.dmg > 0) this.damage(tg, Math.round(hb.dmg), [dx / d * 18, 10, dz / d * 18], 'h');
-        Scripts.fire('hbhit');
+        this.onHit(hb.ctx, hb.onhit, tg);
       }
       if (hb.t >= hb.life) { if (hb.m) { R.scene.remove(hb.m); disposeObject(hb.m); } R.hbs.splice(i, 1); }
     }
   },
-  shoot(a) {
+  // "When it hits, run branch": the branch runs with the player that was hit as the enemy
+  onHit(ctx, br, tg) { Scripts.fire('hbhit'); if (ctx && br && tg.kind === 'remote') Scripts.runBranch(ctx, br, [{ id: tg.id, name: tg.ref.name }]); },
+  shoot(a, ctx) {
     const P = R.P; if (!P.alive) return;
     const h = this.handPos(), aim = this.aimPoint(80), sp = clamp(+a.sp || 120, 5, 600), dir = aim.sub(h).normalize(), v = dir.multiplyScalar(sp);
     const g = a.drop === 'yes' ? 60 : 0, size = clamp(+a.size || 1, 0.2, 7), col = parseInt(String(a.c || '#ff6a00').slice(1), 16) || 0xff6a00;
     if (g) v.y += 0.5 * g * Math.min(80, 150) / sp;
-    this.addShot([h.x, h.y, h.z], [v.x, v.y, v.z], col, size, g, true, Math.max(0, +a.dmg || 0), null, a.fx | 0);
+    const shot = this.addShot([h.x, h.y, h.z], [v.x, v.y, v.z], col, size, g, true, Math.max(0, +a.dmg || 0), null, a.fx | 0); shot.ctx = ctx; shot.onhit = a.onhit | 0;
     Net.send({ t: 'fx', k: 'shot', o: [h.x, h.y, h.z].map(x => +x.toFixed(2)), v: [v.x, v.y, v.z].map(x => +x.toFixed(2)), s: col, ang: size, a: (g ? 'd' : 'f') + fxChar(a.fx) });
   },
   addShot(o, v, col, size, g, mine, dmg, owner, fx) {
     const m = new THREE.Mesh(shapeGeo('ball'), accMat('#' + (col >>> 0).toString(16).padStart(6, '0').slice(-6), 'ball')); m.userData.shared = true;
     m.scale.setScalar(size); m.position.set(o[0], o[1], o[2]); R.scene.add(m);
     if (fx) FX.onObject(fx, m);                                     // "Attach effect": a fire trail, sparkles...
-    R.shots.push({ m, v: new THREE.Vector3(v[0], v[1], v[2]), g, mine, dmg, owner: owner || 'me', life: 4, age: 0, col, r: size / 2 });
+    const shot = { m, v: new THREE.Vector3(v[0], v[1], v[2]), g, mine, dmg, owner: owner || 'me', life: 4, age: 0, col, r: size / 2 }; R.shots.push(shot); return shot;
   },
   updateShots(dt) {
     for (let i = R.shots.length - 1; i >= 0; i--) {
@@ -2485,14 +2494,14 @@ const Tools = {
         if (this.partAt(pos)) { done = true; break; }
         if (s.age > 0.03) {
           const tg = this.targetAt(pos, s.mine ? 'me' : s.owner);
-          if (tg && !(tg.kind === 'remote' && tg.id === s.owner)) { if (s.mine) { const kb = s.v.clone().normalize(); if (s.dmg > 0) this.damage(tg, Math.round(s.dmg), [kb.x * 14, 8, kb.z * 14], 'h'); Scripts.fire('hbhit'); } done = true; }
+          if (tg && !(tg.kind === 'remote' && tg.id === s.owner)) { if (s.mine) { const kb = s.v.clone().normalize(); if (s.dmg > 0) this.damage(tg, Math.round(s.dmg), [kb.x * 14, 8, kb.z * 14], 'h'); this.onHit(s.ctx, s.onhit, tg); } done = true; }
         }
       }
       s.age += dt; s.life -= dt;
       if (done || s.life <= 0) { if (done) this.burst(pos.clone(), [s.col], 8, 10); R.scene.remove(s.m); R.shots.splice(i, 1); }
     }
   },
-  scriptBoom(a) {
+  scriptBoom(a, ctx) {
     const P = R.P; if (!P.alive) return;
     const p = a.at === 'player' ? new THREE.Vector3(P.x, P.y + 2.5, P.z) : this.aimPoint(30), rad = clamp(+a.rad || 9, 1, 60), dmg = Math.max(0, +a.dmg || 0);
     this.explode(p, false);
@@ -2502,11 +2511,12 @@ const Tools = {
       const d = Math.hypot(tg.x - p.x, tg.y + 2.5 - p.y, tg.z - p.z); if (d > rad) continue;
       const f = 1 - d / rad, kx = (tg.x - p.x) / Math.max(d, 0.5), kz = (tg.z - p.z) / Math.max(d, 0.5);
       if (dmg > 0) this.damage(tg, Math.max(1, Math.round(dmg * f)), [kx * 60 * f, 30 + 30 * f, kz * 60 * f], 'h');
-      Scripts.fire('hbhit');
+      this.onHit(ctx, a.onhit | 0, tg);
     }
   },
   damage(tg, d, kb, w) {
     if (tg.kind === 'me') return;
+    if (tg.kind === 'remote' && R.P.team && tg.ref.team === R.P.team) { const t = Scripts.team(R.P.team); if (t && t.ff === false) return; }   // no friendly fire
     Sfx.play('hit');
     // other players: the server checks the hit and owns their health (it tells everyone the result)
     if (tg.kind === 'remote') { Net.send({ t: 'hit', to: tg.id, d, kb: kb.map(v => +v.toFixed(1)), w: w === 'm' || w === 'h' ? w : 'r' }); return; }
@@ -3422,9 +3432,9 @@ const SCRIPT_ACTIONS = [
   ['gui', 'Change GUI text', [['gui', 'gui', 'GUI'], ['text', 'text', 'Text', 'Points: {points}']]],
   ['guivis', 'Show or hide a GUI', [['gui', 'gui', 'GUI'], ['v', 'sel', 'Make it', ['show', 'hide']]]],
   ['velocity', 'Push the player (velocity)', [['x', 'num', 'Move X', 0], ['y', 'num', 'Move Y', 0], ['z', 'num', 'Move Z', 60], ['num', 'num', 'Time (seconds)', 0.25], ['rel', 'sel', 'Directions', ['facing', 'world']], ['track', 'sel', 'Tracking (follow the camera)', ['no', 'yes']], ['fade', 'num', 'Fade out (seconds)', 0]]],
-  ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show it', ['yes', 'no']], ['fx', 'effect', 'Attach effect', 0]]],
-  ['shoot', 'Shoot a projectile', [['dmg', 'num', 'Damage', 15], ['sp', 'num', 'Speed', 120], ['size', 'num', 'Size', 1], ['c', 'color', 'Color', '#ff6a00'], ['drop', 'sel', 'Drops down', ['no', 'yes']], ['fx', 'effect', 'Attach effect', 0]]],
-  ['explode', 'Make an explosion', [['dmg', 'num', 'Damage', 40], ['rad', 'num', 'Radius', 9], ['at', 'sel', 'Where', ['aim', 'player']], ['fx', 'effect', 'Attach effect', 0]]],
+  ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show it', ['yes', 'no']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
+  ['shoot', 'Shoot a projectile', [['dmg', 'num', 'Damage', 15], ['sp', 'num', 'Speed', 120], ['size', 'num', 'Size', 1], ['c', 'color', 'Color', '#ff6a00'], ['drop', 'sel', 'Drops down', ['no', 'yes']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
+  ['explode', 'Make an explosion', [['dmg', 'num', 'Damage', 40], ['rad', 'num', 'Radius', 9], ['at', 'sel', 'Where', ['aim', 'player']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
   ['addfx', 'Add an effect to the player', [['fx', 'effect', 'Effect', 0], ['num', 'num', 'For seconds (0 = forever)', 3]]],
   ['clearfx', 'Remove effects from the player', []],
   ['damage', 'Damage the player', [['num', 'num', 'Damage', 10]]],
@@ -3433,6 +3443,14 @@ const SCRIPT_ACTIONS = [
   ['emote', 'Play an animation', [['v', 'sel', 'Built-in animation', ['slash', 'lunge', 'shoot', 'drink', 'build', 'wave', 'dance', 'cheer']], ['id', 'animid', 'Or an Animation ID', ''], ['sp', 'num', 'Speed', 1]]],
   ['stopanim', 'Stop animations', []],
   ['sfx', 'Play a sound effect', [['v', 'sel', 'Sound', ['win', 'boom', 'hit', 'hurt', 'oof', 'jump', 'bounce', 'checkpoint', 'pop', 'slash', 'lunge', 'sling', 'rocket', 'build', 'splat', 'drink', 'burp', 'equip', 'click']]]],
+  ['runbr', 'Run a branch', [['br', 'branch', 'Branch', 0]]],
+  ['chatif', 'If the message starts with, run a branch', [['text', 'text', 'Message starts with', ':kill'], ['br', 'branch', 'Branch', 0]]],
+  ['ifname', 'Only go on if the player\'s name is one of', [['text', 'text', 'Names (commas between)', 'Player1, Player2']]],
+  ['ifteam', 'Only go on if the player is on team', [['team', 'team', 'Team', 0]]],
+  ['setteam', 'Put the player on a team', [['team', 'team', 'Team', 0]]],
+  ['flight', 'Flight (fly mode)', [['v', 'sel', 'Flying', ['toggle', 'on', 'off']], ['num', 'num', 'Speed', 40]]],
+  ['tpto', 'Teleport to a player', [['text', 'text', 'Player name', '{sender}']]],
+  ['kick', 'Remove the player from the game', [['text', 'text', 'Message', 'You were removed from the game.']]],
   ['fire', 'Fire a RemoteEvent', [['rem', 'remote', 'RemoteEvent']]],
   ['require', 'Run a ModuleScript', [['mod', 'mod', 'Module']]],
   ['win', 'Celebrate (confetti!)', [['text', 'text', 'Message', 'You win, {name}!']]],
@@ -3469,9 +3487,18 @@ function sanitizeScripts(list) {
     const e = evDef(s.e) ? s.e : 'start', k = s.k === 'module' ? 'module' : 'script';
     return { id: i + 1, n: cleanName(s.n, k === 'module' ? 'ModuleScript' : 'Script'), on: s.on !== false, k, p: s.p === 'rs' ? 'rs' : s.p === 'pack' && k === 'script' ? 'pack' : 'sss', side: s.side === 'client' ? 'client' : 'server',
       cd: cleanNum(s.cd, 0, 0, 600), e, ev: cleanArgs(evDef(e)[2], s.ev),
-      acts: (Array.isArray(s.acts) ? s.acts : []).slice(0, 30).filter(a => a && actDef(a.a)).map(a => Object.assign({ a: a.a }, cleanArgs(actDef(a.a)[2], a))) };
+      acts: cleanActs(s.acts),
+      // branches: extra lists of actions inside the same script ("Run a branch", "When it hits, run branch", chat commands)
+      branches: (Array.isArray(s.branches) ? s.branches : []).slice(0, 12).map(b => ({ n: cleanName(b && b.n, 'Branch'), on: b && b.on === 'target' ? 'target' : 'me', acts: cleanActs(b && b.acts) })) };
   });
 }
+function cleanActs(list) { return (Array.isArray(list) ? list : []).slice(0, 30).filter(a => a && actDef(a.a)).map(a => Object.assign({ a: a.a }, cleanArgs(actDef(a.a)[2], a))); }
+// Teams: a name, a color, who goes on it when they join
+function sanitizeTeams(list) {
+  return (Array.isArray(list) ? list : []).slice(0, 8).map((t, i) => { t = t && typeof t === 'object' ? t : {};
+    return { id: i + 1, n: cleanName(t.n, 'Team'), c: cleanHex(t.c, ['#c4281c', '#0d69ac', '#4b974b', '#f5cd30', '#6b327c', '#da8541', '#ff66cc', '#1b2a35'][i]), auto: t.auto !== false, users: cleanText(t.users, 400), ff: t.ff !== false }; });
+}
+const nameList = t => String(t || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
 function sanitizeRemotes(list) {
   return (Array.isArray(list) ? list : []).slice(0, 30).map((r, i) => ({ id: i + 1, n: cleanName(r && r.n, 'RemoteEvent'), p: r && r.p === 'sss' ? 'sss' : 'rs' }));
 }
@@ -3490,11 +3517,13 @@ function sanitizeSounds(list) {
 // ids are renumbered by the sanitizers, so references inside scripts are remapped to the new numbers
 function remapRefs(scripts, maps) {
   const fix = (args, defs) => { for (const [k, type] of defs) { const m = maps[type]; if (m) args[k] = m.has(args[k]) ? m.get(args[k]) : 0; } };
-  for (const s of scripts) { fix(s.ev, evDef(s.e)[2]); for (const a of s.acts) fix(a, actDef(a.a)[2]); }
+  for (const s of scripts) { fix(s.ev, evDef(s.e)[2]); for (const a of s.acts.concat(...(s.branches || []).map(b => b.acts))) fix(a, actDef(a.a)[2]); }
 }
 const runsAlone = s => s.k === 'script' && (s.p === 'sss' || s.p === 'pack') && s.on !== false;      // pack = inside a custom tool      // scripts that start by themselves
 function scriptUsesPoints(doc) { return (doc.scripts || []).some(s => s.on !== false && ((runsAlone(s) && s.e === 'points') || (s.acts || []).some(a => a.a === 'points' || a.a === 'ifpts'))); }
 // a read-only, Lua-flavoured view of a script (shown in the editor so builders can learn what it means)
+function brName(s, i) { const b = (s.branches || [])[i - 1]; return b ? b.n.replace(/\W+/g, '') : 'noBranch'; }
+function teamName(id, doc) { const t = (doc.teams || []).find(x => x.id === id); return t ? t.n.replace(/\W+/g, '') : 'Team'; }
 function fxName(id, doc) { const e = (doc.effects || []).find(x => x.id === id); return e ? e.n : 'Effect'; }
 function toolLabel(id, doc) { if (/^c\d+$/.test(id || '')) { const t = (doc.tools || []).find(x => 'c' + x.id === id); return t ? t.n : 'Tool'; } return (TOOLS.find(t => t.id === id) || { n: 'any tool' }).n; }
 function scriptPreview(s, doc) {
@@ -3526,13 +3555,18 @@ function scriptPreview(s, doc) {
     emote: a.id ? `humanoid:LoadAnimation(Animation(${q(a.id)})):Play(${a.sp !== 1 ? a.sp : ''})` : `humanoid:LoadAnimation(animations.${a.v}):Play()`, stopanim: 'for _, track in humanoid:GetPlayingAnimationTracks() do track:Stop() end',
     addfx: `Instance.new(${q(fxName(a.fx, doc))}, character.Torso)${a.num ? '  -- for ' + a.num + 's' : ''}`, clearfx: 'character.Torso:ClearAllChildren()  -- effects', sfx: `SoundService.${a.v}:Play()`,
     fire: `${rem(a.rem)}:${client ? 'FireServer()' : 'FireAllClients()'}`, require: (() => { const m = (doc.scripts || []).find(o => o.id === a.mod); return m ? `require(${svc(m.p)}.${m.n.replace(/\s+/g, '')})(player)` : 'require(nil)  -- pick a module'; })(),
+    runbr: `${brName(s, a.br)}(${((s.branches || [])[a.br - 1] || {}).on === 'target' ? 'enemy' : 'player'})`, chatif: `if message:sub(1, ${String(a.text).length}) == ${q(a.text)} then ${brName(s, a.br)}(enemy) end`,
+    ifname: `if not table.find({${nameList(a.text).map(n => q(n)).join(', ')}}, player.Name:lower()) then return end`, ifteam: `if player.Team ~= Teams.${teamName(a.team, doc)} then return end`,
+    setteam: `player.Team = Teams.${teamName(a.team, doc)}`, flight: `setFlying(player, ${q(a.v)}, ${a.num})  -- WASD + Space up, C down`,
+    tpto: `character:MoveTo(Players[${q(a.text)}].Character.PrimaryPart.Position)`, kick: `player:Kick(${q(a.text)})`,
     win: `celebrate(${q(a.text)})`, wait: `wait(${a.num})`
   })[a.a] || '-- ?';
   const body = (s.acts.length ? s.acts.map(a => '    ' + line(a)) : ['    -- add actions below']);
+  const brs = (s.branches || []).map((b, i) => `local function ${brName(s, i + 1)}(${b.on === 'target' ? 'enemy' : 'player'})  -- branch, runs on ${b.on === 'target' ? 'the enemy (the player it targets)' : 'this player'}\n${(b.acts.length ? b.acts.map(a => '    ' + line(a)) : ['    -- empty']).join('\n')}\nend\n`).join('');
   if (s.k === 'module') return `-- ${s.n} (ModuleScript in ${svc(s.p)})\n-- runs when another script uses "Run a ModuleScript"\nreturn function(player)\n${body.join('\n')}\nend`;
   const kind = client ? 'LocalScript: only this player sees what it does' : 'Script: runs on the server, everyone sees world changes';
   const deb = s.cd > 0 ? [`    if debounce then return end`, `    debounce = true  -- cooldown ${s.cd}s`] : [];
-  return `-- ${s.n} (${kind})${s.on ? '' : '  (disabled)'}${s.p === 'rs' ? '\n-- in ReplicatedStorage: only runs when "Run a ModuleScript" uses it' : ''}\n${s.cd > 0 ? 'local debounce = false\n' : ''}${head}\n${deb.concat(body).join('\n')}${s.cd > 0 ? `\n    task.delay(${s.cd}, function() debounce = false end)` : ''}\nend${s.e === 'timer' ? '' : ')'}`;
+  return `-- ${s.n} (${kind})${s.on ? '' : '  (disabled)'}${s.p === 'rs' ? '\n-- in ReplicatedStorage: only runs when "Run a ModuleScript" uses it' : ''}\n${brs}${s.cd > 0 ? 'local debounce = false\n' : ''}${head}\n${deb.concat(body).join('\n')}${s.cd > 0 ? `\n    task.delay(${s.cd}, function() debounce = false end)` : ''}\nend${s.e === 'timer' ? '' : ')'}`;
 }
 
 // shared by the game and CartStudio's on-screen GUI editor
@@ -3557,6 +3591,7 @@ const Scripts = {
       });
     }
     R.sc.list = (d.scripts || []).filter(runsAlone);
+    this.pickTeam();
     this.renderKeys();
     this.fire('start');
   },
@@ -3568,15 +3603,62 @@ const Scripts = {
   },
   vol(v) { return S.settings.sound ? clamp(v, 0, 1) * S.settings.volume / 100 : 0; },
   applyVolume() { if (R && R.sc) for (const el of R.sc.audio.values()) el.volume = this.vol(+el.dataset.vol); },
-  fill(t) { return String(t || '').replace(/\{name\}/g, S.user).replace(/\{points\}/g, R ? R.P.stage : 0); },
+  fill(t, ctx) {
+    ctx = ctx || {};
+    const tm = this.team(R && R.P.team);
+    return String(t || '').replace(/\{name\}/g, S.user).replace(/\{points\}/g, R ? R.P.stage : 0).replace(/\{enemy\}/g, ctx.enemy || '').replace(/\{sender\}/g, ctx.sender || S.user).replace(/\{team\}/g, tm ? tm.n : '');
+  },
+  team(id) { return R && R.sc && R.sc.doc ? (R.sc.doc.teams || []).find(t => t.id === id) || null : null; },
   online() { return Net.status === 'online' && Net.v >= 4; },
   fire(type, test) { if (!R || !R.sc) return; for (const s of R.sc.list) if (s.e === type && (!test || test(s))) this.run(s); },
   run(s, ctx) {
     const sc = R.sc;
     if (s.cd > 0) { const t = sc.last.get(s.id); if (t != null && R.time - t < s.cd) return; sc.last.set(s.id, R.time); }   // cooldown (debounce)
-    if (sc.jobs.length < 60 && s.acts.length) sc.jobs.push({ acts: s.acts.slice(), i: 0, wait: 0, req: 0, ctx: ctx || { srv: s.side !== 'client', all: false } });
+    ctx = Object.assign({ srv: s.side !== 'client', all: false }, ctx || {}, { script: s });
+    if (sc.jobs.length < 60 && s.acts.length) sc.jobs.push({ acts: s.acts.slice(), i: 0, wait: 0, req: 0, ctx });
   },
-  onChat(text) { const t = String(text).toLowerCase(); this.fire('chat', s => !s.ev.text || t.includes(String(s.ev.text).toLowerCase())); },
+  // chat commands: ":kill bob" -> the targets are the players named after the command (or me / all / others)
+  targetsFrom(rest) {
+    const w = String(rest || '').trim().split(/\s+/)[0].toLowerCase(); if (!w) return [];
+    const me = { me: true, name: S.user }, others = [...R.remote.values()].map(r => ({ id: r.id, name: r.name }));
+    if (w === 'me') return [me]; if (w === 'all') return [me].concat(others); if (w === 'others') return others;
+    const all = [me].concat(others), hit = all.find(p => p.name.toLowerCase() === w) || all.find(p => p.name.toLowerCase().startsWith(w));
+    return hit ? [hit] : [];
+  },
+  onChat(text) {
+    if (!R || !R.sc) return;
+    const t = String(text).toLowerCase();
+    for (const s of R.sc.list) {
+      if (s.e !== 'chat') continue;
+      const k = String(s.ev.text || '').toLowerCase(), at = k ? t.indexOf(k) : 0; if (at < 0) continue;
+      const targets = this.targetsFrom(String(text).slice(at + k.length));
+      this.run(s, { msg: String(text), targets, enemy: targets.length ? targets[0].name : '', sender: S.user });
+    }
+  },
+  // run one of a script's branches. "Runs on: the enemy" sends it to the targeted players (through the game server)
+  runBranch(ctx, idx, targets) {
+    const s = ctx.script, b = s && s.branches && s.branches[idx - 1]; if (!b || !b.acts.length) return;
+    const sc = R.sc; if (sc.jobs.length >= 60) return;
+    if (b.on !== 'target') { sc.jobs.push({ acts: b.acts.slice(), i: 0, wait: 0, req: 0, ctx: Object.assign({}, ctx, targets ? { targets, enemy: targets.length ? targets[0].name : '' } : {}) }); return; }
+    for (const tg of targets || ctx.targets || []) {
+      if (tg.me) sc.jobs.push({ acts: b.acts.slice(), i: 0, wait: 0, req: 0, ctx: Object.assign({}, ctx, { enemy: S.user, sender: ctx.sender || S.user, targets: [] }) });
+      else if (this.online()) Net.send({ t: 'sx', a: { a: 'runbr', s: s.id, b: idx, to: String(tg.id), from: ctx.sender || S.user } });
+    }
+  },
+  setTeam(id, quiet) {
+    const t = this.team(id); if (!R || (!t && id)) return;
+    R.P.team = t ? t.id : 0; R.me.tagHp = -1; updatePlist(); this.refreshGui();
+    if (!quiet && t) showHint('You are on team ' + t.n + '.', 2500);
+    if (Net.id && this.online()) Net.send({ t: 'sx', a: { a: 'myteam', tm: R.P.team, pid: String(Net.id) }, k: 'tm:' + Net.id });
+  },
+  pickTeam() {                                                        // "Enter team when join" + the users list
+    const teams = (R.sc.doc && R.sc.doc.teams) || []; if (!teams.length) return;
+    const mine = teams.find(t => nameList(t.users).includes(S.user.toLowerCase()));
+    const auto = teams.filter(t => t.auto), count = id => [...R.remote.values()].filter(r => r.team === id).length;
+    const pick = mine || auto.sort((a, b) => count(a.id) - count(b.id))[0] || null;
+    this.setTeam(pick ? pick.id : 0, true);
+  },
+  onWelcome() { if (R && R.sc) this.pickTeam(); },
   onDie() { this.fire('die'); },
   onUse(toolId) { this.fire('tooluse', s => !s.ev.tl || s.ev.tl === toolId); },
   onClick(clientX, clientY) {                                       // ClickDetector: did the click land on a part a script listens to?
@@ -3623,6 +3705,12 @@ const Scripts = {
         if (a.a === 'wait') job.wait = Math.max(0, Math.min(600, a.num || 0));
         else if (a.a === 'ifpts') { if (P.stage < a.num) job.i = job.acts.length; }
         else if (a.a === 'chance') { if (Math.random() * 100 >= a.num) job.i = job.acts.length; }
+        else if (a.a === 'ifname') { if (!nameList(this.fill(a.text, job.ctx)).includes(S.user.toLowerCase())) job.i = job.acts.length; }
+        else if (a.a === 'ifteam') { if ((R.P.team || 0) !== a.team) job.i = job.acts.length; }
+        else if (a.a === 'chatif') {
+          const msg = job.ctx.msg || '', pre = String(a.text || '');
+          if (pre && msg.toLowerCase().startsWith(pre.toLowerCase())) { const tg = this.targetsFrom(msg.slice(pre.length)); this.runBranch(Object.assign({}, job.ctx, { enemy: tg.length ? tg[0].name : '' }), a.br, tg); }
+        }
         else if (a.a === 'require') {                                 // splice the module's actions in right here
           const m = (sc.doc.scripts || []).find(x => x.id === a.mod && (x.k === 'module' || x.p === 'rs' || x.k === 'script'));
           if (m && m.on !== false && job.req < 20 && job.acts.length + m.acts.length < 600) { job.req++; job.acts.splice(job.i, 0, ...m.acts); }
@@ -3642,13 +3730,13 @@ const Scripts = {
       const b = p.tgt || p.mesh.position, to = a.to || [b.x + (a.x || 0), b.y + (a.y || 0), b.z + (a.z || 0)];
       a = Object.assign({}, a, { to: to.map(v => Math.round(v * 100) / 100) });
     }
-    if (share && a.a === 'announce') a = Object.assign({}, a, { text: this.fill(a.text) });     // "{name}" = the player who caused it
+    if (share && a.a === 'announce') a = Object.assign({}, a, { text: this.fill(a.text, ctx) });     // "{name}" = the player who caused it
     if (share && WORLD_ACTS.has(a.a)) Net.send({ t: 'sx', a, k: this.logKey(a) });
     else if (share && ctx.all && a.a !== 'fire') Net.send({ t: 'sx', a, all: true });
     switch (a.a) {
-      case 'msg': showMsg(this.fill(a.text), 3500); break;
-      case 'hint': showHint(this.fill(a.text), 4500); break;
-      case 'announce': chatAdd(esc(this.fill(a.text)), 'sys'); break;
+      case 'msg': showMsg(this.fill(a.text, ctx), 3500); break;
+      case 'hint': showHint(this.fill(a.text, ctx), 4500); break;
+      case 'announce': chatAdd(esc(this.fill(a.text, ctx)), 'sys'); break;
       case 'points': this.addPoints(a.num); break;
       case 'tool': Tools.give(a.tool); break;
       case 'tp': { const p = this.part(a.part); if (p && P.alive) { Object.assign(P, { x: (p.x0 + p.x1) / 2, y: p.y1 + 0.05, z: (p.z0 + p.z1) / 2, vx: 0, vy: 0, vz: 0, kx: 0, kz: 0 }); R.cam.fx = P.x; R.cam.fz = P.z; R.cam.fy = P.y + 4.8; } break; }
@@ -3666,13 +3754,23 @@ const Scripts = {
       case 'clone': this.clone(a.store, a.num); break;
       case 'sound': { const el = R.sc.audio.get(a.snd); if (el) { el.currentTime = 0; el.volume = this.vol(+el.dataset.vol); el.play().catch(() => {}); } break; }
       case 'stop': { const el = R.sc.audio.get(a.snd); if (el) el.pause(); break; }
-      case 'gui': { const el = R.sc.gui.get(a.gui); if (el) { el.dataset.tpl = a.text; el.textContent = this.fill(a.text); } break; }
+      case 'gui': { const el = R.sc.gui.get(a.gui); if (el) { el.dataset.tpl = a.text; el.textContent = this.fill(a.text, ctx); } break; }
       case 'guivis': { const el = R.sc.gui.get(a.gui); if (el) el.hidden = a.v === 'hide'; break; }
       case 'fire': this.fireRemote(a.rem, ctx); break;
       case 'velocity': if (P.alive) { const fade = clamp(a.fade || 0, 0, 10); P.push = { x: clamp(a.x, -500, 500), y: clamp(a.y, -500, 500), z: clamp(a.z, -500, 500), t: clamp(a.num, 0, 10), rel: a.rel !== 'world' || a.track === 'yes', track: a.track === 'yes', face: P.face, fade, fl: fade }; } break;
-      case 'hitbox': Tools.hitbox(a, true); break;
-      case 'shoot': Tools.shoot(a); break;
-      case 'explode': Tools.scriptBoom(a); break;
+      case 'hitbox': Tools.hitbox(a, true, null, null, ctx); break;
+      case 'shoot': Tools.shoot(a, ctx); break;
+      case 'explode': Tools.scriptBoom(a, ctx); break;
+      case 'runbr': if (ctx.script) this.runBranch(ctx, a.br); break;
+      case 'setteam': this.setTeam(a.team); break;
+      case 'flight': { const on = a.v === 'toggle' ? !P.fly : a.v === 'on'; P.fly = on && P.alive ? { sp: clamp(a.num || 40, 5, 300) } : null; if (on) P.vy = 0; break; }
+      case 'tpto': {
+        const n = this.fill(a.text, ctx).trim().toLowerCase(); if (!n || !P.alive || n === S.user.toLowerCase()) break;
+        const rp = [...R.remote.values()].find(r => r.name.toLowerCase() === n) || [...R.remote.values()].find(r => r.name.toLowerCase().startsWith(n));
+        if (rp) { Object.assign(P, { x: rp.x + 2.5, y: rp.y + 0.1, z: rp.z, vx: 0, vy: 0, vz: 0, kx: 0, kz: 0 }); R.cam.fx = P.x; R.cam.fz = P.z; }
+        break;
+      }
+      case 'kick': { const t = this.fill(a.text, ctx); setTimeout(() => { if (!R) return; leaveRun(); dialog({ title: BRAND, html: `<p>${esc(t)}</p>` }); }, 50); break; }
       case 'damage': if (P.alive && a.num > 0) Tools.applyDamage(a.num, null, null); break;
       case 'setpts': P.stage = Math.max(0, Math.round(a.num)); updatePlist(); this.refreshGui(); break;
       case 'emote': if (P.alive) {
@@ -3683,7 +3781,7 @@ const Scripts = {
       case 'addfx': if (FX.effect(a.fx)) { FX.forChar(R.me, a.fx, Math.max(0, a.num)); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfx', fx: a.fx, num: Math.max(0, a.num) } }); } break;
       case 'clearfx': FX.clearChar(R.me); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfxoff' } }); break;
       case 'sfx': Sfx.play(a.v); break;
-      case 'win': confetti(P.x, P.y + 4, P.z, 50); Sfx.play('win'); showMsg(this.fill(a.text || 'You win!'), 5000); break;
+      case 'win': confetti(P.x, P.y + 4, P.z, 50); Sfx.play('win'); showMsg(this.fill(a.text || 'You win!', ctx), 5000); break;
       default: break;
     }
   },
@@ -3697,6 +3795,14 @@ const Scripts = {
   // something a Server script did on another player's screen
   remote(m) {
     const a = m && m.a; if (!a || typeof a.a !== 'string') return;
+    if (a.a === 'myteam') { const rp = R.remote.get(String(a.pid || m.id)); if (rp) { rp.team = Number(a.tm) | 0; rp.tagHp = -1; R.plistDirty = true; } return; }
+    if (a.a === 'runbr') {                                              // someone's "Runs on: the enemy" branch, aimed at me
+      if (String(a.to) !== String(Net.id)) return;
+      const s = (R.sc.doc.scripts || []).find(x => x.id === (Number(a.s) | 0)), b = s && s.branches && s.branches[(Number(a.b) | 0) - 1];
+      if (!b || b.on !== 'target' || R.sc.jobs.length >= 60) return;
+      R.sc.jobs.push({ acts: b.acts.slice(), i: 0, wait: 0, req: 0, ctx: { srv: s.side !== 'client', script: s, sender: cleanName(a.from, 'Player'), enemy: S.user, targets: [] } });
+      return;
+    }
     if (['panim', 'pstop', 'pfx', 'pfxoff'].includes(a.a)) {         // another player's animation / effects
       const rp = R.remote.get(String(m.id)); if (!rp) return;
       if (a.a === 'panim') ANIMS.play(rp, String(a.id || ''), Number(a.sp) || 1); else if (a.a === 'pstop') ANIMS.stop(rp);
@@ -3879,8 +3985,17 @@ function updatePlist() {
   const def = R.def; let html = '';
   if (def.stat) html += `<div class="pr hd"><span>Players</span><span>${esc(def.stat)}</span></div>`;
   const row = (name, st, me) => `<div class="pr${me ? ' me' : ''}"><span style="color:${nameColor(name)}">${esc(name)}</span>${def.stat ? `<span>${esc(def.statText ? def.statText(st) : st)}</span>` : ''}</div>`;
-  html += row(S.user, R.P.stage, true);
-  [...R.remote.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach(r => { html += row(r.name, r.st, false); });
+  const teams = R.sc && R.sc.doc ? R.sc.doc.teams || [] : [];
+  if (teams.length) {                                                 // grouped by team, like the classic leaderboard
+    const all = [{ name: S.user, st: R.P.stage, me: true, team: R.P.team || 0 }].concat([...R.remote.values()].map(r => ({ name: r.name, st: r.st, me: false, team: r.team || 0 })));
+    for (const t of teams.concat([{ id: 0, n: 'Neutral', c: '#a3a2a5' }])) {
+      const list = all.filter(p => (teams.some(x => x.id === p.team) ? p.team : 0) === t.id).sort((a, b) => a.name.localeCompare(b.name)); if (!list.length) continue;
+      html += `<div class="pr tm" style="background:${t.c}cc"><span>${esc(t.n)}</span></div>` + list.map(p => row(p.name, p.st, p.me)).join('');
+    }
+  } else {
+    html += row(S.user, R.P.stage, true);
+    [...R.remote.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach(r => { html += row(r.name, r.st, false); });
+  }
   $('#plist').innerHTML = html;
 }
 
@@ -3893,12 +4008,12 @@ function makeSprite(c) {
   s.scale.set(c.width * k, c.height * k, 1); s.renderOrder = 20; s.frustumCulled = false; s.userData.ownList = [m];
   return s;
 }
-function textTag(text) {
+function textTag(text, color) {
   const c = mkCanvasN(256, 56), x = c.getContext('2d');
   x.font = 'bold 30px Arial, Helvetica, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineJoin = 'round';
   let t = text; while (x.measureText(t).width > 236 && t.length > 4) t = t.slice(0, -2);
   if (t !== text) t += '...';
-  x.lineWidth = 7; x.strokeStyle = 'rgba(0,0,0,.85)'; x.strokeText(t, 128, 30); x.fillStyle = '#fff'; x.fillText(t, 128, 30);
+  x.lineWidth = 7; x.strokeStyle = 'rgba(0,0,0,.85)'; x.strokeText(t, 128, 30); x.fillStyle = color || '#fff'; x.fillText(t, 128, 30);
   return makeSprite(c);
 }
 // chat bubbles: up to 3 per player, newest at the bottom; older ones fade out
@@ -3944,10 +4059,12 @@ function updateTags(dt) {
   const list = [R.me].concat([...R.remote.values()]);
   for (const e of list) {
     const p = entPos(e), alive = e.isMe ? R.P.alive : e.alive;
+    const tcol = (Scripts.team(e.isMe ? R.P.team : e.team) || {}).c;
+    if (e.isMe && e.tagHp === -1) { e.tagHp = 0; R.scene.remove(e.tag); disposeObject(e.tag); e.tag = textTag(S.user, tcol); R.scene.add(e.tag); }
     if (!e.isMe) {                                                   // other players: health bar while hurt
       if (e.alive && e.hp < 100) e.hp = Math.min(100, e.hp + 1.2 * dt);
       const want = e.alive && e.hp < 99.5 ? Math.max(1, Math.ceil(e.hp)) : 0;
-      if (want !== e.tagHp) { e.tagHp = want; R.scene.remove(e.tag); disposeObject(e.tag); e.tag = want ? healthTag(e.name, want) : textTag(e.name); R.scene.add(e.tag); }
+      if (want !== e.tagHp) { e.tagHp = want; R.scene.remove(e.tag); disposeObject(e.tag); e.tag = want ? healthTag(e.name, want) : textTag(e.name, tcol); R.scene.add(e.tag); }
     }
     const vis = alive && !(e.isMe && R.fp) ? (e.isMe ? 1 : tagSight(e, p.x, p.y + 5.6, p.z, dt)) : 0;
     if (e.tag) { setOpacity(e.tag, vis); e.tag.position.set(p.x, p.y + 6.3, p.z); }
@@ -3985,7 +4102,7 @@ function addForcefield(ch) {
   return { g, s, wf };
 }
 function spawnPlayer() {
-  const P = R.P, sp = pickSpawn(); P.push = null;
+  const P = R.P, sp = pickSpawn(); P.push = null; P.fly = null;
   if (R.ch) { R.scene.remove(R.ch.root); disposeObject(R.ch.root); R.ch.dispose(); }
   const jit = R.remote.size ? 1.6 : 0;                               // don't stack on top of other players
   P.x = sp[0] + (Math.random() - 0.5) * jit * 2; P.y = sp[1] + 0.02; P.z = sp[2] + (Math.random() - 0.5) * jit * 2;
@@ -4115,6 +4232,7 @@ function netHandlers() {
       if (!(Net.v >= 4)) sys('Heads up: the game server is an old version, so other players will not see your tool effects or server scripts. Redeploy it on Render (see the README).');
       else if (Net.v < 5) sys('Heads up: the game server is one version behind, so script hitboxes do at most 60 damage. Redeploy it on Render (see the README).');
       if (Array.isArray(m.log)) Scripts.applyLog(m.log);
+      Scripts.onWelcome();
       updatePlist();
     },
     onJoin(p) { if (!R) return; const rp = addRemote(p); if (rp) { rp.fresh = true; sys(`${esc(p.name)} joined the game.`); } },
@@ -4260,8 +4378,16 @@ function physics(dt) {
 
   P.coyote -= dt;
   if (P.onGround) P.coyote = 0.09;
-  if (!busy && (keys.Space || jumpHeld) && P.coyote > 0) { P.vy = P.jump != null ? P.jump : PHYS.JUMP; P.coyote = 0; P.onGround = false; Sfx.play('jump'); }
+  if (!busy && !P.fly && (keys.Space || jumpHeld) && P.coyote > 0) { P.vy = P.jump != null ? P.jump : PHYS.JUMP; P.coyote = 0; P.onGround = false; Sfx.play('jump'); }
   P.vy = Math.max(P.vy - PHYS.G * (P.gravMul || 1) * (P.gravS == null ? 1 : P.gravS) * dt, -280);
+  if (P.fly) {                                                      // "Flight" from a script: fly where the camera looks
+    const C = R.cam, cp = Math.cos(C.pitch), sp = P.fly.sp;
+    const f = busy ? 0 : ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0) + joy.y, r = busy ? 0 : (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + joy.x;
+    const u = busy ? 0 : ((keys.Space || jumpHeld) ? 1 : 0) - ((keys.KeyC || keys.ControlLeft) ? 1 : 0);
+    P.vx = (-Math.sin(C.yaw) * cp * f + Math.cos(C.yaw) * r) * sp; P.vz = (-Math.cos(C.yaw) * cp * f - Math.sin(C.yaw) * r) * sp; P.vy = (-Math.sin(C.pitch) * f + u) * sp;
+    P.onGround = false; P.coyote = 0;
+    if (Math.hypot(P.vx, P.vz) > 1 && !R.shiftLock) P.face = Math.atan2(P.vx, P.vz);
+  }
   if (P.push) {                                                     // "Push the player (velocity)" from a script
     const u = P.push; let k = 1;
     if (u.t > 0) u.t -= dt; else if (u.fl > 0) { u.fl -= dt; k = Math.max(0, u.fl / u.fade); } else k = 0;   // fade: slows down smoothly
@@ -5385,6 +5511,18 @@ const CB_SCRIPTS = [
   { id: 'clickbtn', n: 'Click Button', icon: '&#128433;', desc: 'Click the red button to open the door for 5 seconds (everyone sees it).',
     parts: { a: LP('Button', 'block', [0, 3, 0], [2, 2, 1], '#c4281c'), b: LP('Door', 'block', [8, 4, 0], [6, 8, 1], '#694028') },
     s: { n: 'ButtonDoor', e: 'clickpart', ev: { part: 'a' }, cd: 5, acts: [{ a: 'hide', part: 'b', num: 5 }, { a: 'sfx', v: 'click' }, { a: 'announce', text: '{name} opened the door!' }] } },
+  { id: 'admin', n: 'Admin Commands', icon: '&#128081;', desc: 'Chat commands for you (add more names in its first action): :kill, :bring, :to, :fly, :heal, :speed, :freeze, :thaw, :kick + a name, me, all or others.',
+    s: { n: 'Admin', e: 'chat', ev: { text: ':' }, acts: [{ a: 'ifname', text: '{me}' }, { a: 'chatif', text: ':kill', br: 1 }, { a: 'chatif', text: ':bring', br: 2 }, { a: 'chatif', text: ':to', br: 3 }, { a: 'chatif', text: ':fly', br: 4 },
+      { a: 'chatif', text: ':heal', br: 5 }, { a: 'chatif', text: ':speed', br: 6 }, { a: 'chatif', text: ':freeze', br: 7 }, { a: 'chatif', text: ':thaw', br: 8 }, { a: 'chatif', text: ':kick', br: 9 }],
+      branches: [{ n: 'Kill', on: 'target', acts: [{ a: 'kill' }, { a: 'announce', text: '{sender} knocked out {enemy}!' }] }, { n: 'Bring', on: 'target', acts: [{ a: 'tpto', text: '{sender}' }] }, { n: 'GoTo', on: 'me', acts: [{ a: 'tpto', text: '{enemy}' }] },
+        { n: 'Fly', on: 'target', acts: [{ a: 'flight', v: 'toggle', num: 45 }, { a: 'hint', text: 'Flight toggled! WASD to fly, Space up, C down.' }] }, { n: 'Heal', on: 'target', acts: [{ a: 'heal', num: 100 }] },
+        { n: 'Speed', on: 'target', acts: [{ a: 'speed', num: 40 }] }, { n: 'Freeze', on: 'target', acts: [{ a: 'speed', num: 0 }, { a: 'jump', num: 0 }, { a: 'msg', text: 'You were frozen by {sender}!' }] },
+        { n: 'Thaw', on: 'target', acts: [{ a: 'speed', num: 16 }, { a: 'jump', num: 50 }] }, { n: 'Kick', on: 'target', acts: [{ a: 'kick', text: '{sender} removed you from the game.' }] }] } },
+  { id: 'fly', n: 'F to Fly', icon: '&#129413;', desc: 'Press F to start or stop flying. WASD to fly where you look, Space up, C down.',
+    s: { n: 'Fly', e: 'key', ev: { key: 'F' }, cd: 0.3, acts: [{ a: 'flight', v: 'toggle', num: 45 }] } },
+  { id: 'punch', n: 'Punch Combo', icon: '&#129354;', desc: 'Press E to punch: the hitbox runs a branch on whoever you hit (knocks them up and shows a message).',
+    s: { n: 'Punch', e: 'key', ev: { key: 'E' }, cd: 0.6, acts: [{ a: 'emote', v: 'slash', id: '', sp: 1 }, { a: 'hitbox', x: 4, y: 5, z: 4, dmg: 10, num: 0.25, follow: 'true', fwd: 2.5, show: 'yes', fx: 0, onhit: 1 }],
+      branches: [{ n: 'GotPunched', on: 'target', acts: [{ a: 'velocity', x: 0, y: 70, z: 0, num: 0.15, rel: 'world', track: 'no', fade: 0.2 }, { a: 'hint', text: '{sender} punched you!' }] }] } },
   { id: 'pointstime', n: 'Points Over Time', icon: '&#9201;', desc: 'Everyone gets 1 point every second.',
     s: { n: 'PointsOverTime', e: 'timer', ev: { num: 1 }, acts: [{ a: 'points', num: 1 }] } },
   { id: 'welcome', n: 'Welcome Message', icon: '&#128075;', desc: 'Shows a welcome message when a player joins.',
@@ -5443,6 +5581,8 @@ const ICONS = {
   storage: '<svg viewBox="0 0 24 24"><path d="M3 8l9-4 9 4v10l-9 4-9-4z" fill="#d7b98a" stroke="#7a5a28"/><path d="M3 8l9 4 9-4M12 12v10" fill="none" stroke="#7a5a28"/></svg>',
   gui: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" fill="#f2f6fb" stroke="#1d4f8c"/><rect x="2" y="4" width="20" height="4" fill="#5aa0e6"/><rect x="6" y="12" width="12" height="4" fill="#a3a2a5" stroke="#555"/></svg>',
   pack: '<svg viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="14" rx="3" fill="#c4281c" stroke="#7a1810"/><path d="M9 7V5h6v2" fill="none" stroke="#7a1810" stroke-width="2"/><rect x="8" y="12" width="8" height="4" fill="#e8655a"/></svg>',
+  teams: '<svg viewBox="0 0 24 24"><circle cx="8" cy="7" r="3" fill="#c4281c" stroke="#555"/><circle cx="16" cy="7" r="3" fill="#0d69ac" stroke="#555"/><path d="M2 20v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3z" fill="#c4281c" stroke="#555"/><path d="M12 20v-3a4 4 0 0 1 2-3.5 4 4 0 0 1 2-.5h2a4 4 0 0 1 4 4v3z" fill="#0d69ac" stroke="#555"/></svg>',
+  team: '<svg viewBox="0 0 24 24"><path d="M5 3h14v8c0 5-4 8-7 10-3-2-7-5-7-10z" fill="#4b974b" stroke="#22501f"/></svg>',
   effect: '<svg viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 3 1 4 2 4 0-3-1-6 1-9z" fill="#ff7a1a" stroke="#a33a00"/><path d="M12 13c1 2 3 3 3 5a3 3 0 0 1-6 0c0-1.5 1-2.5 3-5z" fill="#ffe066"/></svg>',
   player: '<svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3.5" fill="#f5cd30" stroke="#555"/><path d="M5 21v-4a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v4z" fill="#0d69ac" stroke="#555"/></svg>',
   rs: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="#e3f2e3" stroke="#2a7a3a"/><path d="M7 10h7M7 14h10" stroke="#2a7a3a" stroke-width="1.6"/><path d="M15 7l3 3-3 3" fill="none" stroke="#2a7a3a" stroke-width="1.6"/></svg>',
@@ -5489,7 +5629,8 @@ function normalizeDoc(doc) {
   if (!doc.light || typeof doc.light !== 'object') doc.light = { sky: doc.env === 'dusk' ? 'dusk' : 'day', bright: 1, fog: 2600 };
   if (!SKIES[doc.light.sky]) doc.light.sky = 'day';
   doc.env = doc.light.sky;
-  ['pack', 'gui', 'scripts', 'sounds', 'storage', 'remotes', 'tools', 'effects'].forEach(k => { if (!Array.isArray(doc[k])) doc[k] = []; });
+  ['pack', 'gui', 'scripts', 'sounds', 'storage', 'remotes', 'tools', 'effects', 'teams'].forEach(k => { if (!Array.isArray(doc[k])) doc[k] = []; });
+  doc.scripts.forEach(x => { if (!Array.isArray(x.branches)) x.branches = []; });
   doc.player = sanitizePlayer(doc.player);
   doc.scripts.forEach(x => { if (x.k !== 'module') x.k = 'script'; if (x.p !== 'rs') x.p = 'sss'; if (x.side !== 'client') x.side = 'server'; if (!(x.cd >= 0)) x.cd = 0; });
   return doc;
@@ -5516,15 +5657,15 @@ function sanitizeDoc(txt) {                           // accepts text or an obje
   if (!o || !Array.isArray(o.parts) || !o.parts.length) return null;
   const parts = o.parts.slice(0, 600).map(sanitizePart), storage = (Array.isArray(o.storage) ? o.storage : []).slice(0, 200).map(sanitizePart);
   const srcSounds = (Array.isArray(o.sounds) ? o.sounds : []).slice(0, 20).filter(x => x && ASSET_ID.test(x.a)), srcGui = (Array.isArray(o.gui) ? o.gui : []).slice(0, 30);
-  const gui = sanitizeGui(srcGui), sounds = sanitizeSounds(srcSounds), scripts = sanitizeScripts(o.scripts), remotes = sanitizeRemotes(o.remotes), tools = sanitizeTools(o.tools), effects = sanitizeEffects(o.effects);
+  const gui = sanitizeGui(srcGui), sounds = sanitizeSounds(srcSounds), scripts = sanitizeScripts(o.scripts), remotes = sanitizeRemotes(o.remotes), tools = sanitizeTools(o.tools), effects = sanitizeEffects(o.effects), teams = sanitizeTeams(o.teams);
   const idMap = (src, out) => { const m = new Map(); src.forEach((x, i) => { if (x && Number.isInteger(x.id) && out[i]) m.set(x.id, out[i].id); }); return m; };
   remapRefs(scripts, { part: idMap(o.parts.slice(0, 600), parts), store: idMap((o.storage || []).slice(0, 200), storage), gui: idMap(srcGui, gui), sound: idMap(srcSounds, sounds),
-    remote: idMap((Array.isArray(o.remotes) ? o.remotes : []).slice(0, 30), remotes), mod: idMap((Array.isArray(o.scripts) ? o.scripts : []).slice(0, 60), scripts), effect: idMap((Array.isArray(o.effects) ? o.effects : []).slice(0, 30), effects) });
+    remote: idMap((Array.isArray(o.remotes) ? o.remotes : []).slice(0, 30), remotes), mod: idMap((Array.isArray(o.scripts) ? o.scripts : []).slice(0, 60), scripts), effect: idMap((Array.isArray(o.effects) ? o.effects : []).slice(0, 30), effects), team: idMap((Array.isArray(o.teams) ? o.teams : []).slice(0, 8), teams) });
   const pm = idMap(o.parts.slice(0, 600), parts); effects.forEach(e => { e.part = pm.get(e.part) || 0; if (e.at === 'part' && !e.part) e.at = 'none'; });
   const L = o.light && typeof o.light === 'object' ? o.light : {};
   const light = { sky: SKIES[L.sky] ? L.sky : (o.env === 'dusk' ? 'dusk' : 'day'), bright: cleanNum(L.bright, 1, 0.2, 2), fog: cleanNum(L.fog, 2600, 80, 2600) };
   const pack = [...new Set((Array.isArray(o.pack) ? o.pack : []).filter(t => toolById(t)))].slice(0, 10);
-  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', desc: cleanText(o.desc, 300), env: light.sky, gear: o.gear === true, light, pack, gui, scripts, remotes, tools, effects, player: sanitizePlayer(o.player), sounds, storage, parts };
+  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', desc: cleanText(o.desc, 300), env: light.sky, gear: o.gear === true, light, pack, gui, scripts, remotes, tools, effects, teams, player: sanitizePlayer(o.player), sounds, storage, parts };
 }
 function placeRun(doc, base) {                       // a CartStudio place -> a runnable game definition
   const d = sanitizeDoc(doc) || normalizeDoc(JSON.parse(JSON.stringify(doc)));
@@ -5536,7 +5677,7 @@ function testDef(doc) {
 const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
 const cleanTitle = v => String(v || '').replace(/[^\w \-.!'&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
 const compactPart = p => { const o = { id: p.id, n: p.n, s: p.s, p: p.p.map(r2), z: p.z.map(r2), r: p.r, c: p.c, b: p.b || '', q: p.q, st: p.st }; if (p.b === 'tool') o.tl = p.tl; if (p.t > 0) o.t = p.t; if (p.dc) o.dc = p.dc; return o; };
-function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, gear: !!doc.gear, light: doc.light, pack: doc.pack, gui: doc.gui, scripts: doc.scripts, remotes: doc.remotes || [], effects: doc.effects || [], player: doc.player, tools: (doc.tools || []).map(t => Object.assign({}, t, { parts: t.parts.map(compactPart) })), sounds: doc.sounds, storage: (doc.storage || []).map(compactPart), parts: doc.parts.map(compactPart) }); }
+function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, gear: !!doc.gear, light: doc.light, pack: doc.pack, gui: doc.gui, scripts: doc.scripts, remotes: doc.remotes || [], effects: doc.effects || [], teams: doc.teams || [], player: doc.player, tools: (doc.tools || []).map(t => Object.assign({}, t, { parts: t.parts.map(compactPart) })), sounds: doc.sounds, storage: (doc.storage || []).map(compactPart), parts: doc.parts.map(compactPart) }); }
 const assetIdsOf = doc => [].concat((doc.parts || []).concat(doc.storage || []).filter(p => p.dc).map(p => p.dc.img), (doc.sounds || []).map(s => s.a), ...(doc.scripts || []).map(s => s.acts.filter(a => a.a === 'emote' && a.id).map(a => a.id)));
 function authHint(err) {
   err = String(err || '');
@@ -5874,7 +6015,7 @@ class Studio {
     if (note) { note.hidden = false; note.className = 'cs-note' + (bad.length ? ' bad' : ''); note.textContent = bad.length ? `${bad.length} part${bad.length > 1 ? 's are' : ' is'} outside the blue lines (red). Move or shrink ${bad.length > 1 ? 'them' : 'it'} to publish.` : `Parts: ${this.doc.parts.length}/30. Everything is inside the blue lines.`; }
   }
   /* ---------------- history, save/load ---------------- */
-  snapState() { const d = this.doc; return JSON.stringify(this.mode === 'place' ? { parts: d.parts, light: d.light, pack: d.pack, gui: d.gui, scripts: d.scripts, sounds: d.sounds, storage: d.storage, remotes: d.remotes, tools: d.tools, effects: d.effects, player: d.player } : { parts: d.parts }); }
+  snapState() { const d = this.doc; return JSON.stringify(this.mode === 'place' ? { parts: d.parts, light: d.light, pack: d.pack, gui: d.gui, scripts: d.scripts, sounds: d.sounds, storage: d.storage, remotes: d.remotes, tools: d.tools, effects: d.effects, teams: d.teams, player: d.player } : { parts: d.parts }); }
   commit(initial) {
     const snap = this.snapState();
     if (!initial && this.hist[this.hi] === snap) return;
@@ -5921,6 +6062,7 @@ class Studio {
     if (a === 'newtool') return this.newTool();
     if (a === 'rig') return this.anim ? this.closeAnimator() : this.openAnimator();
     if (a === 'neweffect') return this.newEffect();
+    if (a === 'newteam') { const d = this.doc; if (d.teams.length >= 8) return dialog({ title: BRAND, html: '<p>A place can have up to 8 teams.</p>' }); const id = nextOf(d.teams); d.teams.push({ id, n: ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Pink', 'Black'][d.teams.length] + ' Team', c: ['#c4281c', '#0d69ac', '#4b974b', '#f5cd30', '#6b327c', '#da8541', '#ff66cc', '#1b2a35'][d.teams.length], auto: true, users: '', ff: true }); this.open.teams = true; this.selectObj('team', id); this.commit(); return this.log('Added a Team. Players join it automatically, or list names in Team users.'); }
     if (a === 'savescript') return this.saveScriptToToolbox();
     if (a.indexOf('toolpart:') === 0) { const tid = +a.slice(9); this.addMenu = null; this.startToolEdit(tid); return this.insert('block'); }
     if (a === 'tooledit') { const x = this.objOf(this.osel); if (x && this.osel.k === 'tool') this.startToolEdit(x.id); return; }
@@ -6152,8 +6294,10 @@ class Studio {
     const src = JSON.parse(JSON.stringify(tpl)), id = nextOf(d.scripts);
     const fix = (args, defs) => { const o = cleanArgs(defs, args); for (const [k, type] of defs) if (type === 'part') o[k] = typeof args[k] === 'string' ? (keys[args[k]] || 0) : (d.parts.some(p => p.id === args[k]) ? args[k] : fallbackPart.id || 0); return o; };
     const e = evDef(src.e) ? src.e : 'start';
+    const me = a => { for (const k of Object.keys(a)) if (typeof a[k] === 'string') a[k] = a[k].replace(/\{me\}/g, S.user); return a; };
+    const acts = list => (list || []).filter(a => actDef(a.a)).map(a => me(Object.assign({ a: a.a }, fix(a, actDef(a.a)[2]))));
     const s = { id, n: cleanName(src.n, 'Script'), on: true, k: 'script', p: 'sss', side: src.side === 'client' ? 'client' : 'server', cd: cleanNum(src.cd, 0, 0, 600), e, ev: fix(src.ev || {}, evDef(e)[2]),
-      acts: (src.acts || []).filter(a => actDef(a.a)).map(a => Object.assign({ a: a.a }, fix(a, actDef(a.a)[2]))) };
+      acts: acts(src.acts), branches: (src.branches || []).map(b => ({ n: cleanName(b.n, 'Branch'), on: b.on === 'target' ? 'target' : 'me', acts: acts(b.acts) })) };
     if (src.tool || e === 'tooluse') {                              // tool scripts go inside a tool
       let tid = this.osel && this.osel.k === 'tool' ? this.osel.id : (d.tools[0] || {}).id;
       if (tid == null && src.tool) { this.newTool(true); tid = (d.tools[d.tools.length - 1] || {}).id; }
@@ -6167,7 +6311,7 @@ class Studio {
   saveScriptToToolbox() {
     const x = this.objOf(this.osel); if (!x || this.osel.k !== 'script') return;
     const list = myScripts(); if (list.length >= 40) return dialog({ title: BRAND, html: '<p>My Scripts holds up to 40 scripts. Remove some first.</p>' });
-    list.push({ n: x.n, e: x.e, ev: x.ev, acts: x.acts, cd: x.cd, side: x.side }); store.set('myScripts', list);
+    list.push({ n: x.n, e: x.e, ev: x.ev, acts: x.acts, branches: x.branches || [], cd: x.cd, side: x.side }); store.set('myScripts', list);
     this.log('Saved "' + x.n + '" to Toolbox > Models > Scripts > My Scripts.');
     if (this.tbTab === 'model' && this.mdTab === 'scripts') this.renderToolbox();
   }
@@ -6225,6 +6369,7 @@ class Studio {
       svc('light', 'Lighting', 'light', null, ` <small>${esc(SKY_LABEL[d.light.sky])}</small>`) +
       svc('rs', 'ReplicatedStorage', 'rs', kids('rs'), add('addmenu:rs', 'Insert a Script, ModuleScript or RemoteEvent')) +
       svc('sss', 'ServerScriptService', 'sss', kids('sss'), add('addmenu:sss', 'Insert a Script, ModuleScript or RemoteEvent')) +
+      svc('teams', 'Teams', 'teams', (d.teams || []).map(t => orow('team', t, 'team', ` <small style="color:${t.c}">&#9632;</small>${t.auto ? '' : ' <small>(invite only)</small>'}`)).join(''), add('newteam', 'Add a Team')) +
       svc('player', 'StarterPlayer', 'player', null, ` <small>${d.player.shiftlock ? 'shift lock on' : 'shift lock off'}</small>`) +
       svc('storage', 'ServerStorage', 'storage', d.storage.map(s => orow('stored', s, s.s)).join('')) +
       svc('gui', 'StarterGui', 'gui', d.gui.map(g => orow('gui', g, g.k === 'button' ? 'button' : 'label')).join(''), add('newlabel', 'Insert a TextLabel')) +
@@ -6242,7 +6387,7 @@ class Studio {
     this.osel = { k, id }; this.renderExplorer(); this.renderProps();
     if (k === 'effect' || fxWas) this.syncStudioFx();
   }
-  objOf(os) { const list = { script: this.doc.scripts, remote: this.doc.remotes, tool: this.doc.tools, effect: this.doc.effects, gui: this.doc.gui, sound: this.doc.sounds, stored: this.doc.storage }[os && os.k]; return list ? list.find(x => x.id === os.id) || null : null; }
+  objOf(os) { const list = { script: this.doc.scripts, remote: this.doc.remotes, tool: this.doc.tools, effect: this.doc.effects, team: this.doc.teams, gui: this.doc.gui, sound: this.doc.sounds, stored: this.doc.storage }[os && os.k]; return list ? list.find(x => x.id === os.id) || null : null; }
   renderObjProps() {
     const el = $('#cs-props'), os = this.osel, d = this.doc, x = this.objOf(os);
     const row = (label, html) => `<div class="cs-prow"><label>${label}</label>${html}</div>`;
@@ -6280,6 +6425,10 @@ class Studio {
         row('Cooldown (s)', `<input type="number" data-o="cd" min="0" max="60" step="0.05" value="${x.cd}">`) + row('Animation', sel('anim', TOOL_ANIMS, x.anim)) + row('Description', txt('desc', x.desc, 120)) +
         `<div class="cs-empty">${plural(x.parts.length, 'part')}. ${editing ? '<b>Editing:</b> the tool is in the Workspace. Build it standing up with the <b>Handle</b> at the bottom (that is where the hand holds it), then press Done.' : 'Press <b>Edit Parts</b> to build how it looks.'} When a player clicks while holding it, its scripts run (${plural(scr.length, 'script')}).</div>` +
         `<div class="cs-prow"><label></label>${editing ? '<button class="btn btn-sm btn-green" data-cs="act:tooldone" type="button">Done Editing</button>' : '<button class="btn btn-sm btn-blue" data-cs="act:tooledit" type="button">Edit Parts</button>'} <button class="btn btn-sm" data-cs="act:toolscript" type="button">+ Script</button></div>` + del;
+    } else if (os.k === 'team') {
+      h = `<div class="cs-pt">Team</div>` + row('Name', txt('n', x.n)) + row('Color', `<input type="color" data-o="c" value="${x.c}">`) + row('Enter team when join', chk('auto', x.auto)) +
+        row('Team users', `<input type="text" data-o="users" maxlength="400" placeholder="user1, user2, user3" value="${esc(x.users)}">`) + row('Teammates can hurt each other', chk('ff', x.ff)) +
+        '<div class="cs-empty">Players named in <b>Team users</b> always join this team (great for admins). Everyone else joins a team with <b>Enter team when join</b> ticked (the smallest one). Scripts: <b>Put the player on a team</b>, <b>Only go on if the player is on team</b>, and <b>{team}</b> in text. Names and the player list show team colors.</div>' + del;
     } else if (os.k === 'effect') {
       h = `<div class="cs-pt">Effect</div>` + row('Name', txt('n', x.n)) + row('Type', sel('kind', FX_KINDS, x.kind)) + row('Color', `<input type="color" data-o="c" value="${x.c}">`) +
         row('Size', `<input type="number" data-o="size" min="0.1" max="10" step="0.1" value="${x.size}">`) + row('Amount (per second)', `<input type="number" data-o="rate" min="1" max="120" value="${x.rate}">`) +
@@ -6316,6 +6465,9 @@ class Studio {
       const p = d.player;
       if (key === 'shiftlock') p.shiftlock = !!val; else if (key === 'cam') p.cam = val === 'first' ? 'first' : 'classic';
       else if (['walk', 'jump', 'zoom'].includes(key)) p[key] = Object.assign({}, sanitizePlayer(Object.assign({}, p, { [key]: +val })))[key];
+    } else if (os.k === 'team') {
+      const x = this.objOf(os); if (!x) return;
+      if (key === 'n') x.n = cleanName(val, x.n); else if (key === 'c') x.c = cleanHex(val, x.c); else if (key === 'auto') x.auto = !!val; else if (key === 'ff') x.ff = !!val; else if (key === 'users') x.users = cleanText(val, 400);
     } else if (os.k === 'effect') {
       const x = this.objOf(os); if (!x) return;
       if (key === 'n') x.n = cleanName(val, x.n); else if (key === 'kind') { const was = FX_DEF[x.kind] === x.c; x.kind = FX_KINDS.some(k => k[0] === val) ? val : 'fire'; if (was) x.c = FX_DEF[x.kind]; }
@@ -6460,7 +6612,7 @@ class Studio {
     const id = nextOf(d.scripts), target = this.part() || d.parts.find(p => p.n !== 'Baseplate') || d.parts[0];
     const mod = kind === 'module', label = mod ? 'ModuleScript' : kind === 'local' ? 'LocalScript' : 'Script';
     d.scripts.push(mod ? { id, n: 'ModuleScript' + id, on: true, k: 'module', p: parent, side: 'server', cd: 0, e: 'start', ev: {}, acts: [{ a: 'msg', text: 'Hello from a module, {name}!' }] }
-      : { id, n: label + id, on: true, k: 'script', p: parent, side: kind === 'local' ? 'client' : 'server', cd: 0, e: kind === 'local' ? 'key' : target ? 'touch' : 'start', ev: kind === 'local' ? { key: 'E' } : target ? { part: target.id } : {}, acts: [kind === 'local' ? { a: 'fov', num: 50 } : { a: 'msg', text: 'Hello, {name}!' }] });
+      : { id, n: label + id, on: true, branches: [], k: 'script', p: parent, side: kind === 'local' ? 'client' : 'server', cd: 0, e: kind === 'local' ? 'key' : target ? 'touch' : 'start', ev: kind === 'local' ? { key: 'E' } : target ? { part: target.id } : {}, acts: [kind === 'local' ? { a: 'fov', num: 50 } : { a: 'msg', text: 'Hello, {name}!' }] });
     if (tool) { const s = d.scripts[d.scripts.length - 1]; s.k = 'script'; s.p = 'pack'; s.e = 'tooluse'; s.ev = { tl: 'c' + tool.id }; s.acts = [{ a: 'msg', text: 'You used ' + tool.n + '!' }]; this.open['tool' + tool.id] = true; this.open.pack = true; }
     this.open[parent] = true; this.selectObj('script', id); this.commit(); this.openScript(id);
     this.log('Inserted ' + label + id + ' into ' + where + '.');
@@ -6475,7 +6627,7 @@ class Studio {
     const os = this.osel, d = this.doc; if (!os) return;
     if (os.k === 'tool') { if (this.editTool === os.id) this.endToolEdit(false); d.scripts = d.scripts.filter(x => !(x.p === 'pack' && x.ev.tl === 'c' + os.id)); }
     if (os.k === 'effect') setTimeout(() => this.syncStudioFx(), 0);
-    const key = { script: 'scripts', remote: 'remotes', tool: 'tools', effect: 'effects', gui: 'gui', sound: 'sounds', stored: 'storage' }[os.k]; if (!key) return;
+    const key = { script: 'scripts', remote: 'remotes', tool: 'tools', effect: 'effects', team: 'teams', gui: 'gui', sound: 'sounds', stored: 'storage' }[os.k]; if (!key) return;
     d[key] = d[key].filter(x => x.id !== os.id); if (this.scriptId === os.id && os.k === 'script') this.closeScript();
     this.osel = null; this.renderExplorer(); this.renderProps(); this.commit();
   }
@@ -6507,11 +6659,12 @@ class Studio {
   defaultArgs(defs) {
     const d = this.doc, o = cleanArgs(defs, {});
     const first = { part: (this.part() || d.parts.find(p => p.n !== 'Baseplate') || d.parts[0] || {}).id, store: (d.storage[0] || {}).id, gui: (d.gui.find(g => g.k === 'button') || d.gui[0] || {}).id, sound: (d.sounds[0] || {}).id,
-      remote: (d.remotes[0] || {}).id, mod: (d.scripts.find(x => x.k === 'module' && x.id !== this.scriptId) || {}).id };
+      remote: (d.remotes[0] || {}).id, team: ((d.teams || [])[0] || {}).id, branch: ((d.scripts.find(x => x.id === this.scriptId) || {}).branches || []).length ? 1 : null, mod: (d.scripts.find(x => x.k === 'module' && x.id !== this.scriptId) || {}).id };
     for (const [k, type] of defs) if (first[type] != null) o[k] = first[type];
     return o;
   }
-  openScript(id) { this.scriptId = id; this.renderScript(); }
+  openScript(id) { if (this.scriptId !== id) this.brTab = 0; this.scriptId = id; this.renderScript(); }
+  curActs(s) { const b = this.brTab && s.branches && s.branches[this.brTab - 1]; if (!b) this.brTab = 0; return b ? b.acts : s.acts; }
   closeScript() { this.scriptId = null; const ov = $('#cs-script'); if (ov) { ov.hidden = true; ov.innerHTML = ''; } }
   argInput(type, val, path, def) {
     const d = this.doc, opts = (list, label) => `<select data-se="arg:${path}">${list.length ? '' : '<option value="0">(none yet)</option>'}${list.map(o => `<option value="${o.id}"${o.id === val ? ' selected' : ''}>${esc(label(o))}</option>`).join('')}</select>`;
@@ -6521,6 +6674,8 @@ class Studio {
       case 'gui': return opts(d.gui, o => o.n + (o.k === 'button' ? ' (button)' : ''));
       case 'sound': return opts(d.sounds, o => o.n);
       case 'remote': return opts(d.remotes, o => o.n + (o.p === 'rs' ? '' : ' (ServerScriptService)'));
+      case 'branch': { const sc = d.scripts.find(x => x.id === this.scriptId), bl = (sc && sc.branches) || []; return `<select data-se="arg:${path}"><option value="0">${bl.length ? '(none)' : '(make a branch first)'}</option>${bl.map((b, i) => `<option value="${i + 1}"${i + 1 === val ? ' selected' : ''}>${esc(b.n)}${b.on === 'target' ? ' (on enemy)' : ''}</option>`).join('')}</select>`; }
+      case 'team': return `<select data-se="arg:${path}">${(d.teams || []).length ? '' : '<option value="0">(add a Team first)</option>'}${(d.teams || []).map(t => `<option value="${t.id}"${t.id === val ? ' selected' : ''}>${esc(t.n)}</option>`).join('')}</select>`;
       case 'effect': return `<select data-se="arg:${path}"><option value="0">None</option>${(d.effects || []).map(o => `<option value="${o.id}"${o.id === val ? ' selected' : ''}>${esc(o.n)} (${esc(o.kind)})</option>`).join('')}</select>`;
       case 'animid': return `<input type="text" list="cs-anims" maxlength="30" placeholder="a_..." data-se="arg:${path}" value="${esc(val || '')}"><datalist id="cs-anims">${Assets.list('anim').map(m => `<option value="${m.id}">${esc(m.n)}${m.mine ? '' : ' by ' + esc(m.c)}</option>`).join('')}</datalist>`;
       case 'mod': return opts(d.scripts.filter(o => o.id !== this.scriptId && (o.k === 'module' || o.p === 'rs')), o => o.n + (o.k === 'module' ? ' (ModuleScript)' : ' (Script in ReplicatedStorage)'));
@@ -6544,10 +6699,13 @@ class Studio {
     ov.innerHTML = `<div class="se-head">${ICONS[mod ? 'module' : s.side === 'client' ? 'local' : 'script']}<b>${esc(s.n)}</b><span class="muted small">${mod ? 'ModuleScript' : s.side === 'client' ? 'LocalScript' : 'Script'} in ${where}</span><span class="cs-sp"></span>${mod ? '' : `<label class="se-side">Side <select data-se="side">${SIDES.map(o => `<option value="${o[0]}"${o[0] === s.side ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>`}<label class="chk"><input type="checkbox" data-se="on"${s.on ? ' checked' : ''}> Enabled</label><button class="btn btn-sm" data-se="close" type="button">Close</button></div>
       <div class="se-body"><div class="se-col">
         ${mod ? '<div class="se-when"><div class="se-lab">ModuleScript</div><span class="small">These actions run when another script uses <b>Run a ModuleScript</b> and picks this one. They act on the same player.</span></div>' : `<div class="se-when"><div class="se-lab">When</div><select data-se="e">${SCRIPT_EVENTS.map(e => `<option value="${e[0]}"${e[0] === s.e ? ' selected' : ''}>${esc(e[1])}</option>`).join('')}</select>${args(evDef(s.e)[2], s.ev, 'ev')}<label class="se-arg"><span>Cooldown (s)</span><input type="number" min="0" max="600" step="0.1" data-se="cd" value="${s.cd || 0}"></label></div>`}
-        <div class="se-lab">Do these, in order</div>
-        ${s.acts.map((a, i) => `<div class="se-act"><span class="se-n">${i + 1}</span><select data-se="act:${i}">${SCRIPT_ACTIONS.map(x => `<option value="${x[0]}"${x[0] === a.a ? ' selected' : ''}>${esc(x[1])}</option>`).join('')}</select>${args(actDef(a.a)[2], a, 'acts.' + i)}<span class="se-btns"><button data-se="up:${i}" type="button" title="Move up">&#9650;</button><button data-se="down:${i}" type="button" title="Move down">&#9660;</button><button data-se="del:${i}" type="button" title="Remove">&times;</button></span></div>`).join('') || '<div class="cs-empty">No actions yet.</div>'}
+        <div class="se-tabs"><button type="button" data-se="brtab:0" class="${!this.brTab ? 'on' : ''}">Main</button>${(s.branches || []).map((b, i) => `<button type="button" data-se="brtab:${i + 1}" class="${this.brTab === i + 1 ? 'on' : ''}">${esc(b.n)}${b.on === 'target' ? ' &#127919;' : ''}</button>`).join('')}<button type="button" data-se="bradd" title="A branch is a separate list of actions in this script">+ Branch</button></div>
+        ${this.brTab ? (b => `<div class="se-br"><label>Branch name <input type="text" data-se="brname" maxlength="24" value="${esc(b.n)}"></label><label>Runs on <select data-se="bron"><option value="me"${b.on !== 'target' ? ' selected' : ''}>This player</option><option value="target"${b.on === 'target' ? ' selected' : ''}>The enemy (the player it targets)</option></select></label><button class="btn btn-sm btn-red" data-se="brdel" type="button">Delete branch</button>
+          <p class="small muted">Start it with <b>Run a branch</b>, <b>If the message starts with, run a branch</b> (chat commands like ":kill bob"), or a hitbox / projectile / explosion's <b>When it hits, run branch</b>. On the enemy, <b>{sender}</b> is who started it and <b>{enemy}</b> is them.</p></div>`)(s.branches[this.brTab - 1]) : ''}
+        <div class="se-lab">${this.brTab ? 'This branch does these, in order' : 'Do these, in order'}</div>
+        ${this.curActs(s).map((a, i) => `<div class="se-act"><span class="se-n">${i + 1}</span><select data-se="act:${i}">${SCRIPT_ACTIONS.map(x => `<option value="${x[0]}"${x[0] === a.a ? ' selected' : ''}>${esc(x[1])}</option>`).join('')}</select>${args(actDef(a.a)[2], a, 'acts.' + i)}<span class="se-btns"><button data-se="up:${i}" type="button" title="Move up">&#9650;</button><button data-se="down:${i}" type="button" title="Move down">&#9660;</button><button data-se="del:${i}" type="button" title="Remove">&times;</button></span></div>`).join('') || '<div class="cs-empty">No actions yet.</div>'}
         <button class="btn btn-sm btn-blue" data-se="add" type="button">+ Add action</button>
-        <p class="small muted">Tips: use <b>{name}</b> and <b>{points}</b> in any text. "Wait" pauses before the next action. "Only go on if points are at least" stops the script early. <b>Server</b> scripts share part changes, sounds and announcements with every player; <b>Client</b> scripts only change your own screen. Cooldown stops a script from running again too soon (like a debounce).</p>
+        <p class="small muted">Tips: use <b>{name}</b>, <b>{points}</b>, <b>{team}</b>, <b>{enemy}</b> (the player a chat command or hit targets) and <b>{sender}</b> in any text. "Wait" pauses before the next action. "Only go on if points are at least" stops the script early. <b>Server</b> scripts share part changes, sounds and announcements with every player; <b>Client</b> scripts only change your own screen. Cooldown stops a script from running again too soon (like a debounce).</p>
       </div><div class="se-code"><div class="se-lab">Code view</div><pre>${esc(scriptPreview(s, this.doc))}</pre></div></div>`;
   }
   onScriptInput(el) {
@@ -6557,23 +6715,28 @@ class Studio {
     else if (k === 'side') s.side = el.value === 'client' ? 'client' : 'server';
     else if (k === 'cd') s.cd = Math.round(clamp(+el.value || 0, 0, 600) * 10) / 10;
     else if (k === 'e') { s.e = evDef(el.value) ? el.value : 'start'; s.ev = this.defaultArgs(evDef(s.e)[2]); }
-    else if (k.indexOf('act:') === 0) { const i = +k.slice(4), a = actDef(el.value); if (a && s.acts[i]) s.acts[i] = Object.assign({ a: a[0] }, this.defaultArgs(a[2])); }
+    else if (k === 'brname') { const b = s.branches[this.brTab - 1]; if (b) b.n = cleanName(el.value, b.n); }
+    else if (k === 'bron') { const b = s.branches[this.brTab - 1]; if (b) b.on = el.value === 'target' ? 'target' : 'me'; }
+    else if (k.indexOf('act:') === 0) { const L = this.curActs(s), i = +k.slice(4), a = actDef(el.value); if (a && L[i]) L[i] = Object.assign({ a: a[0] }, this.defaultArgs(a[2])); }
     else if (k.indexOf('arg:') === 0) {
-      const path = k.slice(4).split('.'), obj = path[0] === 'ev' ? s.ev : s.acts[+path[1]], key = path[path.length - 1];
+      const path = k.slice(4).split('.'), obj = path[0] === 'ev' ? s.ev : this.curActs(s)[+path[1]], key = path[path.length - 1];
       const defs = path[0] === 'ev' ? evDef(s.e)[2] : actDef(obj.a)[2], def = defs.find(x => x[0] === key); if (!obj || !def) return;
       const type = def[1];
-      obj[key] = type === 'num' ? cleanNum(el.value, def[3] || 0, -100000, 100000) : ['part', 'store', 'gui', 'sound', 'remote', 'mod', 'effect'].includes(type) ? (parseInt(el.value, 10) || 0) : type === 'animid' ? (ASSET_ID.test(el.value.trim()) ? el.value.trim() : '') : type === 'ptool' || type === 'tool' ? cleanArgs([[key, type, '', def[3]]], { [key]: el.value })[key] : type === 'key' ? (KEYS.includes(el.value) ? el.value : 'E') : type === 'text' ? cleanText(el.value, 200) : type === 'color' ? cleanHex(el.value, def[3]) : el.value;
+      obj[key] = type === 'num' ? cleanNum(el.value, def[3] || 0, -100000, 100000) : ['part', 'store', 'gui', 'sound', 'remote', 'mod', 'effect', 'branch', 'team'].includes(type) ? (parseInt(el.value, 10) || 0) : type === 'animid' ? (ASSET_ID.test(el.value.trim()) ? el.value.trim() : '') : type === 'ptool' || type === 'tool' ? cleanArgs([[key, type, '', def[3]]], { [key]: el.value })[key] : type === 'key' ? (KEYS.includes(el.value) ? el.value : 'E') : type === 'text' ? cleanText(el.value, 200) : type === 'color' ? cleanHex(el.value, def[3]) : el.value;
     }
     this.commit(); this.renderScript(); this.renderExplorer(); if (this.osel && this.osel.k === 'script') this.renderProps();
   }
   onScriptButton(code) {
     const s = this.doc.scripts.find(x => x.id === this.scriptId); if (!s && code !== 'close') return;
     if (code === 'close') return this.closeScript();
-    const [k, n] = code.split(':'), i = +n;
-    if (k === 'add') { if (s.acts.length >= 30) return dialog({ title: BRAND, html: '<p>A script can have up to 30 actions.</p>' }); s.acts.push({ a: 'msg', text: 'Hello, {name}!' }); }
-    else if (k === 'del') s.acts.splice(i, 1);
-    else if (k === 'up' && i > 0) [s.acts[i - 1], s.acts[i]] = [s.acts[i], s.acts[i - 1]];
-    else if (k === 'down' && i < s.acts.length - 1) [s.acts[i + 1], s.acts[i]] = [s.acts[i], s.acts[i + 1]];
+    const [k, n] = code.split(':'), i = +n, L = this.curActs(s);
+    if (k === 'brtab') { this.brTab = i; return this.renderScript(); }
+    if (k === 'bradd') { if (!s.branches) s.branches = []; if (s.branches.length >= 12) return dialog({ title: BRAND, html: '<p>A script can have up to 12 branches.</p>' }); s.branches.push({ n: 'Branch' + (s.branches.length + 1), on: 'me', acts: [] }); this.brTab = s.branches.length; }
+    else if (k === 'brdel') { const at = this.brTab; if (!at) return; s.branches.splice(at - 1, 1); const fix = a => { if (a.br === at || a.onhit === at) { if (a.br === at) a.br = 0; if (a.onhit === at) a.onhit = 0; } if (a.br > at) a.br--; if (a.onhit > at) a.onhit--; }; s.acts.forEach(fix); s.branches.forEach(b => b.acts.forEach(fix)); this.brTab = 0; }
+    else if (k === 'add') { if (L.length >= 30) return dialog({ title: BRAND, html: '<p>A list can have up to 30 actions.</p>' }); L.push({ a: 'msg', text: 'Hello, {name}!' }); }
+    else if (k === 'del') L.splice(i, 1);
+    else if (k === 'up' && i > 0) [L[i - 1], L[i]] = [L[i], L[i - 1]];
+    else if (k === 'down' && i < L.length - 1) [L[i + 1], L[i]] = [L[i], L[i + 1]];
     else return;
     this.commit(); this.renderScript();
   }
