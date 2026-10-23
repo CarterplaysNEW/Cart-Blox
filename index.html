@@ -996,6 +996,8 @@ const SEED_POSTS = [
     text: 'anyone found the golden brick inside the castle on baseplate? hint: bounce pad' }
 ];
 const NEWS = [
+  { t: 'CartStudio: Holding + Color correction', d: 'Today', x: 'Hold a key to sprint, fly or shoot. New actions: color correction, camera shake, repeat, values and more.' },
+  { t: 'CartStudio: tilt, ramps and new shortcuts', d: 'Today', x: 'Turn parts on every axis to make ramps, plus Ctrl+X / C / V, Ctrl+A and arrow-key moving. T-shirts are now free to upload!' },
   { t: '4 new games from Cartblox!', d: 'Today', x: 'Parkour Rush, Coin Island, Brick Battle Arena and Cartblox Town are on the Games page now.' },
   { t: 'Cartblox Alpha 0.1 is live', d: 'Today', x: 'The first two test games are open to everyone.' },
   { t: 'New game: Mega Lava Obby', d: 'Today', x: 'Eight stages of jumps, spinners and vanishing tiles.' },
@@ -1032,14 +1034,14 @@ const S = {
 if (!S.user) { S.user = 'Player' + (1000 + Math.floor(Math.random() * 9000)); store.set('user', S.user); }
 
 /* ====================== money: Robux + Tix ====================== */
-const PRICES = { itemRbx: 50, itemTix: 150, tixPerRbx: 3 };            // uploading an item costs 50 Robux OR 150 Tix (games are free)
+const PRICES = { itemRbx: 50, itemTix: 150, tixPerRbx: 3 };            // uploading an item costs 50 Robux OR 150 Tix (games and T-shirts are free)
 const EARN = { tix: 10, tixMin: 20, rbx: 10, rbxMin: 25 };             // +10 Tix per 20 min played, +10 Robux per 25 min played
 const Wallet = {
   save() { store.set('wallet', S.wallet); this.paint(); },
   paint() { const a = document.getElementById('ub-bux'), b = document.getElementById('ub-tix'); if (a) a.textContent = fmt(S.wallet.rbx); if (b) b.textContent = fmt(S.wallet.tix); },
   can(kind) { return kind === 'rbx' ? S.wallet.rbx >= PRICES.itemRbx : S.wallet.tix >= PRICES.itemTix; },
-  spend(kind) { if (!this.can(kind)) return false; if (kind === 'rbx') S.wallet.rbx -= PRICES.itemRbx; else S.wallet.tix -= PRICES.itemTix; this.save(); return true; },
-  refund(kind) { if (kind === 'rbx') S.wallet.rbx += PRICES.itemRbx; else S.wallet.tix += PRICES.itemTix; this.save(); },
+  spend(kind) { if (kind === 'free') return true; if (!this.can(kind)) return false; if (kind === 'rbx') S.wallet.rbx -= PRICES.itemRbx; else S.wallet.tix -= PRICES.itemTix; this.save(); return true; },
+  refund(kind) { if (kind === 'free') return; if (kind === 'rbx') S.wallet.rbx += PRICES.itemRbx; else S.wallet.tix += PRICES.itemTix; this.save(); },
   exchange(rbx) { const cost = rbx * PRICES.tixPerRbx; if (rbx < 1 || S.wallet.tix < cost) return false; S.wallet.tix -= cost; S.wallet.rbx += rbx; this.save(); return true; },
   tick(sec) {                                                           // seconds of ACTIVE play; returns what was earned (or null)
     const sc = CFG.timeScale || 1, w = S.wallet, out = [];
@@ -1395,6 +1397,8 @@ function barHitsSquare(cx, cz, hl, hw, ang, px, pz, ph) {
   return true;
 }
 
+const BOX_PLANES = [[1, 0, 0, -0.5], [-1, 0, 0, -0.5], [0, 1, 0, -0.5], [0, -1, 0, -0.5], [0, 0, 1, -0.5], [0, 0, -1, -0.5]];
+const WEDGE_PLANES = BOX_PLANES.concat([[0, 1, 1, 0]]);                // a wedge is the unit cube cut by y + z <= 0
 class World {
   constructor(scene) {
     this.scene = scene; this.root = new THREE.Group(); scene.add(this.root);
@@ -1485,8 +1489,9 @@ class World {
     this.setBox(part); this.parts.push(part);
     if (o.kill) { part.hits = P => !part.hidden && touches(part, P, 0.06); this.kills.push(part); }
     if (o.bounce) part.bounce = o.bounce;
-    const ry = ((r[1] % 360) + 360) % 360;
-    if (o.s === 'wedge' && part.collide && !o.kill && r[0] === 0 && r[2] === 0 && ry % 90 === 0) {   // ramps: walkable staircase of collision slices
+    const ry = ((r[1] % 360) + 360) % 360, flat = r[0] === 0 && r[2] === 0 && ry % 90 === 0;
+    if (o.s === 'wedge' && !flat) this.sliceShape(part, WEDGE_PLANES);              // tilted ramps: sloped collision too
+    else if (o.s === 'wedge' && part.collide && !o.kill && flat) {   // ramps: walkable staircase of collision slices
       part.collide = false;
       const th = ry * D2R, dx = -Math.sin(th), dz = -Math.cos(th), L = o.z[2], W = o.z[0], H = o.z[1], alongX = Math.abs(dx) > 0.5;
       const n = Math.max(2, Math.min(40, Math.ceil(Math.max(H / 0.7, L)))), y0 = o.p[1] - H / 2;
@@ -1496,6 +1501,50 @@ class World {
         (part.slices = part.slices || []).push(this.collider(sx - hxs, sx + hxs, y0, y0 + H * (i + 1) / n, sz - hzs, sz + hzs));
       }
     }
+    return part;
+  }
+  // Collision for a turned / tilted part: the space under its real (sloped) surface is filled with thin columns, so
+  // you can walk up a tilted block like a ramp. planes are the part's faces in its own unit cube (n.p + c <= 0 inside).
+  sliceShape(part, planes, M) {
+    const mesh = part.mesh; mesh.updateMatrixWorld(true); M = M || mesh.matrixWorld;
+    const world = planes.map(q => new THREE.Plane(new THREE.Vector3(q[0], q[1], q[2]).normalize(), q[3]).applyMatrix4(M));
+    const box = new THREE.Box3().setFromObject(mesh), W = box.max.x - box.min.x, D = box.max.z - box.min.z;
+    let tan = 0;                                                        // steepest walkable top face: steeper = smaller columns so each step stays low
+    for (const pl of world) if (pl.normal.y > 0.6) tan = Math.max(tan, Math.hypot(pl.normal.x, pl.normal.z) / pl.normal.y);
+    const cs = Math.max(0.5, Math.min(Math.sqrt(W * D / 150), 0.9 / Math.max(tan, 0.05)), Math.sqrt(W * D / 2500)), nx = Math.max(1, Math.ceil(W / cs)), nz = Math.max(1, Math.ceil(D / cs)), cx = W / nx, cz = D / nz;
+    const column = (x, z) => {                                          // where a vertical line at x,z is inside the part
+      let lo = -Infinity, hi = Infinity;
+      for (const pl of world) {
+        const n = pl.normal, rhs = -(pl.constant + n.x * x + n.z * z);
+        if (Math.abs(n.y) < 1e-9) { if (rhs < -1e-6) return null; continue; }
+        const t = rhs / n.y; if (n.y > 0) hi = Math.min(hi, t); else lo = Math.max(lo, t);
+        if (lo > hi) return null;
+      }
+      return [lo, hi];
+    };
+    const sl = part.slices = [], solid = part.collide;
+    for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {
+      const x0 = box.min.x + i * cx, z0 = box.min.z + k * cz, mid = column(x0 + cx / 2, z0 + cz / 2);
+      let top = mid ? mid[1] : -Infinity, bot = mid ? mid[0] : Infinity;
+      for (const c of [[0.15, 0.15], [0.85, 0.15], [0.15, 0.85], [0.85, 0.85]]) {
+        const r = column(x0 + cx * c[0], z0 + cz * c[1]); if (!r) continue;
+        if (!mid) top = Math.max(top, r[1]); bot = Math.min(bot, r[0]);
+      }
+      if (top - bot < 0.02) continue;
+      const s = this.collider(x0, x0 + cx, bot, top, z0, z0 + cz);
+      s.collide = solid; s.solid = solid; s.bounce = part.bounce; s.owner = part; sl.push(s);
+    }
+    part.collide = false;
+    if (part.hits) part.hits = P => !part.hidden && sl.some(s => touches(s, P, 0.06));
+    return sl;
+  }
+  // turn a brick (made by brick()) to any rotation in degrees: keeps its studs, gets sloped collision
+  orient(part, r) {
+    const m = part.mesh; m.rotation.set(r[0] * D2R, r[1] * D2R, r[2] * D2R); m.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(m);
+    part.hx = (b.max.x - b.min.x) / 2; part.hy = (b.max.y - b.min.y) / 2; part.hz = (b.max.z - b.min.z) / 2; this.setBox(part);
+    const g = m.geometry.parameters, M = new THREE.Matrix4().compose(m.position, m.quaternion, new THREE.Vector3(g.width, g.height, g.depth));
+    this.sliceShape(part, BOX_PLANES, M);                                // the unit cube scaled to the brick's size
     return part;
   }
   removePart(p, keepMesh) {
@@ -2443,7 +2492,7 @@ const Tools = {
   hbCenter(x, y, z, face, fwd, sy) { return new THREE.Vector3(x + Math.sin(face) * fwd, y + Math.max(2.5, sy / 2), z + Math.cos(face) * fwd); },
   hitbox(a, mine, owner, at, ctx) {
     const P = R.P, sz = [clamp(+a.x || 1, 0.3, 80), clamp(+a.y || 1, 0.3, 80), clamp(+a.z || 1, 0.3, 80)], fwd = clamp(a.fwd != null ? +a.fwd : 3, -60, 60);
-    const life = clamp(+a.num || 0.3, 0.05, 30), follow = a.follow !== 'false', show = a.show !== 'no';
+    const life = clamp(+a.num || 0.3, 0.05, 30), follow = a.follow !== 'false', show = a.show !== 'no' && a.show !== 'false';
     if (mine && !P.alive) return;
     const src = owner || P, face = owner ? owner.ry : P.face;
     const hb = { sz, fwd, life, t: 0, follow, owner: owner || null, mine, dmg: Math.max(0, +a.dmg || 0), hit: new Set(), face, ctx, onhit: a.onhit | 0, pos: at || this.hbCenter(src.x, src.y, src.z, face, fwd, sz[1]), m: null };
@@ -2890,6 +2939,11 @@ function placePart(w, q, ctx) {
     part = w.brick(Object.assign({ p: q.p, s, kind }, common));
     part.mk = { block: true, kind, t: common.t, c: q.c };
     if (q.dc && part.mesh) part.mesh.add(decalPlane(rotateFace(q.dc.f, ry), s[0] / 2, s[1] / 2, s[2] / 2, q.dc.img));
+  } else if (q.s === 'block') {                                              // a turned or tilted block: still studded, sloped collision
+    const kind = (beh === 'kill' || beh === 'bounce') ? 'neon' : (q.st === 0 ? 'plain' : 'plastic');
+    part = w.orient(w.brick(Object.assign({ p: q.p, s: q.z, kind }, common)), r);
+    part.mk = { block: true, kind, t: common.t, c: q.c };
+    if (q.dc && part.mesh) part.mesh.add(decalPlane(q.dc.f, q.z[0] / 2, q.z[1] / 2, q.z[2] / 2, q.dc.img));
   } else {
     part = w.shape(Object.assign({ s: q.s, p: q.p, z: q.z, r }, common));
     part.mk = { block: false, s: q.s, t: common.t, c: q.c };
@@ -2905,6 +2959,7 @@ function placePart(w, q, ctx) {
     w.updaters.push((dt, t) => { holder.rotation.y += dt * 1.6; holder.position.y = top + 2.4 + Math.sin(t * 2.2) * 0.25; });
     w.triggers.push({ box: { x0: part.x0, x1: part.x1, y0: part.y1 - 0.3, y1: part.y1 + 5, z0: part.z0, z1: part.z1 }, fn: () => Tools.give(id) });
   }
+  if (part.checkpoint) (part.slices || []).forEach(s => { s.checkpoint = part.checkpoint; });
   return part;
 }
 function buildPlace(w, doc) {
@@ -3886,6 +3941,8 @@ const SCRIPT_EVENTS = [
   ['touch', 'When the player touches a part', [['part', 'part', 'Part']]],
   ['timer', 'Every few seconds', [['num', 'num', 'Seconds', 5]]],
   ['key', 'When a key is pressed', [['key', 'key', 'Key', 'E']]],
+  ['hold', 'While a key is held (Holding)', [['key', 'key', 'Key', 'Shift'], ['num', 'num', 'Lasts up to (seconds, 0 = no limit)', 0], ['every', 'num', 'Repeat every (seconds, 0 = just once)', 0],
+    ['endbr', 'sel', 'When it ends, run a branch', ['no', 'yes']], ['br', 'branch', 'Branch to run when it ends', 0], ['rod', 'sel', 'Stop when the player dies', ['yes', 'no']]]],
   ['chat', 'When the player chats', [['text', 'text', 'Message contains', 'hello']]],
   ['click', 'When a GUI button is clicked', [['gui', 'gui', 'Button']]],
   ['remote', 'When a RemoteEvent fires', [['rem', 'remote', 'RemoteEvent']]],
@@ -3921,7 +3978,7 @@ const SCRIPT_ACTIONS = [
   ['gui', 'Change GUI text', [['gui', 'gui', 'GUI'], ['text', 'text', 'Text', 'Points: {points}']]],
   ['guivis', 'Show or hide a GUI', [['gui', 'gui', 'GUI'], ['v', 'sel', 'Make it', ['show', 'hide']]]],
   ['velocity', 'Push the player (velocity)', [['x', 'num', 'Move X', 0], ['y', 'num', 'Move Y', 0], ['z', 'num', 'Move Z', 60], ['num', 'num', 'Time (seconds)', 0.25], ['rel', 'sel', 'Directions', ['facing', 'world']], ['track', 'sel', 'Tracking (follow the camera)', ['no', 'yes']], ['fade', 'num', 'Fade out (seconds)', 0]]],
-  ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show it', ['yes', 'no']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
+  ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show', ['true', 'false']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
   ['shoot', 'Shoot a projectile', [['dmg', 'num', 'Damage', 15], ['sp', 'num', 'Speed', 120], ['size', 'num', 'Size', 1], ['c', 'color', 'Color', '#ff6a00'], ['drop', 'sel', 'Drops down', ['no', 'yes']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
   ['explode', 'Make an explosion', [['dmg', 'num', 'Damage', 40], ['rad', 'num', 'Radius', 9], ['at', 'sel', 'Where', ['aim', 'player']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
   ['addfx', 'Add an effect to the player', [['fx', 'effect', 'Effect', 0], ['num', 'num', 'For seconds (0 = forever)', 3], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
@@ -3944,6 +4001,19 @@ const SCRIPT_ACTIONS = [
   ['fire', 'Fire a RemoteEvent', [['rem', 'remote', 'RemoteEvent']]],
   ['require', 'Run a ModuleScript', [['mod', 'mod', 'Module']]],
   ['win', 'Celebrate (confetti!)', [['text', 'text', 'Message', 'You win, {name}!']]],
+  ['cc', 'Color correction', [['tint', 'color', 'Tint color (white = none)', '#ffffff'], ['bright', 'num', 'Brightness (normal 1)', 1], ['contrast', 'num', 'Contrast (normal 1)', 1], ['sat', 'num', 'Saturation (normal 1, 0 = black and white)', 1],
+    ['hue', 'num', 'Hue shift (degrees)', 0], ['blur', 'num', 'Blur (0 = none)', 0], ['fade', 'num', 'Fade in (seconds)', 0.5], ['num', 'num', 'Lasts (seconds, 0 = forever)', 0], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
+  ['ccoff', 'Remove color correction', [['fade', 'num', 'Fade out (seconds)', 0.5]]],
+  ['shake', 'Shake the camera', [['num', 'num', 'Strength', 1], ['last', 'num', 'Seconds', 0.4]]],
+  ['repeat', 'Repeat a branch', [['br', 'branch', 'Branch', 0], ['num', 'num', 'Times', 3], ['every', 'num', 'Every (seconds)', 0.5]]],
+  ['setvar', 'Set a value', [['var', 'text', 'Value name', 'coins'], ['num', 'num', 'Set to', 0]]],
+  ['addvar', 'Change a value', [['var', 'text', 'Value name', 'coins'], ['num', 'num', 'Add (minus takes away)', 1]]],
+  ['ifvar', 'Only go on if a value is', [['var', 'text', 'Value name', 'coins'], ['op', 'sel', 'Is', ['at least', 'at most', 'equal to', 'not equal to']], ['num', 'num', 'Number', 1]]],
+  ['ifground', 'Only go on if the player is', [['v', 'sel', 'Player is', ['on the ground', 'in the air']]]],
+  ['ifkey', 'Only go on if a key is held', [['key', 'key', 'Key', 'Shift']]],
+  ['ifhp', 'Only go on if health is', [['op', 'sel', 'Health is', ['at least', 'below']], ['num', 'num', 'Health', 50]]],
+  ['stophold', 'Stop holding (ends the Holding)', []],
+  ['end', 'Stop this script here', []],
   ['wait', 'Wait', [['num', 'num', 'Seconds', 1]]]
 ];
 // what a "Server" script shares with everybody: changes to the world. Everything else is about one player.
@@ -3964,7 +4034,7 @@ function cleanArgs(defs, src) {
     else if (type === 'color') o[k] = cleanHex(v, def || '#c4281c');
     else if (type === 'tool') o[k] = (TOOLS.some(t => t.id === v) || /^c\d{1,2}$/.test(v)) ? v : 'sword';
     else if (type === 'ptool') o[k] = (TOOLS.some(t => t.id === v) || /^c\d{1,2}$/.test(v)) ? v : '';
-    else if (type === 'sel') o[k] = def.includes(v) ? v : def[0];
+    else if (type === 'sel') o[k] = def.includes(v) ? v : (v === 'yes' && def.includes('true')) ? 'true' : (v === 'no' && def.includes('false')) ? 'false' : def[0];
     else if (type === 'key') o[k] = KEYS.includes(v) ? v : (def || 'E');
     else if (type === 'animid') o[k] = ASSET_ID.test(v || '') ? v : '';
     else o[k] = Number.isInteger(v) && v > 0 && v < 1e6 ? v : 0;                // part / gui / store / sound / remote / module ids
@@ -4022,7 +4092,7 @@ function scriptPreview(s, doc) {
   const svc = p => (p === 'rs' ? 'ReplicatedStorage' : 'ServerScriptService');
   const rem = id => { const r = (doc.remotes || []).find(o => o.id === id); return r ? `${svc(r.p)}.${r.n.replace(/\s+/g, '')}` : 'ReplicatedStorage.RemoteEvent'; };
   const client = s.side === 'client';
-  const head = { start: 'game.Players.PlayerAdded:Connect(function(player)', touch: `workspace.${nm(doc.parts, s.ev.part, 'Part')}.Touched:Connect(function(hit)`, timer: `while wait(${s.ev.num}) do`,
+  const head = { hold: `UserInputService.InputBegan:Connect(function(input)  -- Enum.KeyCode.${s.ev.key}, runs while it is held${s.ev.num > 0 ? ' (up to ' + s.ev.num + 's)' : ''}${s.ev.every > 0 ? ', again every ' + s.ev.every + 's' : ''}`, start: 'game.Players.PlayerAdded:Connect(function(player)', touch: `workspace.${nm(doc.parts, s.ev.part, 'Part')}.Touched:Connect(function(hit)`, timer: `while wait(${s.ev.num}) do`,
     key: `UserInputService.InputBegan:Connect(function(input)  -- Enum.KeyCode.${s.ev.key}`, chat: `player.Chatted:Connect(function(message)  -- contains ${q(s.ev.text)}`,
     click: `StarterGui.${nm(doc.gui, s.ev.gui, 'Button')}.MouseButton1Click:Connect(function()`, remote: `${rem(s.ev.rem)}.${client ? 'OnClientEvent' : 'OnServerEvent'}:Connect(function(player)`,
     tooluse: `${s.ev.tl ? 'StarterPack.' + toolLabel(s.ev.tl, doc).replace(/\s+/g, '') : 'tool'}.Activated:Connect(function()`,
@@ -4049,9 +4119,17 @@ function scriptPreview(s, doc) {
     ifname: `if not table.find({${nameList(a.text).map(n => q(n)).join(', ')}}, player.Name:lower()) then return end`, ifteam: `if player.Team ~= Teams.${teamName(a.team, doc)} then return end`,
     setteam: `player.Team = Teams.${teamName(a.team, doc)}`, flight: `setFlying(player, ${q(a.v)}, ${a.num})  -- WASD + Space up, C down`,
     tpto: `character:MoveTo(Players[${q(a.text)}].Character.PrimaryPart.Position)`, kick: `player:Kick(${q(a.text)})`, respawn: 'player:LoadCharacter()',
-    win: `celebrate(${q(a.text)})`, wait: `wait(${a.num})`
+    win: `celebrate(${q(a.text)})`, wait: `wait(${a.num})`,
+    cc: `TweenService:Create(Lighting.ColorCorrection, TweenInfo.new(${a.fade}), {TintColor = ${q(a.tint)}, Brightness = ${a.bright}, Contrast = ${a.contrast}, Saturation = ${a.sat}}):Play()${a.hue ? '  -- hue ' + a.hue : ''}${a.blur ? '  -- blur ' + a.blur : ''}${a.num > 0 ? '  -- for ' + a.num + 's' : ''}`,
+    ccoff: `TweenService:Create(Lighting.ColorCorrection, TweenInfo.new(${a.fade}), {Enabled = false}):Play()`, shake: `shakeCamera(${a.num}, ${a.last})`,
+    repeat: `for i = 1, ${a.num} do ${brName(s, a.br)}(player) task.wait(${a.every}) end`,
+    setvar: `values[${q(a.var)}] = ${a.num}`, addvar: `values[${q(a.var)}] += ${a.num}`,
+    ifvar: `if not (values[${q(a.var)}] ${({ 'at least': '>=', 'at most': '<=', 'equal to': '==', 'not equal to': '~=' })[a.op]} ${a.num}) then return end`,
+    ifground: `if humanoid.FloorMaterial ${a.v === 'in the air' ? '~=' : '=='} Enum.Material.Air then return end`, ifkey: `if not UserInputService:IsKeyDown(Enum.KeyCode.${a.key}) then return end`,
+    ifhp: `if not (humanoid.Health ${a.op === 'below' ? '<' : '>='} ${a.num}) then return end`, stophold: 'stopHolding()  -- ends it now (undoes what the Holding did)', end: 'return'
   })[a.a] || '-- ?';
-  const line = a => line0(a) + (a.rod === 'yes' ? '  -- removed on death' : '');
+  const undoable = ['speed', 'jump', 'gravity', 'fov', 'tool', 'addfx', 'emote', 'flight', 'cc'];
+  const line = a => line0(a) + (a.rod === 'yes' ? '  -- removed on death' : '') + (s.e === 'hold' && undoable.includes(a.a) ? '  -- undone when you let go' : '');
   const body = (s.acts.length ? s.acts.map(a => '    ' + line(a)) : ['    -- add actions below']);
   const brs = (s.branches || []).map((b, i) => `local function ${brName(s, i + 1)}(${b.on === 'target' ? 'enemy' : 'player'})  -- branch, runs on ${b.on === 'target' ? 'the enemy (the player it targets)' : 'this player'}\n${(b.acts.length ? b.acts.map(a => '    ' + line(a)) : ['    -- empty']).join('\n')}\nend\n`).join('');
   if (s.k === 'module') return `-- ${s.n} (ModuleScript in ${svc(s.p)})\n-- runs when another script uses "Run a ModuleScript"\nreturn function(player)\n${body.join('\n')}\nend`;
@@ -4067,10 +4145,31 @@ function guiStyle(el, g) {
   if (g.x != null) { el.style.left = g.x + '%'; el.style.top = g.y + '%'; }
   el.style.width = g.w ? g.w + 'px' : ''; el.style.height = g.h ? g.h + 'px' : '';
 }
+// values ("Set a value" / "Change a value"): per player, shown in text with {v:name}
+const varKey = n => String(n || '').trim().toLowerCase().slice(0, 24);
+const fmtVal = v => { v = Number(v) || 0; return String(Math.round(v * 1000) / 1000); };
+// Color correction: a CSS filter on the 3D view (brightness, contrast, saturation, hue, blur) plus a tint layer on top of it
+const CC = {
+  NONE: { tint: '#ffffff', bright: 1, contrast: 1, sat: 1, hue: 0, blur: 0 }, state: null,
+  set(st, fade) {
+    const gl = $('#gl'); if (!gl) return null;
+    st = st || this.NONE;
+    let el = $('#cc-tint');
+    if (!el) { el = document.createElement('div'); el.id = 'cc-tint'; el.style.cssText = 'position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;background:#ffffff'; gl.after(el); }
+    const t = Math.max(0, fade || 0) + 's';
+    gl.style.transition = 'filter ' + t; el.style.transition = 'background-color ' + t;
+    const none = st === this.NONE || (st.tint === '#ffffff' && st.bright === 1 && st.contrast === 1 && st.sat === 1 && !st.hue && !st.blur);
+    gl.style.filter = none ? '' : `brightness(${st.bright}) contrast(${st.contrast}) saturate(${st.sat}) hue-rotate(${st.hue}deg)${st.blur ? ` blur(${st.blur}px)` : ''}`;
+    el.style.backgroundColor = st.tint || '#ffffff';
+    this.state = none ? null : Object.assign({}, st);
+    return this.state;
+  },
+  reset(fade) { this.set(this.NONE, fade); }
+};
 const Scripts = {
   setup(def) {
     const d = def.place;
-    R.sc = { list: [], jobs: [], touch: new Map(), timers: [], acc: new Map(), fired: new Set(), audio: new Map(), gui: new Map(), clones: [], tw: [], moved: [], last: new Map(), rod: [], doc: d };
+    R.sc = { list: [], jobs: [], touch: new Map(), timers: [], acc: new Map(), fired: new Set(), audio: new Map(), gui: new Map(), clones: [], tw: [], moved: [], last: new Map(), rod: [], holds: new Map(), vars: new Map(), doc: d };
     if (d && scriptUsesPoints(d)) { R.P.stage = 0; updatePlist(); }     // points start at zero (before any GUI shows them)
     this.renderGui(d ? d.gui : []);
     if (!d) return;
@@ -4088,6 +4187,8 @@ const Scripts = {
   },
   teardown() {
     if (!R || !R.sc) return;
+    for (const h of [...R.sc.holds.values()]) this.endHold(h, true);
+    CC.reset(0); R.shake = null;
     for (const el of R.sc.audio.values()) { try { el.pause(); el.src = ''; } catch (e) { /* ignore */ } }
     $('#gamegui').innerHTML = '';
     R.sc = null;
@@ -4097,14 +4198,16 @@ const Scripts = {
   fill(t, ctx) {
     ctx = ctx || {};
     const tm = this.team(R && R.P.team);
-    return String(t || '').replace(/\{name\}/g, S.user).replace(/\{points\}/g, R ? R.P.stage : 0).replace(/\{enemy\}/g, ctx.enemy || '').replace(/\{sender\}/g, ctx.sender || S.user).replace(/\{team\}/g, tm ? tm.n : '');
+    const vars = R && R.sc ? R.sc.vars : null;
+    return String(t || '').replace(/\{v:([^{}]{1,24})\}/g, (m, n) => fmtVal(vars && vars.get(varKey(n))))
+      .replace(/\{name\}/g, S.user).replace(/\{points\}/g, R ? R.P.stage : 0).replace(/\{enemy\}/g, ctx.enemy || '').replace(/\{sender\}/g, ctx.sender || S.user).replace(/\{team\}/g, tm ? tm.n : '');
   },
   team(id) { return R && R.sc && R.sc.doc ? (R.sc.doc.teams || []).find(t => t.id === id) || null : null; },
   online() { return Net.status === 'online' && Net.v >= 4; },
   fire(type, test) { if (!R || !R.sc) return; for (const s of R.sc.list) if (s.e === type && (!test || test(s))) this.run(s); },
-  run(s, ctx) {
+  run(s, ctx, noCd) {
     const sc = R.sc;
-    if (s.cd > 0) { const t = sc.last.get(s.id); if (t != null && R.time - t < s.cd) return; sc.last.set(s.id, R.time); }   // cooldown (debounce)
+    if (s.cd > 0 && !noCd) { const t = sc.last.get(s.id); if (t != null && R.time - t < s.cd) return; sc.last.set(s.id, R.time); }   // cooldown (debounce)
     ctx = Object.assign({ srv: s.side !== 'client', all: false }, ctx || {}, { script: s });
     if (sc.jobs.length < 60 && s.acts.length) sc.jobs.push({ acts: s.acts.slice(), i: 0, wait: 0, req: 0, ctx });
   },
@@ -4150,7 +4253,39 @@ const Scripts = {
     this.setTeam(pick ? pick.id : 0, true);
   },
   onWelcome() { if (R && R.sc) this.pickTeam(); },
-  onDie() { this.fire('die'); },
+  onDie() { if (R && R.sc) for (const h of [...R.sc.holds.values()]) if (h.s.ev.rod !== 'no') this.endHold(h); this.fire('die'); },
+  /* ---------- Holding: runs while a key is held. Changes it makes (speed, jump, FOV, effects, color correction...) are undone when you let go ---------- */
+  keyName(code) { return /^Key[A-Z]$/.test(code) ? code.slice(3) : code === 'Space' ? 'Space' : /^Shift/.test(code) ? 'Shift' : null; },
+  isHeld(k) { return k === 'Shift' ? !!(keys.ShiftLeft || keys.ShiftRight) : k === 'Space' ? !!(keys.Space || jumpHeld) : !!keys['Key' + k]; },
+  startHold(s, touch) {
+    const sc = R.sc; if (!sc || sc.holds.has(s.id) || !R.P.alive) return;
+    if (s.cd > 0) { const t = sc.last.get(s.id); if (t != null && R.time - t < s.cd) return; sc.last.set(s.id, R.time); }
+    const h = { s, t: 0, acc: 0, undo: [], touch: !!touch, ended: false };
+    sc.holds.set(s.id, h);
+    this.run(s, { hold: h }, true);
+  },
+  endHold(h, quiet) {
+    const sc = R && R.sc; if (!sc || !h || h.ended) return;
+    h.ended = true; sc.holds.delete(h.s.id);
+    for (let i = sc.jobs.length - 1; i >= 0; i--) if (sc.jobs[i].ctx && sc.jobs[i].ctx.hold === h) { sc.jobs[i].i = sc.jobs[i].acts.length; sc.jobs.splice(i, 1); }
+    for (let i = h.undo.length - 1; i >= 0; i--) { try { h.undo[i](); } catch (e) { /* ignore */ } }
+    h.undo = [];
+    if (!quiet && h.s.ev.endbr === 'yes' && h.s.ev.br) this.runBranch({ srv: h.s.side !== 'client', all: false, script: h.s }, h.s.ev.br);
+  },
+  updateHolds(dt) {
+    const sc = R.sc;
+    for (const h of [...sc.holds.values()]) {
+      const ev = h.s.ev; h.t += dt;
+      if ((!h.touch && !this.isHeld(ev.key)) || (ev.num > 0 && h.t >= ev.num) || R.menuOpen) { this.endHold(h); continue; }
+      if (ev.every > 0) { h.acc += dt; while (h.acc >= Math.max(0.05, ev.every)) { h.acc -= Math.max(0.05, ev.every); this.run(h.s, { hold: h }, true); } }
+    }
+  },
+  // something that can be taken back: when you let go of a Holding and/or when you die ("Remove on death")
+  undoable(ctx, rod, fn) {
+    let done = false; const once = () => { if (!done) { done = true; fn(); } };
+    if (ctx && ctx.hold && !ctx.hold.ended) ctx.hold.undo.push(once);
+    if (rod) this.onDeathUndo(once);
+  },
   // "Remove on death": undo these when the player respawns
   onDeathUndo(fn) { if (R && R.sc) R.sc.rod.push(fn); },
   onRespawn() { const sc = R && R.sc; if (!sc) return; const list = sc.rod.splice(0); for (let i = list.length - 1; i >= 0; i--) { try { list[i](); } catch (e) { /* ignore */ } } },
@@ -4170,8 +4305,8 @@ const Scripts = {
     return any;
   },
   onKey(code) {
-    const k = /^Key[A-Z]$/.test(code) ? code.slice(3) : code === 'Space' ? 'Space' : /^Shift/.test(code) ? 'Shift' : null;
-    if (k) this.fire('key', s => s.ev.key === k);
+    const k = this.keyName(code);
+    if (k) { this.fire('key', s => s.ev.key === k); if (R && R.sc) for (const s of R.sc.list) if (s.e === 'hold' && s.ev.key === k) this.startHold(s); }
   },
   onHost() { if (R && R.sc) R.sc.acc.clear(); },
   part(id) { return R.world.byId ? R.world.byId.get(id) : null; },
@@ -4190,6 +4325,7 @@ const Scripts = {
         if (a >= n) { sc.acc.set(s.id, a - n); this.run(s, { srv: server, all: server }); } else sc.acc.set(s.id, a);
       }
     }
+    this.updateHolds(dt); if (!R || !R.sc) return;
     for (let i = sc.timers.length - 1; i >= 0; i--) { const t = sc.timers[i]; t.t -= dt; if (t.t <= 0) { sc.timers.splice(i, 1); t.fn(); } }
     let budget = 300;
     for (let j = sc.jobs.length - 1; j >= 0; j--) {
@@ -4202,6 +4338,12 @@ const Scripts = {
         else if (a.a === 'chance') { if (Math.random() * 100 >= a.num) job.i = job.acts.length; }
         else if (a.a === 'ifname') { if (!nameList(this.fill(a.text, job.ctx)).includes(S.user.toLowerCase())) job.i = job.acts.length; }
         else if (a.a === 'ifteam') { if ((R.P.team || 0) !== a.team) job.i = job.acts.length; }
+        else if (a.a === 'ifvar') { const v = sc.vars.get(varKey(a.var)) || 0, ok = { 'at least': v >= a.num, 'at most': v <= a.num, 'equal to': v === a.num, 'not equal to': v !== a.num }[a.op]; if (!ok) job.i = job.acts.length; }
+        else if (a.a === 'ifground') { if (P.onGround !== (a.v !== 'in the air')) job.i = job.acts.length; }
+        else if (a.a === 'ifkey') { if (!this.isHeld(a.key)) job.i = job.acts.length; }
+        else if (a.a === 'ifhp') { if (a.op === 'below' ? !(P.health < a.num) : !(P.health >= a.num)) job.i = job.acts.length; }
+        else if (a.a === 'end') job.i = job.acts.length;
+        else if (a.a === 'stophold') { job.i = job.acts.length; if (job.ctx.hold) this.endHold(job.ctx.hold); }
         else if (a.a === 'chatif') {
           const msg = job.ctx.msg || '', pre = String(a.text || '');
           if (pre && msg.toLowerCase().startsWith(pre.toLowerCase())) { const tg = this.targetsFrom(msg.slice(pre.length)); this.runBranch(Object.assign({}, job.ctx, { enemy: tg.length ? tg[0].name : '' }), a.br, tg); }
@@ -4212,7 +4354,7 @@ const Scripts = {
         } else this.exec(a, job.ctx);
         if (!R || !R.sc) return;
       }
-      if (job.i >= job.acts.length && R.sc) sc.jobs.splice(sc.jobs.indexOf(job), 1);
+      if (job.i >= job.acts.length && R.sc) { const ix = sc.jobs.indexOf(job); if (ix >= 0) sc.jobs.splice(ix, 1); }
     }
     for (let i = sc.clones.length - 1; i >= 0; i--) { const c = sc.clones[i]; c.life -= dt; if (c.life <= 0) { this.removeClone(c); sc.clones.splice(i, 1); } }
   },
@@ -4233,14 +4375,14 @@ const Scripts = {
       case 'hint': showHint(this.fill(a.text, ctx), 4500); break;
       case 'announce': chatAdd(esc(this.fill(a.text, ctx)), 'sys'); break;
       case 'points': this.addPoints(a.num); break;
-      case 'tool': { const had = R.bp && R.bp.includes(a.tool); Tools.give(a.tool); if (a.rod === 'yes' && !had) this.onDeathUndo(() => Tools.take(a.tool)); break; }
+      case 'tool': { const had = R.bp && R.bp.includes(a.tool); Tools.give(a.tool); if (!had) this.undoable(ctx, a.rod === 'yes', () => Tools.take(a.tool)); break; }
       case 'tp': { const p = this.part(a.part); if (p && P.alive) { Object.assign(P, { x: (p.x0 + p.x1) / 2, y: p.y1 + 0.05, z: (p.z0 + p.z1) / 2, vx: 0, vy: 0, vz: 0, kx: 0, kz: 0 }); R.cam.fx = P.x; R.cam.fz = P.z; R.cam.fy = P.y + 4.8; } break; }
       case 'heal': if (P.alive) { P.health = clamp(P.health + a.num, 0, 100); updateHealth(); Net.send({ t: 'heal', d: Math.round(clamp(a.num, -100, 100)) }); if (P.health <= 0) die(); } break;
       case 'kill': die(); break;
-      case 'speed': { const was = P.walk; P.walk = clamp(a.num, 0, 100); if (a.rod === 'yes') this.onDeathUndo(() => { P.walk = was; }); break; }
-      case 'jump': { const was = P.jump; P.jump = clamp(a.num, 0, 250); if (a.rod === 'yes') this.onDeathUndo(() => { P.jump = was; }); break; }
-      case 'gravity': { const was = P.gravS; P.gravS = clamp(a.num, 0, 1000) / PHYS.G; if (a.rod === 'yes') this.onDeathUndo(() => { P.gravS = was; }); break; }
-      case 'fov': { const was = R.fov; R.fov = clamp(a.num, 20, 120); resize(); if (a.rod === 'yes') this.onDeathUndo(() => { R.fov = was; resize(); }); break; }
+      case 'speed': { const was = P.walk; P.walk = clamp(a.num, 0, 100); this.undoable(ctx, a.rod === 'yes', () => { P.walk = was; }); break; }
+      case 'jump': { const was = P.jump; P.jump = clamp(a.num, 0, 250); this.undoable(ctx, a.rod === 'yes', () => { P.jump = was; }); break; }
+      case 'gravity': { const was = P.gravS; P.gravS = clamp(a.num, 0, 1000) / PHYS.G; this.undoable(ctx, a.rod === 'yes', () => { P.gravS = was; }); break; }
+      case 'fov': { const was = R.fov; R.fov = clamp(a.num, 20, 120); resize(); this.undoable(ctx, a.rod === 'yes', () => { if (R) { R.fov = was; resize(); } }); break; }
       case 'respawn': setTimeout(() => { if (R) respawn(); }, 0); break;
       case 'hide': this.hide(this.part(a.part), a.num); break;
       case 'show': this.show(this.part(a.part)); break;
@@ -4259,7 +4401,7 @@ const Scripts = {
       case 'explode': Tools.scriptBoom(a, ctx); break;
       case 'runbr': if (ctx.script) this.runBranch(ctx, a.br); break;
       case 'setteam': this.setTeam(a.team); break;
-      case 'flight': { const on = a.v === 'toggle' ? !P.fly : a.v === 'on'; P.fly = on && P.alive ? { sp: clamp(a.num || 40, 5, 300) } : null; if (on) P.vy = 0; break; }
+      case 'flight': { const on = a.v === 'toggle' ? !P.fly : a.v === 'on'; P.fly = on && P.alive ? { sp: clamp(a.num || 40, 5, 300) } : null; if (on) { P.vy = 0; if (ctx.hold) this.undoable(ctx, false, () => { P.fly = null; }); } break; }
       case 'tpto': {
         const n = this.fill(a.text, ctx).trim().toLowerCase(); if (!n || !P.alive || n === S.user.toLowerCase()) break;
         const rp = [...R.remote.values()].find(r => r.name.toLowerCase() === n) || [...R.remote.values()].find(r => r.name.toLowerCase().startsWith(n));
@@ -4270,17 +4412,34 @@ const Scripts = {
       case 'damage': if (P.alive && a.num > 0) Tools.applyDamage(a.num, null, null); break;
       case 'setpts': P.stage = Math.max(0, Math.round(a.num)); updatePlist(); this.refreshGui(); break;
       case 'emote': if (P.alive) {
-        if (a.id) { ANIMS.play(P, a.id, a.sp); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'panim', id: a.id, sp: a.sp || 1 } }); if (a.rod === 'yes') this.onDeathUndo(() => { ANIMS.stop(P); Net.send({ t: 'sx', a: { a: 'pstop' } }); }); }      // everyone sees it
+        if (a.id) { ANIMS.play(P, a.id, a.sp); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'panim', id: a.id, sp: a.sp || 1 } }); if (a.rod === 'yes' || ctx.hold) this.undoable(ctx, a.rod === 'yes', () => { ANIMS.stop(P); Net.send({ t: 'sx', a: { a: 'pstop' } }); }); }      // everyone sees it
         else if (['wave', 'dance', 'cheer'].includes(a.v)) { P.emote = a.v; P.emoteT = 0; } else Tools.act(a.v, ({ slash: 0.28, lunge: 0.55, drink: 1.3, shoot: 0.25, build: 0.35 })[a.v] || 0.3);
       } break;
       case 'stopanim': ANIMS.stop(P); P.emote = null; if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pstop' } }); break;
       case 'addfx': if (FX.effect(a.fx)) {
         const em = FX.forChar(R.me, a.fx, Math.max(0, a.num)); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfx', fx: a.fx, num: Math.max(0, a.num) } });
-        if (a.rod === 'yes' && em) this.onDeathUndo(() => { em.stop(); Net.send({ t: 'sx', a: { a: 'pfxstop', fx: a.fx } }); });
+        if (em && (a.rod === 'yes' || ctx.hold)) this.undoable(ctx, a.rod === 'yes', () => { em.stop(); Net.send({ t: 'sx', a: { a: 'pfxstop', fx: a.fx } }); });
       } break;
       case 'clearfx': FX.clearChar(R.me); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfxoff' } }); break;
       case 'sfx': Sfx.play(a.v); break;
       case 'win': confetti(P.x, P.y + 4, P.z, 50); Sfx.play('win'); showMsg(this.fill(a.text || 'You win!', ctx), 5000); break;
+      case 'cc': {
+        const was = CC.state, fade = clamp(a.fade, 0, 30);
+        const mine = CC.set({ tint: a.tint, bright: clamp(a.bright, 0, 5), contrast: clamp(a.contrast, 0, 5), sat: clamp(a.sat, 0, 5), hue: clamp(a.hue, -360, 360), blur: clamp(a.blur, 0, 30) }, fade);
+        const back = () => { if (CC.state === mine) CC.set(was, fade); };
+        if (a.num > 0) R.sc.timers.push({ t: a.num, fn: back });
+        this.undoable(ctx, a.rod === 'yes', back);
+        break;
+      }
+      case 'ccoff': CC.reset(clamp(a.fade, 0, 30)); break;
+      case 'shake': R.shake = { t: clamp(a.last, 0, 10), str: clamp(a.num, 0, 10) }; break;
+      case 'repeat': {
+        const n = Math.round(clamp(a.num, 0, 100)), ev = clamp(a.every, 0, 60); if (!ctx.script || !a.br) break;
+        for (let i = 0; i < n; i++) { if (i === 0 || ev <= 0) { if (i < 20) this.runBranch(ctx, a.br); } else R.sc.timers.push({ t: ev * i, fn: () => this.runBranch(ctx, a.br) }); }
+        break;
+      }
+      case 'setvar': R.sc.vars.set(varKey(a.var), a.num); this.refreshGui(); break;
+      case 'addvar': { const k = varKey(a.var); R.sc.vars.set(k, Math.round(((R.sc.vars.get(k) || 0) + a.num) * 1000) / 1000); this.refreshGui(); break; }
       default: break;
     }
   },
@@ -4349,10 +4508,10 @@ const Scripts = {
   },
   hide(p, secs) {
     if (!p) return;
-    if (!p.hidden) { p.hidden = true; p.wasCollide = p.collide; p.collide = false; if (p.mesh) p.mesh.visible = false; }
+    if (!p.hidden) { p.hidden = true; p.wasCollide = p.collide; p.collide = false; (p.slices || []).forEach(s => { s.collide = false; }); if (p.mesh) p.mesh.visible = false; }
     if (secs > 0) R.sc.timers.push({ t: secs, fn: () => this.show(p) });
   },
-  show(p) { if (p && p.hidden) { p.hidden = false; p.collide = p.wasCollide !== false; if (p.mesh) p.mesh.visible = !(p.mk && p.mk.t != null && p.mk.t <= 0.001); } },
+  show(p) { if (p && p.hidden) { p.hidden = false; p.collide = p.wasCollide !== false; (p.slices || []).forEach(s => { s.collide = s.solid !== false; }); if (p.mesh) p.mesh.visible = !(p.mk && p.mk.t != null && p.mk.t <= 0.001); } },
   clone(storeId, secs) {
     const q = (R.sc.doc.storage || []).find(x => x.id === storeId); if (!q) return;
     const have = R.sc.clones.find(c => c.sid === storeId);
@@ -4384,16 +4543,18 @@ const Scripts = {
     }
   },
   renderKeys() {                                                    // phones and tablets get buttons for the keys scripts listen to
-    const used = [...new Set(R.sc.list.filter(s => s.e === 'key' && s.ev.key !== 'Space').map(s => s.ev.key))].slice(0, 6); if (!used.length) return;
+    const used = [...new Set(R.sc.list.filter(s => (s.e === 'key' || s.e === 'hold') && s.ev.key !== 'Space').map(s => s.ev.key))].slice(0, 6); if (!used.length) return;
     const h = document.createElement('div'); h.className = 'gkeys';
     for (const k of used) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'gkey'; b.textContent = k;
-      b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); Sfx.init(); this.fire('key', s => s.ev.key === k); });
+      b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); Sfx.init(); this.fire('key', s => s.ev.key === k); if (R && R.sc) R.sc.list.forEach(s => { if (s.e === 'hold' && s.ev.key === k) this.startHold(s, true); }); });
+      const up = () => { if (R && R.sc) for (const h of [...R.sc.holds.values()]) if (h.touch && h.s.ev.key === k) this.endHold(h); };
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => b.addEventListener(n, up));
       h.appendChild(b);
     }
     $('#gamegui').appendChild(h);
   },
-  refreshGui() { if (R && R.sc) for (const el of R.sc.gui.values()) if (/\{(points|name)\}/.test(el.dataset.tpl || '')) el.textContent = this.fill(el.dataset.tpl); }
+  refreshGui() { if (R && R.sc) for (const el of R.sc.gui.values()) if (/\{(points|name|v:[^{}]+)\}/.test(el.dataset.tpl || '')) el.textContent = this.fill(el.dataset.tpl); }
 };
 
 /* ====================== runtime state ====================== */
@@ -5026,6 +5187,11 @@ function updateCam(dt) {
   if (hit < d + 0.5) d = Math.max(0.55, hit - 0.5);
   R.camera.position.set(fx + dx * d, C.fy + dy * d, fz + dz * d);
   R.camera.lookAt(fx, C.fy, fz);
+  if (R.shake) {                                                   // "Shake the camera" from a script
+    R.shake.t -= dt; const k = R.shake.str * Math.min(1, Math.max(0, R.shake.t) * 4) * 0.35;
+    R.camera.position.x += (Math.random() - 0.5) * k; R.camera.position.y += (Math.random() - 0.5) * k; R.camera.position.z += (Math.random() - 0.5) * k;
+    if (R.shake.t <= 0) R.shake = null;
+  }
   R.fp = d < 1.5;
 }
 function sendState(dt) {
@@ -5243,7 +5409,7 @@ function initGameUI() {
     if (e.code === 'Tab') { $('#plist').classList.toggle('hide'); e.preventDefault(); return; }
     const dg = /^Digit(\d)$/.exec(e.code); if (dg && R.bp && R.bp.length) { Tools.equip((+dg[1] + 9) % 10); e.preventDefault(); return; }
     if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
-    if (!e.repeat && (e.code === 'ShiftLeft' || e.code === 'ShiftRight') && R.allowShiftLock && !(R.sc && R.sc.list.some(s => s.e === 'key' && s.ev.key === 'Shift'))) setShiftLock(!R.shiftLock);
+    if (!e.repeat && (e.code === 'ShiftLeft' || e.code === 'ShiftRight') && R.allowShiftLock && !(R.sc && R.sc.list.some(s => (s.e === 'key' || s.e === 'hold') && s.ev.key === 'Shift'))) setShiftLock(!R.shiftLock);
     if (!e.repeat) Scripts.onKey(e.code);
     keys[e.code] = true; Sfx.init();
     $('#game').classList.remove('touchmode');
@@ -5645,7 +5811,7 @@ function viewCatalog(kind) {
     </aside>
     <section class="col-main"><div class="box"><h2>${esc(title)}${q ? ` matching "${esc(q)}"` : ''} <span class="small">${list.length} item${list.length === 1 ? '' : 's'}</span></h2>
       <div class="in igrid">${list.length ? list.map(icard).join('') : '<div class="empty" style="grid-column:1/-1">Nothing here yet. Be the first to create one!</div>'}</div></div>
-      <div class="box"><div class="in muted small">${Cloud.enabled ? 'Items you publish are shared with everyone on Cartblox.' : 'Online sharing is not set up here, so items you create stay in this browser.'} Wearing items is free. Uploading your own costs ${PRICES.itemRbx} Robux or ${PRICES.itemTix} Tix (see <a href="#/money">My Money</a>).</div></div>
+      <div class="box"><div class="in muted small">${Cloud.enabled ? 'Items you publish are shared with everyone on Cartblox.' : 'Online sharing is not set up here, so items you create stay in this browser.'} Wearing items is free. Uploading your own costs ${PRICES.itemRbx} Robux or ${PRICES.itemTix} Tix, and T-shirts are free (see <a href="#/money">My Money</a>).</div></div>
     </section>
   </div>`;
 }
@@ -5932,7 +6098,7 @@ async function publish2D() {
   if (name.length < 3) { $('#ed-name').focus(); return dialog({ title: BRAND, html: '<p>Please give your item a name (at least 3 letters).</p>' }); }
   const png = E.art.toDataURL('image/png');
   if (png.length > 800000) return dialog({ title: BRAND, html: '<p>This picture is too detailed to publish (the limit is about 600 KB). Try a smaller or simpler image.</p>' });
-  const up = await askUpload({ what: K.label.toLowerCase(), name: null });
+  const up = await askUpload({ what: K.label.toLowerCase(), name: null, free: E.kind === 'tshirt' });
   if (!up) return;
   if (!Wallet.spend(up.pay)) return dialog({ title: BRAND, html: '<p>You do not have enough money for that.</p>' });
   const th = (() => { const c = mkCanvasN(96, 120), x = c.getContext('2d'), o = { side: 'front' }; if (E.kind === 'shirt') o.shirt = E.art; if (E.kind === 'pants') o.pants = E.art; if (E.kind === 'tshirt') o.tshirt = E.art; dollFace(x, 96, 120, DEFAULT_COLORS, o, E.kind === 'face' ? E.art : Items.peek('b_face_smile').img); return c.toDataURL('image/png'); })();
@@ -6004,8 +6170,20 @@ const CB_SCRIPTS = [
     s: { n: 'SuperJump', e: 'start', ev: {}, acts: [{ a: 'jump', num: 115 }, { a: 'hint', text: 'Super jump is on!' }] } },
   { id: 'launch', n: 'Q to Launch Up', icon: '&#128640;', desc: 'Press Q to blast straight up into the air.',
     s: { n: 'LaunchUp', e: 'key', ev: { key: 'Q' }, cd: 2, acts: [{ a: 'velocity', x: 0, y: 110, z: 0, num: 0.2, rel: 'world', track: 'no', fade: 0.25 }, { a: 'sfx', v: 'bounce' }] } },
-  { id: 'sprint', n: 'Shift to Sprint', icon: '&#127939;', desc: 'Press Shift to run fast for 3 seconds.',
-    s: { n: 'Sprint', e: 'key', ev: { key: 'Shift' }, cd: 6, acts: [{ a: 'speed', num: 30 }, { a: 'hint', text: 'Sprinting!' }, { a: 'wait', num: 3 }, { a: 'speed', num: 16 }] } },
+  { id: 'sprint', n: 'Hold Shift to Sprint', icon: '&#127939;', desc: 'Hold Shift to run fast. Let go and you walk normally again.',
+    s: { n: 'Sprint', e: 'hold', ev: { key: 'Shift', num: 0, every: 0, endbr: 'no', rod: 'yes' }, acts: [{ a: 'speed', num: 30 }, { a: 'fov', num: 80 }] } },
+  { id: 'holdfly', n: 'Hold F to Fly', icon: '&#129413;', desc: 'Hold F to fly for up to 5 seconds. When it ends, a branch says you are tired.',
+    s: { n: 'HoldFly', e: 'hold', ev: { key: 'F', num: 5, every: 0, endbr: 'yes', br: 1, rod: 'yes' }, cd: 1, acts: [{ a: 'flight', v: 'on', num: 45 }],
+      branches: [{ n: 'Tired', on: 'me', acts: [{ a: 'hint', text: 'Phew, flying is tiring!' }] }] } },
+  { id: 'nightvision', n: 'Hold N for Night Vision', icon: '&#128064;', desc: 'Hold N to see in the dark with green color correction (only you see it).',
+    s: { n: 'NightVision', side: 'client', e: 'hold', ev: { key: 'N', num: 0, every: 0, endbr: 'no', rod: 'yes' }, acts: [{ a: 'cc', tint: '#9cff9c', bright: 1.8, contrast: 1.2, sat: 0.2, hue: 0, blur: 0, fade: 0.2, num: 0 }, { a: 'sfx', v: 'click' }] } },
+  { id: 'rapidfire', n: 'Hold R for Rapid Fire', icon: '&#128299;', desc: 'Hold R to shoot a ball 4 times a second, with a little camera shake.',
+    s: { n: 'RapidFire', e: 'hold', ev: { key: 'R', num: 0, every: 0.25, endbr: 'no', rod: 'yes' }, acts: [{ a: 'emote', v: 'shoot' }, { a: 'shoot', dmg: 8, sp: 160, size: 0.6, c: '#f5cd30', drop: 'no' }, { a: 'shake', num: 0.6, last: 0.15 }, { a: 'sfx', v: 'sling' }] } },
+  { id: 'hurtfx', n: 'Low Health Effect', icon: '&#10084;', desc: 'When you get hurt below 30 health, the screen goes red and grey for 2 seconds.',
+    s: { n: 'LowHealth', side: 'client', e: 'timer', ev: { num: 1 }, cd: 3, acts: [{ a: 'ifhp', op: 'below', num: 30 }, { a: 'cc', tint: '#ff9a9a', bright: 1, contrast: 1.1, sat: 0.3, hue: 0, blur: 0, fade: 0.3, num: 2, rod: 'yes' }] } },
+  { id: 'coins', n: 'Coin Counter (values)', icon: '&#128176;', desc: 'Touch the part to add 1 to a value called coins and show it. Uses Set a value / Change a value and {v:coins}.',
+    parts: { a: LP('CoinPad', 'block', [0, 0.3, 0], [4, 0.6, 4], '#f5cd30') },
+    s: { n: 'CoinCounter', e: 'touch', ev: { part: 'a' }, cd: 0.5, acts: [{ a: 'addvar', var: 'coins', num: 1 }, { a: 'hint', text: 'Coins: {v:coins}' }, { a: 'ifvar', var: 'coins', op: 'at least', num: 10 }, { a: 'win', text: '10 coins, {name}!' }] } },
   { id: 'fireball', n: 'F for Fireball', icon: '&#128293;', desc: 'Press F to throw a fireball where you aim.',
     s: { n: 'Fireball', e: 'key', ev: { key: 'F' }, cd: 0.8, acts: [{ a: 'emote', v: 'shoot' }, { a: 'shoot', dmg: 20, sp: 140, size: 1.6, c: '#ff6a00', drop: 'no' }, { a: 'sfx', v: 'rocket' }] } },
   { id: 'slam', n: 'G for Ground Slam', icon: '&#128165;', desc: 'Press G to jump, slam down and blast everyone nearby.',
@@ -6117,7 +6295,7 @@ const ICONS = {
 };
 const MENUS_PLACE = {
   File: [['New Place', 'act:new'], ['Open Place...', 'act:open'], ['Save Place', 'act:save', 'Ctrl+S'], ['Game Settings...', 'act:settings'], ['Save a Copy...', 'act:saveas'], '-', ['Export to Text...', 'act:export'], ['Import from Text...', 'act:import'], '-', ['Exit CartStudio', 'act:exit']],
-  Edit: [['Undo', 'act:undo', 'Ctrl+Z'], ['Redo', 'act:redo', 'Ctrl+Y'], '-', ['Duplicate', 'act:dup', 'Ctrl+D'], ['Delete', 'act:del', 'Del'], ['Rotate 90 degrees', 'act:rot90', 'Ctrl+R'], '-', ['Save Selection as Model...', 'act:savemodel'], ['Move to ServerStorage', 'act:tostorage']],
+  Edit: [['Undo', 'act:undo', 'Ctrl+Z'], ['Redo', 'act:redo', 'Ctrl+Y'], '-', ['Cut', 'act:cut', 'Ctrl+X'], ['Copy', 'act:copy', 'Ctrl+C'], ['Paste', 'act:paste', 'Ctrl+V'], ['Duplicate', 'act:dup', 'Ctrl+D'], ['Delete', 'act:del', 'Del'], ['Select All', 'act:selall', 'Ctrl+A'], '-', ['Turn 90 degrees', 'act:rot90', 'Ctrl+R'], ['Tilt 90 degrees (up/down)', 'act:tilt90', 'Ctrl+E'], ['Tilt 15 degrees (ramp)', 'act:tilt15', 'Shift+E'], ['Straighten (reset turning)', 'act:unrot'], '-', ['Save Selection as Model...', 'act:savemodel'], ['Move to ServerStorage', 'act:tostorage']],
   View: [['Toolbox', 'pan:left'], ['Explorer and Properties', 'pan:right'], ['Output', 'pan:output'], ['GUI on screen', 'act:togglegui'], '-', ['Focus on Selection', 'act:focus', 'F']],
   Insert: [['Block', 'ins:block'], ['Ball', 'ins:ball'], ['Cylinder', 'ins:cylinder'], ['Wedge', 'ins:wedge'], ['Cone', 'ins:cone'], ['Pyramid', 'ins:pyramid'], ['Torus', 'ins:torus'], '-', ['Spawn Location', 'ins:@spawn'], ['Checkpoint', 'ins:@check'], ['Kill Brick', 'ins:@kill'], ['Bounce Pad', 'ins:@bounce'], '-', ['Script', 'act:newobj:script:sss'], ['LocalScript', 'act:newobj:local:sss'], ['ModuleScript', 'act:newobj:module:rs'], ['RemoteEvent', 'act:newobj:remote:rs'], ['Tool (StarterPack)', 'act:newtool'], '-', ['TextLabel (GUI)', 'act:newlabel'], ['TextButton (GUI)', 'act:newbutton']],
   Format: [['Lighting...', 'act:lighting'], ['Sky: Day', 'env:day'], ['Sky: Sunset', 'env:dusk'], ['Sky: Night', 'env:night'], ['Sky: Overcast', 'env:overcast'], '-', ['Snap to Grid on/off', 'act:snap']],
@@ -6127,12 +6305,13 @@ const MENUS_PLACE = {
 };
 const MENUS_ITEM = {
   File: [['Publish Item...', 'act:publish'], ['Clear All Parts', 'act:clear'], '-', ['Exit', 'act:exit']],
-  Edit: [['Undo', 'act:undo', 'Ctrl+Z'], ['Redo', 'act:redo', 'Ctrl+Y'], '-', ['Duplicate', 'act:dup', 'Ctrl+D'], ['Mirror Copy', 'act:mirror'], ['Delete', 'act:del', 'Del']],
+  Edit: [['Undo', 'act:undo', 'Ctrl+Z'], ['Redo', 'act:redo', 'Ctrl+Y'], '-', ['Cut', 'act:cut', 'Ctrl+X'], ['Copy', 'act:copy', 'Ctrl+C'], ['Paste', 'act:paste', 'Ctrl+V'], ['Duplicate', 'act:dup', 'Ctrl+D'], ['Mirror Copy', 'act:mirror'], ['Delete', 'act:del', 'Del'], ['Select All', 'act:selall', 'Ctrl+A']],
   View: [['Front', 'cam:front'], ['Back', 'cam:back'], ['Left', 'cam:left'], ['Right', 'cam:right'], ['Top', 'cam:top'], '-', ['Focus on Selection', 'act:focus', 'F']],
   Insert: [['Block', 'ins:block'], ['Ball', 'ins:ball'], ['Cylinder', 'ins:cylinder'], ['Wedge', 'ins:wedge'], ['Cone', 'ins:cone'], ['Pyramid', 'ins:pyramid'], ['Torus', 'ins:torus']],
   Tools: [['Select', 'tool:select', '1'], ['Move', 'tool:translate', '2'], ['Scale', 'tool:scale', '3'], ['Rotate', 'tool:rotate', '4']],
   Help: [['Controls', 'act:help']]
 };
+const normDeg = v => { v = ((Math.round(v) % 360) + 360) % 360; return v > 180 ? v - 360 : v; };   // angles kept between -180 and 180
 function blockGeo(z, studs) {
   const g = new THREE.BoxGeometry(z[0], z[1], z[2]);
   if (studs) { const uv = g.attributes.uv; for (let i = 8; i < 12; i++) uv.setXY(i, uv.getX(i) * z[0], uv.getY(i) * z[2]); }
@@ -6221,6 +6400,12 @@ async function publishBox(o) {
 }
 // Uploading an ITEM costs 50 Robux or 150 Tix. Returns { pay: 'rbx'|'tix', name } or null.
 async function askUpload(o) {
+  if (o.free) {                                                     // T-shirts are free to upload
+    const d = dialog({ title: 'Upload ' + o.what, html: `<p>Uploading a ${esc(o.what)} is <b>free</b>!</p>${o.name != null ? `<div class="fld"><label for="up-name">Name</label><input type="text" id="up-name" maxlength="24" placeholder="Name your item" value="${esc(o.name)}"></div>` : ''}`,
+      buttons: [{ label: 'Upload for free', cls: 'btn-green', value: 'free' }, { label: 'Cancel', value: null }], collect: back => ({ name: o.name != null ? $('#up-name', back).value : null }) });
+    const r = await d.promise; if (!r || !r.v) return null;
+    return { pay: 'free', name: r.x.name };
+  }
   const w = S.wallet, canR = Wallet.can('rbx'), canT = Wallet.can('tix'), none = !canR && !canT;
   const html = `<p>Uploading a ${esc(o.what)} to the Catalog costs <b>${PRICES.itemRbx} Robux</b> or <b>${PRICES.itemTix} Tix</b>.</p>${o.name != null ? `<div class="fld"><label for="up-name">Name</label><input type="text" id="up-name" maxlength="24" placeholder="Name your item" value="${esc(o.name)}"></div>` : ''}
     <p class="muted small">You have <b>${fmt(w.rbx)}</b> Robux and <b>${fmt(w.tix)}</b> Tix.${none ? ' That is not enough yet. You earn 10 Tix every 20 minutes and 10 Robux every 25 minutes of playing, and you can trade Tix for Robux on the My Money page.' : ''}</p>`;
@@ -6233,7 +6418,7 @@ async function askUpload(o) {
   if (r.v === 'money') { if (STUDIO) STUDIO.destroy(); go('money'); return null; }
   return { pay: r.v, name: r.x.name };
 }
-const payText = k => (k === 'rbx' ? PRICES.itemRbx + ' Robux' : PRICES.itemTix + ' Tix');
+const payText = k => (k === 'free' ? 'nothing (T-shirts are free)' : k === 'rbx' ? PRICES.itemRbx + ' Robux' : PRICES.itemTix + ' Tix');
 function placeThumbCfg(doc) {
   let list = doc.parts.filter(p => Math.max(p.z[0], p.z[2]) < 120); if (!list.length) list = doc.parts;
   let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
@@ -6332,8 +6517,8 @@ class Studio {
   applySnap() {
     const tc = this.tc, item = this.mode === 'item';
     const free = item || this.editTool != null;
-    tc.setTranslationSnap(this.snapOn ? (this.editTool != null ? 0.1 : this.snapStep) : null); tc.setRotationSnap(this.snapOn ? (free ? Math.PI / 12 : Math.PI / 2) : null);
-    tc.showX = tc.showZ = !(!free && this.tool === 'rotate'); tc.showY = true;
+    tc.setTranslationSnap(this.snapOn ? (this.editTool != null ? 0.1 : this.snapStep) : null); tc.setRotationSnap(this.snapOn ? Math.PI / 12 : null);   // turn in 15 degree steps
+    tc.showX = tc.showZ = tc.showY = true;
   }
   loop() {
     if (!this.alive) return;
@@ -6417,7 +6602,7 @@ class Studio {
       const d = m.position.clone().sub(this.dragStart.p0);
       for (const [id, p] of this.dragStart.others) { const o = this.part(id); if (o) { o.p = [p[0] + d.x, p[1] + d.y, p[2] + d.z]; this.syncMesh(o); } }
     }
-    if (this.tool === 'rotate') q.r = this.mode === 'place' && !q.tool ? [0, ((Math.round(m.rotation.y / D2R) % 360) + 360) % 360, 0] : [Math.round(m.rotation.x / D2R), Math.round(m.rotation.y / D2R), Math.round(m.rotation.z / D2R)];
+    if (this.tool === 'rotate') q.r = [m.rotation.x, m.rotation.y, m.rotation.z].map(a => normDeg(Math.round(a / D2R)));
     if (this.tool === 'scale') {
       const s = m.scale;
       if (m.userData.zkey != null && this.dragStart) { q.z = this.dragStart.z.map((v, i) => Math.max(0.1, v * [s.x, s.y, s.z][i])); this.syncMesh(q); }
@@ -6469,7 +6654,46 @@ class Studio {
     this.doc.parts = this.doc.parts.filter(p => !ids.includes(p.id)); ids.forEach(id => this.dropMesh(id));
     this.select(null); this.commit(); this.refreshChecks(); this.log(ids.length > 1 ? 'Deleted ' + ids.length + ' parts' : 'Deleted part');
   }
-  rot90() { const q = this.part(); if (!q) return; q.r = [q.r[0], (q.r[1] + 90) % 360, q.r[2]]; this.syncMesh(q); this.helper.setFromObject(this.meshes.get(q.id)); this.fillProps(); this.commit(); }
+  // turning: Ctrl+R turns (around Y), Ctrl+E tilts 90 (around X), Shift+E tilts 15 for ramps. Works on every selected part.
+  turn(axis, deg, abs) {
+    const ids = this.selIds(); if (!ids.length) return this.log('Select a part first.');
+    for (const id of ids) { const q = this.part(id); q.r = abs ? [0, 0, 0] : q.r.map((v, i) => (i === axis ? normDeg(v + deg) : v)); this.syncMesh(q); }
+    const m = this.meshes.get(this.sel); if (m) this.helper.setFromObject(m); this.refreshMulti(); this.fillProps(); this.refreshChecks(); this.commit();
+  }
+  rot90() { this.turn(1, 90); }
+  /* ---------------- clipboard: Ctrl+X / Ctrl+C / Ctrl+V (works between your places too) ---------------- */
+  clipKey() { return this.mode === 'item' ? 'clipItem' : 'clipPlace'; }
+  copy(cut) {
+    const ids = this.selIds(); if (!ids.length) return this.log('Select a part first.');
+    store.set(this.clipKey(), ids.map(id => { const o = JSON.parse(JSON.stringify(this.part(id))); delete o.tool; return o; }));
+    if (cut) { this.del(); this.log('Cut ' + plural(ids.length, 'part') + ' (Ctrl+V pastes)'); } else this.log('Copied ' + plural(ids.length, 'part'));
+  }
+  paste() {
+    const list = store.get(this.clipKey(), []); if (!Array.isArray(list) || !list.length) return this.log('Nothing to paste. Copy (Ctrl+C) or cut (Ctrl+X) something first.');
+    if (this.mode === 'item' && this.doc.parts.length + list.length > 30) return dialog({ title: BRAND, html: '<p>Items can have up to 30 parts.</p>' });
+    const off = this.mode === 'item' ? 0.3 : 2, taken = q => this.doc.parts.some(o => o.p.every((v, i) => Math.abs(v - q.p[i]) < 0.01));
+    const shift = list.some(taken);                                // pasting where the parts already are: move the copy a bit
+    const made = list.map(src => {
+      const q = Object.assign(sanitizePart(src, 0), { id: this.nextId++ });
+      if (shift) q.p = [q.p[0] + off, q.p[1], q.p[2] + off];
+      if (this.editTool != null) q.tool = this.editTool;
+      this.doc.parts.push(q); this.makeMesh(q); return q.id;
+    });
+    this.select(made[0]); made.slice(1).forEach(i => this.multi.add(i)); this.refreshMulti(); this.renderExplorer(); this.commit(); this.refreshChecks();
+    this.log('Pasted ' + plural(made.length, 'part'));
+  }
+  selectAll() {
+    const list = this.doc.parts.filter(p => (this.editTool != null ? p.tool === this.editTool : p.tool == null));
+    if (!list.length) return;
+    this.select(list[0].id); list.slice(1).forEach(p => this.multi.add(p.id)); this.refreshMulti(); this.renderExplorer(); this.log('Selected ' + plural(list.length, 'part'));
+  }
+  nudge(dx, dy, dz) {                                             // arrow keys / PageUp / PageDown move the selection one grid step
+    const ids = this.selIds(); if (!ids.length) return;
+    const st = this.mode === 'item' || this.editTool != null ? 0.1 : (this.snapOn ? this.snapStep : 0.5);
+    for (const id of ids) { const q = this.part(id); q.p = [r2(q.p[0] + dx * st), r2(q.p[1] + dy * st), r2(q.p[2] + dz * st)]; this.syncMesh(q); }
+    const m = this.meshes.get(this.sel); if (m) this.helper.setFromObject(m); this.refreshMulti(); this.fillProps(); this.refreshChecks();
+    clearTimeout(this.nudgeT); this.nudgeT = setTimeout(() => this.alive && this.commit(), 300);
+  }
   setProp(key, val) {
     const q = this.part(); if (!q) return;
     if (key === 'n') q.n = String(val).slice(0, 24) || q.n;
@@ -6481,7 +6705,7 @@ class Studio {
     else if (key === 't') { const v = clamp(Number(val) || 0, 0, 1); if (v > 0) q.t = Math.round(v * 100) / 100; else delete q.t; }
     else if (key === 'dcf') { if (q.dc && DECAL_FACES.some(f => f[0] === val)) q.dc = { img: q.dc.img, f: val }; }
     else if (key === 'st') q.st = val ? 1 : 0;
-    else { const t = key[0], i = +key[1], v = Number(val); if (!Number.isFinite(v)) return this.fillProps(); if (t === 'p') q.p[i] = v; else if (t === 'z') q.z[i] = Math.max(0.1, Math.min(2048, v)); else if (t === 'r') q.r[i] = this.mode === 'place' && i !== 1 && !q.tool ? 0 : v; }
+    else { const t = key[0], i = +key[1], v = Number(val); if (!Number.isFinite(v)) return this.fillProps(); if (t === 'p') q.p[i] = v; else if (t === 'z') q.z[i] = Math.max(0.1, Math.min(2048, v)); else if (t === 'r') q.r[i] = normDeg(v); }
     this.syncMesh(q); const m = this.meshes.get(q.id); if (m) this.helper.setFromObject(m);
     this.fillProps(); this.renderExplorer(); this.refreshChecks(); this.commit();
   }
@@ -6503,7 +6727,7 @@ class Studio {
       <div class="cs-prow"><label>Shape</label><select data-p="s">${SHAPES.map(s => `<option value="${s}">${SHAPE_LABEL[s]}</option>`).join('')}</select></div>
       <div class="cs-prow v3"><label>Position</label>${num('p0', 0.1)}${num('p1', 0.1)}${num('p2', 0.1)}</div>
       <div class="cs-prow v3"><label>Size</label>${num('z0', 0.1)}${num('z1', 0.1)}${num('z2', 0.1)}</div>
-      <div class="cs-prow v3"><label>Rotation</label>${place && !q.tool ? '<input type="number" disabled value="0"><input type="number" data-p="r1" step="90"><input type="number" disabled value="0">' : num('r0', 15) + num('r1', 15) + num('r2', 15)}</div>
+      <div class="cs-prow v3"><label title="X and Z tilt it up/down, Y turns it left/right">Rotation</label>${num('r0', 15) + num('r1', 15) + num('r2', 15)}</div>
       <div class="cs-prow"><label>Color</label><div class="cs-sw">${PALETTE.map(c => `<i data-col="${c[1]}" title="${esc(c[0])}" style="background:${c[1]}"></i>`).join('')}</div></div>
       <div class="cs-prow"><label>Custom</label><input type="color" data-p="c"></div>
       <div class="cs-prow"><label>Transparency</label><input type="number" data-p="t" min="0" max="1" step="0.1"></div>
@@ -6550,9 +6774,11 @@ class Studio {
     switch (a) {
       case 'undo': return this.undo(); case 'redo': return this.redo(); case 'dup': return this.dup(false); case 'mirror': return this.dup(true);
       case 'del': return this.del(); case 'rot90': return this.rot90(); case 'exit': return this.exit();
+      case 'tilt90': return this.turn(0, 90); case 'tilt15': return this.turn(0, 15); case 'unrot': return this.turn(0, 0, true);
+      case 'cut': return this.copy(true); case 'copy': return this.copy(false); case 'paste': return this.paste(); case 'selall': return this.selectAll();
       case 'focus': { const m = this.meshes.get(this.sel); if (m) { const b = new THREE.Box3().setFromObject(m), c = new THREE.Vector3(), s = new THREE.Vector3(); b.getCenter(c); b.getSize(s); const d = Math.max(3, s.length() * 2); this.orbit.target.copy(c); this.camera.position.copy(c).add(new THREE.Vector3(d * 0.7, d * 0.5, d * 0.8)); } return; }
       case 'snap': this.snapOn = !this.snapOn; this.applySnap(); return this.log('Snap to grid: ' + (this.snapOn ? 'on' : 'off'));
-      case 'help': return dialog({ title: 'Controls and Shortcuts', html: '<p><b>Camera:</b> hold the right mouse button and drag to look around, use the wheel to zoom, middle-drag to pan' + (item ? '.' : ', and W A S D / Q E to fly.') + '</p><p><b>Tools:</b> <b>1</b> Select, <b>2</b> Move, <b>3</b> Scale, <b>4</b> Rotate. Drag the colored handles, or type exact numbers in Properties.</p><p><b>Selecting:</b> click a part. Shift+click adds or removes parts, so you can move several at once or save them as a model.</p><p><b>Shortcuts:</b> Ctrl+Z undo, Ctrl+Y redo, Ctrl+D duplicate, Delete removes, F focuses the selection, Ctrl+S saves, F5 plays.</p>' });
+      case 'help': return dialog({ title: 'Controls and Shortcuts', html: '<p><b>Camera:</b> hold the right mouse button and drag to look around, use the wheel to zoom, middle-drag to pan' + (item ? '.' : ', and W A S D / Q E to fly.') + '</p><p><b>Tools:</b> <b>1</b> Select, <b>2</b> Move, <b>3</b> Scale, <b>4</b> Rotate. Drag the colored handles, or type exact numbers in Properties.</p><p><b>Selecting:</b> click a part. Shift+click adds or removes parts, so you can move several at once or save them as a model.</p><p><b>Shortcuts:</b> Ctrl+Z undo, Ctrl+Y redo, Ctrl+X cut, Ctrl+C copy, Ctrl+V paste, Ctrl+D duplicate, Ctrl+A select all, Delete removes, F focuses the selection, Ctrl+S saves, F5 plays.</p><p><b>Moving:</b> arrow keys move the selection one grid step (the way the camera looks), PageUp / PageDown move it up and down.</p><p><b>Turning:</b> the Rotate tool (4) has three rings: green turns left/right, red and blue tilt up/down (great for ramps). It snaps in 15 degree steps (Format &gt; Snap to Grid turns that off). Ctrl+R turns 90, Ctrl+E tilts 90, Shift+E tilts 15.</p>' });
       case 'about': return dialog({ title: 'About CartStudio', html: '<p><b>CartStudio 1.0</b></p><p>Build places for Cartblox. Scripts are made from safe "When ... do ..." blocks, and every script shows a Lua-style code view so you can learn how real scripts look. Make your own tools in StarterPack, put GUI on the screen, and use Server or Client scripts.</p>' });
       default: break;
     }
@@ -6747,7 +6973,7 @@ class Studio {
     this._kd = e => {
       if (!this.alive || R || this.typing() || !$('#studio') || $('#studio').hidden || document.querySelector('.dlg-back')) return;
       const c = e.ctrlKey || e.metaKey, k = e.code;
-      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(k) && !c) { this.k[k] = true; return; }
+      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(k) && !c && !(k === 'KeyE' && e.shiftKey)) { this.k[k] = true; return; }
       if (this.anim) {                                                // Animator shortcuts
         if (k === 'Space') { e.preventDefault(); this.animButton('play'); } else if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); this.animButton('delkey'); }
         else if (k === 'Escape') this.closeAnimator(); else if (k === 'KeyK' && !c) this.animButton('addkey');
@@ -6757,7 +6983,23 @@ class Studio {
       else if (c && k === 'KeyY') { e.preventDefault(); this.redo(); }
       else if (c && k === 'KeyD') { e.preventDefault(); this.dup(false); }
       else if (c && k === 'KeyS' && this.mode === 'place') { e.preventDefault(); this.save(false); }
-      else if (c && k === 'KeyR') { e.preventDefault(); if (this.mode === 'place') this.rot90(); }
+      else if (c && k === 'KeyR') { e.preventDefault(); this.rot90(); }
+      else if (c && k === 'KeyE') { e.preventDefault(); this.turn(0, 90); }
+      else if (c && k === 'KeyX' && this.selIds().length) { e.preventDefault(); this.copy(true); }
+      else if (c && k === 'KeyC' && this.selIds().length) { e.preventDefault(); this.copy(false); }
+      else if (c && k === 'KeyV') { e.preventDefault(); this.paste(); }
+      else if (c && k === 'KeyA') { e.preventDefault(); this.selectAll(); }
+      else if (!c && e.shiftKey && k === 'KeyE') { e.preventDefault(); this.turn(0, 15); }
+      else if (!c && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'].includes(k) && this.selIds().length) {
+        e.preventDefault();
+        if (k === 'PageUp' || k === 'PageDown') this.nudge(0, k === 'PageUp' ? 1 : -1, 0);
+        else {                                                      // arrows move the way the camera looks (snapped to the grid axes)
+          const f = new THREE.Vector3(); this.camera.getWorldDirection(f); f.y = 0;
+          const ax = Math.abs(f.x) > Math.abs(f.z) ? [Math.sign(f.x), 0] : [0, Math.sign(f.z) || -1], rt = [-ax[1], ax[0]];
+          const d = { ArrowUp: ax, ArrowDown: [-ax[0], -ax[1]], ArrowRight: rt, ArrowLeft: [-rt[0], -rt[1]] }[k];
+          this.nudge(d[0], 0, d[1]);
+        }
+      }
       else if (!e.altKey && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Numpad1', 'Numpad2', 'Numpad3', 'Numpad4'].includes(k)) { e.preventDefault(); this.setTool(['select', 'translate', 'scale', 'rotate'][+k.slice(-1) - 1]); }
       else if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); if (this.scriptId) return; if (this.osel && !['light', 'pack', 'ws', 'player'].includes(this.osel.k)) this.delObj(); else this.del(); }
       else if (k === 'KeyF' && !c) this.act('focus');
@@ -7224,7 +7466,7 @@ class Studio {
         <div class="se-lab">${this.brTab ? 'This branch does these, in order' : 'Do these, in order'}</div>
         ${this.curActs(s).map((a, i) => `<div class="se-act"><span class="se-n">${i + 1}</span><select data-se="act:${i}">${SCRIPT_ACTIONS.map(x => `<option value="${x[0]}"${x[0] === a.a ? ' selected' : ''}>${esc(x[1])}</option>`).join('')}</select>${args(actDef(a.a)[2], a, 'acts.' + i)}<span class="se-btns"><button data-se="up:${i}" type="button" title="Move up">&#9650;</button><button data-se="down:${i}" type="button" title="Move down">&#9660;</button><button data-se="del:${i}" type="button" title="Remove">&times;</button></span></div>`).join('') || '<div class="cs-empty">No actions yet.</div>'}
         <button class="btn btn-sm btn-blue" data-se="add" type="button">+ Add action</button>
-        <p class="small muted">Tips: use <b>{name}</b>, <b>{points}</b>, <b>{team}</b>, <b>{enemy}</b> (the player a chat command or hit targets) and <b>{sender}</b> in any text. "Wait" pauses before the next action. "Only go on if points are at least" stops the script early. <b>Server</b> scripts share part changes, sounds and announcements with every player; <b>Client</b> scripts only change your own screen. Cooldown stops a script from running again too soon (like a debounce).</p>
+        <p class="small muted">Tips: use <b>{name}</b>, <b>{points}</b>, <b>{team}</b>, <b>{enemy}</b> (the player a chat command or hit targets) and <b>{sender}</b> in any text, and <b>{v:coins}</b> for a value made with "Set a value". <b>While a key is held (Holding)</b> undoes speed, jump, gravity, FOV, effects, flight, tools and color correction when you let go. "Wait" pauses before the next action. "Only go on if points are at least" stops the script early. <b>Server</b> scripts share part changes, sounds and announcements with every player; <b>Client</b> scripts only change your own screen. Cooldown stops a script from running again too soon (like a debounce).</p>
       </div><div class="se-code"><div class="se-lab">Code view</div><pre>${esc(scriptPreview(s, this.doc))}</pre></div></div>`;
   }
   onScriptInput(el) {
@@ -7251,7 +7493,7 @@ class Studio {
     const [k, n] = code.split(':'), i = +n, L = this.curActs(s);
     if (k === 'brtab') { this.brTab = i; return this.renderScript(); }
     if (k === 'bradd') { if (!s.branches) s.branches = []; if (s.branches.length >= 12) return dialog({ title: BRAND, html: '<p>A script can have up to 12 branches.</p>' }); s.branches.push({ n: 'Branch' + (s.branches.length + 1), on: 'me', acts: [] }); this.brTab = s.branches.length; }
-    else if (k === 'brdel') { const at = this.brTab; if (!at) return; s.branches.splice(at - 1, 1); const fix = a => { if (a.br === at || a.onhit === at) { if (a.br === at) a.br = 0; if (a.onhit === at) a.onhit = 0; } if (a.br > at) a.br--; if (a.onhit > at) a.onhit--; }; s.acts.forEach(fix); s.branches.forEach(b => b.acts.forEach(fix)); this.brTab = 0; }
+    else if (k === 'brdel') { const at = this.brTab; if (!at) return; s.branches.splice(at - 1, 1); const fix = a => { if (a.br === at || a.onhit === at) { if (a.br === at) a.br = 0; if (a.onhit === at) a.onhit = 0; } if (a.br > at) a.br--; if (a.onhit > at) a.onhit--; }; fix(s.ev); s.acts.forEach(fix); s.branches.forEach(b => b.acts.forEach(fix)); this.brTab = 0; }
     else if (k === 'add') { if (L.length >= 30) return dialog({ title: BRAND, html: '<p>A list can have up to 30 actions.</p>' }); L.push({ a: 'msg', text: 'Hello, {name}!' }); }
     else if (k === 'del') L.splice(i, 1);
     else if (k === 'up' && i > 0) [L[i - 1], L[i]] = [L[i], L[i - 1]];
@@ -7830,7 +8072,7 @@ function viewMoney() {
       <p class="muted small">Time only counts while you are moving or typing (not when you walk away), and not while testing in CartStudio.</p></div></div>
     <div class="box"><h2>Trade Tix for Robux</h2><div class="in"><p style="margin-bottom:10px">${PRICES.tixPerRbx} Tix = 1 Robux.</p><div class="buyrow">${buy(10)}${buy(50)}${buy(100)}</div></div></div>
   </section>
-  <aside class="col-side"><div class="box"><h2>What things cost</h2><div class="in"><dl class="kv"><dt>Upload an item</dt><dd>${PRICES.itemRbx} Robux or ${PRICES.itemTix} Tix</dd><dt>Publish a game</dt><dd>Free</dd><dt>Wear catalog items</dt><dd>Free</dd></dl>
+  <aside class="col-side"><div class="box"><h2>What things cost</h2><div class="in"><dl class="kv"><dt>Upload an item</dt><dd>${PRICES.itemRbx} Robux or ${PRICES.itemTix} Tix</dd><dt>Upload a T-shirt</dt><dd>Free</dd><dt>Publish a game</dt><dd>Free</dd><dt>Wear catalog items</dt><dd>Free</dd></dl>
     <p class="small muted" style="margin-top:8px">Items are shirts, pants, T-shirts, faces, hats, hair and other accessories.</p></div></div></aside></div>`;
 }
 
