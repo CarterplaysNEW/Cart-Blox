@@ -996,6 +996,7 @@ const SEED_POSTS = [
     text: 'anyone found the golden brick inside the castle on baseplate? hint: bounce pad' }
 ];
 const NEWS = [
+  { t: '4 new games from Cartblox!', d: 'Today', x: 'Parkour Rush, Coin Island, Brick Battle Arena and Cartblox Town are on the Games page now.' },
   { t: 'Cartblox Alpha 0.1 is live', d: 'Today', x: 'The first two test games are open to everyone.' },
   { t: 'New game: Mega Lava Obby', d: 'Today', x: 'Eight stages of jumps, spinners and vanishing tiles.' },
   { t: 'Cartblox Studio is coming', d: 'Soon', x: 'Build and publish your own places from the browser.' }
@@ -2933,6 +2934,7 @@ const GAMES = [
     visits: 129874, favorites: 5380, up: 2210, down: 143, age: 1, gear: false, created: 'Yesterday', updated: 'Today',
     desc: 'Eight stages of jumps, balance beams, sliding platforms, a spinning bar and vanishing tiles... all above a sea of lava. Step on a colored pad to save your progress. Can you reach the golden finish?',
     stat: 'Stage', statText: n => (n > 8 ? 'WIN' : String(n)), env: ENV_DUSK, build: buildObby,
+    win: { stage: 9, msg: 'You beat the obby! You win!', chat: 'beat Mega Lava Obby!', badge: 'obby' },
     thumb: { cam: [-18, 13, 16], look: [2, 4, -42], fov: 64 },
     hint: 'Reach the golden pad at the end! Stand on a colored pad to save your stage.'
   },
@@ -2945,6 +2947,487 @@ const GAMES = [
     hint: 'Welcome to Cartblox Tools! Press 1-9 (or tap a slot) to pick a tool, then click to use it.'
   }
 ];
+
+/* ====================== MORE GAMES FROM THE CARTBLOX ACCOUNT ======================
+   Parkour Rush, Coin Island, Brick Battle Arena and Cartblox Town. They use the same World pieces as the first
+   three games (bricks, shapes, movers, spinners, vanishing tiles, checkpoints, triggers). */
+
+// a brick whose TOP face is at height `top`
+function topBrick(w, x, z, top, sx, sz, th, c, o) { return w.brick(Object.assign({ p: [x, top - th / 2, z], s: [sx, th, sz], c }, o || {})); }
+// text painted flat on the floor (like the obby's STAGE numbers). rotY turns it (0 = readable when walking toward -z)
+function floorDecal(w, x, y, z, l1, l2, size, rotY) {
+  const mat = new THREE.MeshBasicMaterial({ map: decalTex(l1, l2), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size || 10, size || 10), mat);
+  m.rotation.set(-Math.PI / 2, 0, rotY || 0); m.position.set(x, y + 0.04, z);
+  m.userData.ownList = [mat]; w.root.add(m);
+  return m;
+}
+// city walls: a tiling window texture (tinted by the wall color)
+function windowTex() {
+  if (TEX.win) return TEX.win;
+  const c = mkCanvas(64, 64), x = c.getContext('2d');
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64);
+  x.fillStyle = '#e6e6e6'; x.fillRect(0, 56, 64, 8);
+  [[8, 12], [36, 12]].forEach(q => {
+    x.fillStyle = '#2b3a4d'; x.fillRect(q[0], q[1], 20, 34);
+    x.fillStyle = '#4f6a8a'; x.fillRect(q[0] + 2, q[1] + 2, 16, 14);
+    x.fillStyle = '#7d9cc0'; x.fillRect(q[0] + 2, q[1] + 2, 6, 6);
+  });
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = aniso();
+  return (TEX.win = t);
+}
+function windowMat(hex) {
+  const k = 'win' + hex;
+  if (!MATS.has(k)) MATS.set(k, new THREE.MeshLambertMaterial({ color: hex, map: windowTex() }));
+  return MATS.get(k);
+}
+// a building standing on the street (y = 0) with windows on its sides and a studded roof at `top`
+function building(w, x, z, sx, sz, top, wallHex, roofHex, o) {
+  o = o || {};
+  const part = w.brick({ p: [x, top / 2, z], s: [sx, top, sz], c: roofHex, collide: o.collide !== false, noCam: !!o.noCam, cast: o.cast });
+  const uv = part.mesh.geometry.attributes.uv, T = 8;
+  for (let i = 0; i < 8; i++) uv.setXY(i, uv.getX(i) * sz / T, uv.getY(i) * top / T);       // +x / -x faces
+  for (let i = 16; i < 24; i++) uv.setXY(i, uv.getX(i) * sx / T, uv.getY(i) * top / T);     // +z / -z faces
+  const wm = windowMat(wallHex), roof = brickMats(roofHex, 'plastic');
+  part.mesh.material = [wm, wm, roof[2], roof[3], wm, wm];
+  return part;
+}
+// a spinning gold coin. Touch it to collect it (once per visit)
+const COIN = {};
+function coin(w, x, y, z) {
+  if (!COIN.geo) {
+    COIN.geo = new THREE.CylinderGeometry(1.1, 1.1, 0.32, 24); COIN.geo.rotateX(Math.PI / 2);
+    COIN.mat = new THREE.MeshLambertMaterial({ color: 0xffcc22, emissive: 0x6a4300 });
+  }
+  const m = new THREE.Mesh(COIN.geo, COIN.mat), ph = x * 0.13 + z * 0.07;
+  m.userData.shared = true; m.position.set(x, y, z); m.castShadow = true; w.root.add(m);
+  w.updaters.push((dt, t) => { m.rotation.y = t * 2.6 + ph; m.position.y = y + Math.sin(t * 2.2 + ph) * 0.3; });
+  w.triggers.push({ box: { x0: x - 1.4, x1: x + 1.4, y0: y - 1.8, y1: y + 1.6, z0: z - 1.4, z1: z + 1.4 }, once: true,
+    fn: () => { m.visible = false; if (w.onEvent) w.onEvent('coin', [x, y, z]); } });
+  w.coins = (w.coins || 0) + 1;
+}
+// stairs that wind around a 10x10 tower: on each side 5 steps (2 studs deep) then a 3x3 landing at the corner.
+// Every step is its own tile 1 stud higher than the last, and nothing hangs over a step, so you can just walk up.
+// Returns every step as [x, top, z].
+function squareStairs(w, cx, cz, y0, n, colors) {
+  const H = 6.5, out = [];
+  for (let k = 0; k < n; k++) {
+    const m = k % 24, side = Math.floor(m / 6), j = m % 6, u = -4 + 2 * j, top = y0 + k + 1;
+    let x, z, sx, sz;
+    if (j === 5) { x = [H, H, -H, -H][side]; z = [H, -H, -H, H][side]; sx = sz = 3; }
+    else { x = [u, H, -u, -H][side]; z = [H, -u, -H, u][side]; sx = side % 2 ? 3 : 2; sz = side % 2 ? 2 : 3; }
+    topBrick(w, cx + x, cz + z, top, sx, sz, 1, colors[k % colors.length]);
+    out.push([cx + x, top, cz + z]);
+  }
+  return out;
+}
+// a tool giver (spinning tool above a pad), like the CartStudio Tool Giver
+function toolGiver(w, x, z, top, id) {
+  const t = toolById(id); if (!t) return;
+  const pad = topBrick(w, x, z, top + 0.4, 4, 4, 0.4, 0xF5CD30, { kind: 'neon' });
+  const holder = new THREE.Group(), model = toolModel(t);
+  model.rotation.x = -Math.PI / 2; holder.add(model); holder.position.set(x, top + 2.8, z); w.root.add(holder);
+  w.updaters.push((dt, tt) => { holder.rotation.y += dt * 1.6; holder.position.y = top + 2.8 + Math.sin(tt * 2.2) * 0.25; });
+  w.triggers.push({ box: { x0: pad.x0, x1: pad.x1, y0: pad.y1 - 0.3, y1: pad.y1 + 5, z0: pad.z0, z1: pad.z1 }, fn: () => Tools.give(id) });
+}
+function palm(w, x, z, ground) {
+  w.shape({ s: 'cylinder', p: [x, ground + 5.5, z], z: [1.3, 11, 1.3], c: '#8a6a3f' });
+  const top = ground + 11;
+  w.brick({ p: [x, top + 0.3, z], s: [9, 0.6, 2.4], c: 0x287F47, kind: 'plain' });
+  w.brick({ p: [x, top + 0.3, z], s: [2.4, 0.6, 9], c: 0x287F47, kind: 'plain' });
+  w.brick({ p: [x, top + 0.9, z], s: [4, 0.6, 4], c: 0x4B974B, kind: 'plain' });
+  [[-0.8, -0.8], [0.8, 0.6], [-0.6, 0.9]].forEach(q => w.shape({ s: 'ball', p: [x + q[0], top - 0.5, z + q[1]], z: [1, 1, 1], c: '#694028', collide: false }));
+}
+function torch(w, x, z, ground, h) {
+  w.brick({ p: [x, ground + h / 2, z], s: [0.8, h, 0.8], c: 0x694028 });
+  w.brick({ p: [x, ground + h + 0.5, z], s: [1.3, 1, 1.3], c: 0xFF8A1E, kind: 'neon', collide: false, cast: false });
+  w.brick({ p: [x, ground + h + 1.2, z], s: [0.7, 0.6, 0.7], c: 0xFFE14A, kind: 'neon', collide: false, cast: false });
+}
+
+/* ====================== GAME 4 : PARKOUR RUSH ====================== */
+function buildParkour(w) {
+  w.deathY = 2;                                                       // the street is far below: fall = back to your checkpoint
+  const cur = { x: 0, z: 0, y: 30, stage: 0 }, rnd = rng(404);
+  const CYC = [0xC4281C, 0xDA8541, 0xF5CD30, 0x4B974B, 0x04AFEC, 0x6B327C, 0xFF66CC];
+  const WALLS = [0xD7C59A, 0xA3A2A5, 0xCC8E69, 0x80BBDB, 0xE5E4DF, 0x6E99CA, 0xE8BAC8];
+  let wi = 0;
+  const pts = [], route = w.route = [];                               // route: the course in order (used by the tests)
+  // a building whose roof is part of the course
+  const roof = (len, top, gap, lat, wide) => {
+    const zc = cur.z - gap - len / 2, x = lat || 0, wd = wide || 16;
+    route.push(building(w, x, zc, wd, len, top, WALLS[wi++ % WALLS.length], 0x635F62));
+    const near = cur.z - gap; cur.z = zc - len / 2; cur.y = top; cur.x = x; pts.push([x, zc]);
+    return { x, zc, top, near, far: cur.z, len };
+  };
+  const check = (r, color, label) => {
+    cur.stage++;
+    const zc = r.near - 6, pad = topBrick(w, r.x, zc, r.top + 0.4, 10, 10, 0.4, color);
+    pad.checkpoint = { stage: cur.stage, pos: [r.x, r.top + 0.4, zc] }; w.checkpoints.push(pad);
+    floorDecal(w, r.x, r.top + 0.4, zc, label || 'STAGE', String(cur.stage), 9.5);
+    return pad;
+  };
+  // a floating platform (no building under it)
+  const plat = (len, wide, top, gap, lat, color, o) => {
+    const zc = cur.z - gap - len / 2, th = (o && o.th) || 1.2;
+    const part = topBrick(w, lat || 0, zc, top, wide, len, th, color, o);
+    cur.z = zc - len / 2; cur.y = top; pts.push([lat || 0, zc]); route.push(part);
+    return part;
+  };
+  const pipe = (len, top, gap, lat) => {
+    const zc = cur.z - gap - len / 2;
+    const part = w.shape({ s: 'cylinder', p: [lat || 0, top - 1, zc], z: [2, len, 2], r: [90, 0, 0], c: '#8a8f96' });
+    cur.z = zc - len / 2; cur.y = top; route.push(part); return part;
+  };
+
+  // ---- stage 1: rooftop hops ----
+  let r = roof(20, 30, 0, 0);
+  const s1 = check(r, 0x4B974B, 'START');
+  w.spawn = s1.checkpoint.pos;
+  building(w, -19, -8, 12, 10, 31, 0xC4281C, 0x635F62);
+  addSignAt(w, -19, -9, 31, 'PARKOUR RUSH', 'Reach the golden roof!');
+  [[5, 31, 0], [5, 32.5, 2.5], [5, 34, -2.5], [5, 34, 1]].forEach((q, i) => {
+    const zc = cur.z - q[0] - 3; route.push(building(w, q[2], zc, 6, 6, q[1], WALLS[(i + 3) % WALLS.length], CYC[i])); cur.z = zc - 3;
+  });
+  // ---- stage 2: pipe walk ----
+  r = roof(18, 35, 5, 0); check(r, 0xDA8541);
+  pipe(20, 35, 4, 0);
+  plat(4, 4, 35, 0, 0, 0x635F62, { th: 2 });
+  pipe(18, 35, 0, 0);
+  // ---- stage 3: crane platforms ----
+  r = roof(18, 36, 4, 0); check(r, 0x0D69AC);
+  [0, 2.1, 4.2].forEach((ph, i) => {
+    const part = plat(8, 8, 36, 5, 0, CYC[i + 2]);
+    w.addMover(part, [1, 0], 6, 4, ph);
+    const cable = new THREE.Mesh(new THREE.BoxGeometry(0.3, 40, 0.3), partMat('#1b2a35'));
+    cable.position.set(0, 20.6, 0); part.mesh.add(cable);
+  });
+  // ---- stage 4: bounce pad up to a tall roof ----
+  r = roof(24, 36, 5, 0); check(r, 0xA4BD47);
+  topBrick(w, 0, r.far + 4, 36.6, 6, 6, 0.6, 0x7DFF1A, { kind: 'neon', bounce: 108 });
+  // ---- stage 5: laser roof ----
+  r = roof(36, 58, 6, 0); check(r, 0x6B327C);
+  w.addSpinner(0, r.near - 22, 59.2, 60.6, 14, 1.4, 1.7, 0);
+  topBrick(w, 0, r.near - 22, 61.8, 2, 2, 3.2, 0xA3A2A5);
+  // ---- stage 6: glass panels that break ----
+  r = roof(18, 58, 5, 0); check(r, 0x04AFEC);
+  [2, -2, 2, -2, 2, -2].forEach((lat, i) => plat(4, 4, 58, 3, lat, 0x80BBDB, { vanish: true }));
+  // ---- stage 7: speed strip + long jump ----
+  r = roof(26, 58, 4, 0); check(r, 0xE29B40);
+  const sz0 = r.far;
+  w.brick({ p: [0, 58.06, sz0 + 3.5], s: [10, 0.12, 7], c: 0xF5CD30, kind: 'neon', collide: false, cast: false });
+  floorDecal(w, 0, 58.12, sz0 + 3.5, 'BOOST', null, 7);
+  w.triggers.push({ box: { x0: -5, x1: 5, y0: 57.8, y1: 59, z0: sz0, z1: sz0 + 7 }, fn: () => { if (w.onEvent) w.onEvent('boost', [0, -40]); } });
+  // ---- stage 8: climb the ledges beside the skyscraper ----
+  r = roof(26, 56, 14, 0); check(r, 0x0D69AC);
+  const ledgeStart = cur.z;
+  for (let i = 0; i < 7; i++) plat(4, 4, 56 + 3.5 * (i + 1), 3, i % 2 ? 2.5 : -2.5, CYC[i]);
+  const ledgeEnd = cur.z;
+  building(w, 14, (ledgeStart + ledgeEnd) / 2 - 4, 12, ledgeStart - ledgeEnd + 16, 96, 0x6E99CA, 0x635F62, { noCam: true });
+  // ---- stage 9: leap of faith ----
+  r = roof(18, cur.y + 3, 3, 0); check(r, 0xFF66CC);
+  [[6, -2, 3], [6, -4, -3], [6, -6, 2]].forEach((q, i) => plat(5, 5, r.top + q[1], q[0], q[2], CYC[i + 4]));
+  // ---- finish ----
+  r = roof(22, cur.y - 1.5, 6, 0);
+  cur.stage++;
+  const fin = topBrick(w, 0, r.zc, r.top + 0.5, 14, 14, 0.5, 0xFFD21E, { kind: 'neon' });
+  floorDecal(w, 0, r.top + 0.5, r.zc, 'FINISH!', null, 12);
+  w.triggers.push({ box: fin, once: true, fn: () => { if (w.onEvent) w.onEvent('win', [0, r.top + 0.5, r.zc]); } });
+  w.brick({ p: [0, r.top + 6, r.zc - 9], s: [0.6, 12, 0.6], c: 0xA3A2A5 });
+  w.brick({ p: [1.6, r.top + 10.8, r.zc - 9], s: [3, 2, 0.3], c: 0xFFD21E, kind: 'neon' });
+
+  // ---- the city around the course (just to look at) ----
+  const zMin = cur.z - 80, zMax = 60;
+  w.brick({ p: [0, -0.5, (zMin + zMax) / 2], s: [700, 1, zMax - zMin + 400], c: 0x4a4d52, kind: 'plain', collide: false, cast: false, noCam: true });
+  for (let z = zMax; z > zMin; z -= 14) w.brick({ p: [0, 0.05, z], s: [0.8, 0.1, 6], c: 0xF5CD30, kind: 'plain', collide: false, cast: false, noCam: true });
+  for (let side = -1; side <= 1; side += 2) {
+    for (let z = zMax; z > zMin; z -= 22 + rnd() * 10) {
+      for (let row = 0; row < 3; row++) {
+        const x = side * (34 + row * 30 + rnd() * 8), h = 18 + rnd() * (row ? 80 : 40), wd = 14 + rnd() * 8;
+        if (side > 0 && row === 0 && z < ledgeStart + 8 && z > ledgeEnd - 30) continue;   // keep the skyscraper clear
+        building(w, x, z, wd, 14 + rnd() * 6, h, WALLS[(rnd() * WALLS.length) | 0], 0x4a4d52, { collide: false, noCam: true, cast: false });
+      }
+    }
+  }
+}
+// a sign standing on a roof (addSign assumes the ground is at 0)
+function addSignAt(w, x, z, ground, l1, l2) {
+  w.brick({ p: [x - 5.5, ground + 3, z], s: [1, 6, 1], c: 0x694028 });
+  w.brick({ p: [x + 5.5, ground + 3, z], s: [1, 6, 1], c: 0x694028 });
+  const board = w.brick({ p: [x, ground + 5.6, z + 0.6], s: [14, 5, 0.7], c: 0xD7C59A });
+  const front = new THREE.MeshLambertMaterial({ map: signTex(l1, l2) }), base = board.mesh.material;
+  board.mesh.material = [base[0], base[1], base[2], base[3], front, base[5]];
+  board.mesh.userData.ownList = [front];
+}
+
+/* ====================== GAME 5 : COIN ISLAND ====================== */
+function waterTex() {
+  if (TEX.water) return TEX.water;
+  const c = mkCanvas(256, 256), x = c.getContext('2d'), r = rng(31);
+  x.fillStyle = '#1f7fc4'; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 70; i++) {
+    const px = r() * 256, py = r() * 256, w = 14 + r() * 40;
+    x.strokeStyle = r() < 0.5 ? 'rgba(255,255,255,.28)' : 'rgba(10,60,120,.35)'; x.lineWidth = 2 + r() * 2;
+    for (const dx of [-256, 0, 256]) for (const dy of [-256, 0, 256]) { x.beginPath(); x.moveTo(px + dx, py + dy); x.quadraticCurveTo(px + dx + w / 2, py + dy - 5, px + dx + w, py + dy); x.stroke(); }
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = aniso();
+  return (TEX.water = t);
+}
+function buildCoinIsland(w) {
+  w.deathY = 1;                                                       // fall in the sea = respawn (your coins stay collected)
+  const G = 2.4;                                                      // grass height
+  // the sea
+  const wt = waterTex(); wt.repeat.set(80, 80);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshLambertMaterial({ map: wt, color: 0xbfe6ff }));
+  sea.rotation.x = -Math.PI / 2; sea.position.set(0, 0, 0); sea.userData.ownMats = true; sea.receiveShadow = true; w.root.add(sea);
+  w.updaters.push(dt => { wt.offset.x += dt * 0.01; wt.offset.y += dt * 0.004; });
+  // sand, then grass
+  [[150, 90], [90, 150], [130, 130]].forEach(q => topBrick(w, 0, 0, 2, q[0], q[1], 6, 0xE8D5A2, { kind: 'plain', cast: false }));
+  [[110, 70], [70, 110], [96, 96]].forEach(q => topBrick(w, 0, 0, G, q[0], q[1], 0.4, 0x4B974B, { cast: false }));
+  // the dock (spawn) with its posts
+  topBrick(w, 0, 85, 2.6, 7, 30, 0.6, 0xA0703F, { kind: 'plain' });
+  [72, 80, 88, 96].forEach(z => [-3, 3].forEach(x => w.brick({ p: [x, 1, z], s: [0.8, 3.2, 0.8], c: 0x694028 })));
+  [[-1.5, 94], [1.5, 94], [0, 90]].forEach(q => w.spawns.push([q[0], 2.6, q[1]]));
+  addSignAt(w, 13, 64, 2, 'COIN ISLAND', 'Find all 25 gold coins!');
+  coin(w, 0, 4.6, 84); coin(w, 0, 4.6, 75);
+  // beach coins
+  coin(w, 60, 4, 0); coin(w, -61, 4, 12); coin(w, 30, 4, 62); coin(w, -30, 4, -62);
+  // the hill: four levels, 3 studs apart (jump up!)
+  const hx = -15, hz = -15;
+  [[36, 5.4, 0x4B974B], [26, 8.4, 0x287F47], [16, 11.4, 0x4B974B], [8, 14.4, 0x287F47]].forEach(q => topBrick(w, hx, hz, q[1], q[0], q[0], q[1] - G + 0.2, q[2]));
+  coin(w, -30, 7.4, -30); coin(w, -26, 10.4, -4); coin(w, -21, 13.4, -21); coin(w, -15, 16.6, -15);
+  // palm trees
+  [[25, 20], [50, 28], [-45, 40], [10, 46], [-52, -6], [44, -10]].forEach(q => palm(w, q[0], q[1], G));
+  coin(w, 25, 4.4, 24); coin(w, -45, 4.4, 44);
+  // the lighthouse with spiral stairs
+  const lx = 38, lz = -40;
+  w.shape({ s: 'cylinder', p: [lx, G + 13, lz], z: [8, 26, 8], c: '#f2f3f3', collide: false });
+  [6, 14, 22].forEach(y => w.shape({ s: 'cylinder', p: [lx, G + y, lz], z: [8.2, 2.4, 8.2], c: '#c4281c', collide: false }));
+  w.collider(lx - 2.8, lx + 2.8, 0, G + 26, lz - 2.8, lz + 2.8);
+  const steps = squareStairs(w, lx, lz, G, 25, [0xA3A2A5, 0xE5E4DF]), lastStep = steps[steps.length - 1][1];
+  topBrick(w, lx, lz, lastStep + 1, 10, 10, 1, 0x635F62);
+  w.shape({ s: 'ball', p: [lx, lastStep + 3, lz], z: [2.6, 2.6, 2.6], c: '#ffe14a', collide: false });
+  [7, 19].forEach(k => coin(w, steps[k][0], steps[k][1] + 2, steps[k][2]));
+  coin(w, lx + 3, lastStep + 3, lz + 3);
+  // stepping stones to the little island in the west
+  topBrick(w, -81, 1.5, G, 4, 4, 4, 0x8a8f96); topBrick(w, -88, -1.5, G, 4, 4, 4, 0x8a8f96);
+  coin(w, -81, 4.4, 1.5); coin(w, -88, 4.4, -1.5);
+  topBrick(w, -104, 0, 2, 24, 24, 6, 0xE8D5A2, { kind: 'plain' }); topBrick(w, -104, 0, G, 18, 18, 0.4, 0x4B974B);
+  palm(w, -107, -4, G); coin(w, -100, 4.4, 4);
+  // bounce pad up to the cloud platforms
+  topBrick(w, 0, 30, G + 0.6, 6, 6, 0.6, 0x7DFF1A, { kind: 'neon', bounce: 108 });
+  [[0, 26, 19, 10], [8, 28, 7, 8], [8, 30, -5, 8]].forEach(q => { topBrick(w, q[0], q[2], q[1], q[3], q[3], 1.4, 0xF2F3F3, { kind: 'plain' }); coin(w, q[0], q[1] + 2, q[2]); });
+  // a beach hut
+  const ux = -28, uz = 22;
+  topBrick(w, ux, uz, G + 0.4, 12, 12, 0.4, 0xD7C59A);
+  w.brick({ p: [ux, G + 4, uz - 5.5], s: [12, 7, 1], c: 0xCC8E69 });
+  w.brick({ p: [ux - 5.5, G + 4, uz], s: [1, 7, 10], c: 0xCC8E69 }); w.brick({ p: [ux + 5.5, G + 4, uz], s: [1, 7, 10], c: 0xCC8E69 });
+  w.brick({ p: [ux - 4, G + 4, uz + 5.5], s: [4, 7, 1], c: 0xCC8E69 }); w.brick({ p: [ux + 4, G + 4, uz + 5.5], s: [4, 7, 1], c: 0xCC8E69 });
+  topBrick(w, ux, uz, G + 8.5, 14, 14, 1, 0xC4281C);
+  coin(w, ux, G + 2.6, uz - 1);
+  // the old ruins: jump from pillar to pillar
+  [[10, -20, 5.4], [14, -24, 8.4], [18, -28, 11.4], [22, -32, 14.4]].forEach((q, i) => {
+    topBrick(w, q[0], q[1], q[2], 3, 3, q[2], i % 2 ? 0xA3A2A5 : 0xD7C59A);
+    if (i) coin(w, q[0], q[2] + 2, q[1]);
+  });
+}
+
+/* ====================== GAME 6 : BRICK BATTLE ARENA ====================== */
+function buildBattle(w) {
+  w.deathY = -60;
+  const STONE = 0x635F62;
+  // center island
+  topBrick(w, 0, 0, 0, 44, 44, 6, STONE);
+  topBrick(w, 0, 0, 0.1, 40, 40, 0.1, 0x4B974B, { kind: 'plain', cast: false });
+  [[-12, 12], [12, 12], [-12, -12], [12, -12]].forEach(q => { topBrick(w, q[0], q[1], 0.4, 6, 6, 0.4, 0xA3A2A5); w.spawns.push([q[0], 0.4, q[1]]); });
+  topBrick(w, 0, 0, 0.6, 6, 6, 0.6, 0x7DFF1A, { kind: 'neon', bounce: 108 });
+  // sky fort above the center (reached from the bounce pad)
+  topBrick(w, 0, -12, 24, 16, 16, 1.4, 0xA3A2A5);
+  [[-7.5, -12, 1, 16], [7.5, -12, 1, 16], [0, -19.5, 16, 1]].forEach(q => w.brick({ p: [q[0], 25.5, q[1]], s: [q[2], 3, q[3]], c: 0x8a8f96 }));
+  torch(w, -7.5, -4.5, 24, 3); torch(w, 7.5, -4.5, 24, 3);
+  // four team islands, each with a little fort for cover
+  const teams = [[70, 0, 0xC4281C], [-70, 0, 0x0D69AC], [0, 70, 0xF5CD30], [0, -70, 0x4B974B]];
+  teams.forEach(t => {
+    const [x, z, c] = t;
+    topBrick(w, x, z, 0, 30, 30, 6, STONE);
+    topBrick(w, x, z, 0.1, 27, 27, 0.1, c, { kind: 'plain', cast: false });
+    const ax = Math.sign(x), az = Math.sign(z);
+    // L-shaped walls facing the center + a crate pile
+    const fx = x - ax * 6, fz = z - az * 6;
+    if (ax) { w.brick({ p: [fx, 2, z - 6], s: [1.2, 4, 8], c }); w.brick({ p: [fx, 2, z + 6], s: [1.2, 4, 8], c }); }
+    else { w.brick({ p: [x - 6, 2, fz], s: [8, 4, 1.2], c }); w.brick({ p: [x + 6, 2, fz], s: [8, 4, 1.2], c }); }
+    w.brick({ p: [x + ax * 6 + az * 7, 1.5, z + az * 6 + ax * 7], s: [3, 3, 3], c: 0xA0703F });
+    w.brick({ p: [x + ax * 6 + az * 7, 4.5, z + az * 6 + ax * 7], s: [3, 3, 3], c: 0xA0703F });
+    w.brick({ p: [x + ax * 9 + az * 4, 1.5, z + az * 9 + ax * 4], s: [3, 3, 3], c: 0xA0703F });
+    [[-13, -13], [13, -13], [-13, 13], [13, 13]].forEach(q => torch(w, x + q[0], z + q[1], 0, 4));
+  });
+  // bridges: two solid, two broken (jump the gaps)
+  w.brick({ p: [38.5, -0.5, 0], s: [33, 1, 6], c: 0xA0703F });
+  w.brick({ p: [-38.5, -0.5, 0], s: [33, 1, 6], c: 0xA0703F });
+  [26, 34, 42, 50].forEach(d => { w.brick({ p: [0, -0.5, d + 1], s: [6, 1, 5], c: 0xA0703F }); w.brick({ p: [0, -0.5, -d - 1], s: [6, 1, 5], c: 0xA0703F }); });
+  // moving platforms that shuttle along the two solid bridges' sides
+  [[38.5, 9, 0xFF66CC], [-38.5, -9, 0x04AFEC]].forEach((q, i) => {
+    const part = topBrick(w, q[0], q[1], 0, 6, 6, 1, q[2]);
+    w.addMover(part, [1, 0], 11, 5, i * 2);
+  });
+  // training dummies on the yellow island
+  [-10, -5, 0].forEach(x => { topBrick(w, x, 80, 0.4, 4, 4, 0.4, 0xDA8541); w.dummies.push([x, 0.4, 80, Math.PI]); });
+  addSignAt(w, 0, -19, 0, 'BRICK BATTLE', 'Most KOs wins. 1-6 pick a tool.');
+  // a few rocks floating far away
+  const r = rng(5150);
+  for (let i = 0; i < 26; i++) {
+    const a = r() * 6.2832, d = 140 + r() * 160, s = 6 + r() * 16;
+    w.brick({ p: [Math.cos(a) * d, -20 + r() * 70, Math.sin(a) * d], s: [s, s * 0.7, s], c: r() < 0.5 ? 0x4a3f45 : 0x635F62, collide: false, noCam: true, cast: false });
+  }
+}
+
+/* ====================== GAME 7 : CARTBLOX TOWN ====================== */
+function clockTex() {
+  if (TEX.clock) return TEX.clock;
+  const c = mkCanvas(256, 256), x = c.getContext('2d');
+  x.fillStyle = '#d7c59a'; x.fillRect(0, 0, 256, 256);
+  x.fillStyle = '#ffffff'; x.beginPath(); x.arc(128, 128, 104, 0, 6.2832); x.fill();
+  x.lineWidth = 10; x.strokeStyle = '#1b2a35'; x.stroke();
+  x.fillStyle = '#1b2a35';
+  for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; x.fillRect(128 + Math.cos(a) * 84 - 5, 128 + Math.sin(a) * 84 - 5, 10, 10); }
+  x.lineCap = 'round'; x.lineWidth = 12; x.beginPath(); x.moveTo(128, 128); x.lineTo(128, 62); x.stroke();
+  x.lineWidth = 8; x.beginPath(); x.moveTo(128, 128); x.lineTo(176, 150); x.stroke();
+  const t = new THREE.CanvasTexture(c); t.anisotropy = aniso();
+  return (TEX.clock = t);
+}
+function house(w, x, z, wallHex, roofHex) {
+  const W = 16, D = 14, H = 8, G = 0;
+  topBrick(w, x, z, G + 0.4, W, D, 0.4, 0xD7C59A);
+  w.brick({ p: [x, G + H / 2, z - D / 2 + 0.5], s: [W, H, 1], c: wallHex });                       // back wall
+  w.brick({ p: [x - W / 2 + 0.5, G + H / 2, z], s: [1, H, D - 2], c: wallHex });
+  w.brick({ p: [x + W / 2 - 0.5, G + H / 2, z], s: [1, H, D - 2], c: wallHex });
+  w.brick({ p: [x - 5, G + H / 2, z + D / 2 - 0.5], s: [6, H, 1], c: wallHex });                    // front wall with a door
+  w.brick({ p: [x + 5, G + H / 2, z + D / 2 - 0.5], s: [6, H, 1], c: wallHex });
+  w.brick({ p: [x, G + H - 1, z + D / 2 - 0.5], s: [4, 2, 1], c: wallHex });
+  [[-5, 1], [5, 1]].forEach(q => w.brick({ p: [x + q[0], G + 4.5, z + D / 2 - 0.4], s: [2.6, 2.4, 1.2], c: 0x80BBDB, kind: 'plain', t: 0.6 }));
+  w.shape({ s: 'wedge', p: [x, G + H + 2, z + D / 4 + 0.25], z: [W + 1, 4, D / 2 + 0.5], r: [0, 0, 0], c: roofHex });
+  w.shape({ s: 'wedge', p: [x, G + H + 2, z - D / 4 - 0.25], z: [W + 1, 4, D / 2 + 0.5], r: [0, 180, 0], c: roofHex });
+  w.brick({ p: [x - 4, G + 1, z - 3], s: [4, 2, 2], c: 0xC4281C });                                // a couch
+  w.brick({ p: [x + 4, G + 1.3, z - 3], s: [3, 0.4, 3], c: 0x694028 }); w.brick({ p: [x + 4, G + 0.6, z - 3], s: [0.6, 1.2, 0.6], c: 0x694028 });
+}
+function shop(w, x, z, wallHex, l1, l2, toolId) {
+  const W = 20, D = 14, H = 9;
+  topBrick(w, x, z, 0.4, W, D, 0.4, 0xE5E4DF);
+  w.brick({ p: [x, H / 2, z - D / 2 + 0.5], s: [W, H, 1], c: wallHex });
+  w.brick({ p: [x - W / 2 + 0.5, H / 2, z], s: [1, H, D - 2], c: wallHex });
+  w.brick({ p: [x + W / 2 - 0.5, H / 2, z], s: [1, H, D - 2], c: wallHex });
+  w.brick({ p: [x - 7, H / 2, z + D / 2 - 0.5], s: [6, H, 1], c: wallHex }); w.brick({ p: [x + 7, H / 2, z + D / 2 - 0.5], s: [6, H, 1], c: wallHex });
+  w.brick({ p: [x, H - 1.5, z + D / 2 - 0.5], s: [8, 3, 1], c: wallHex });
+  topBrick(w, x, z, H + 1, W + 2, D + 2, 1, 0x1B2A35);
+  w.brick({ p: [x, H - 2, z + D / 2 + 1.6], s: [W, 0.4, 3], c: 0xFF66CC, kind: 'plain' });             // awning
+  w.brick({ p: [x, 1.6, z - 2], s: [12, 3.2, 2], c: 0x694028 });                                        // counter
+  toolGiver(w, x + 5, z + 2, 0.4, toolId);
+  addSignAt(w, x, z + D / 2 + 0.4, H + 1, l1, l2);
+}
+function buildTown(w) {
+  w.deathY = -100;
+  const r = rng(808);
+  w.brick({ p: [0, -0.5, 0], s: [320, 1, 320], c: 0x4B974B, cast: false });
+  // roads + dashes + sidewalks
+  [[0, 320, 12], [1, 12, 320]].forEach(q => w.brick({ p: [0, 0.05, 0], s: [q[1], 0.1, q[2]], c: 0x4a4d52, kind: 'plain', cast: false }));
+  for (let d = -150; d <= 150; d += 10) {
+    if (Math.abs(d) < 8) continue;
+    w.brick({ p: [d, 0.12, 0], s: [5, 0.05, 0.6], c: 0xF5CD30, kind: 'plain', cast: false, collide: false });
+    w.brick({ p: [0, 0.12, d], s: [0.6, 0.05, 5], c: 0xF5CD30, kind: 'plain', cast: false, collide: false });
+  }
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(q => topBrick(w, q[0] * 9, q[1] * 9, 0.3, 6, 6, 0.3, 0xA3A2A5));
+  [[-9, -9], [9, -9], [-9, 9], [9, 9]].forEach(q => w.spawns.push([q[0], 0.3, q[1]]));
+  addSign(w, 22, -14, 'CARTBLOX TOWN', 'Hang out, explore and make friends!');
+  // street lamps
+  for (let d = -130; d <= 130; d += 26) {
+    if (Math.abs(d) < 14) continue;
+    [[d, 8], [d, -8], [8, d], [-8, d]].forEach(q => { w.brick({ p: [q[0], 4, q[1]], s: [0.5, 8, 0.5], c: 0x1B2A35 }); w.brick({ p: [q[0], 8.4, q[1]], s: [1.4, 0.8, 1.4], c: 0xFFF2A8, kind: 'neon', collide: false }); });
+  }
+  // NE: the park with a fountain
+  const fx = 40, fz = -40;
+  topBrick(w, fx, fz, 0.2, 60, 60, 0.2, 0x287F47, { cast: false });
+  [[0, -8, 16, 1], [0, 8, 16, 1], [-8, 0, 1, 15], [8, 0, 1, 15]].forEach(q => w.brick({ p: [fx + q[0], 0.9, fz + q[1]], s: [q[2], 1.4, q[3]], c: 0xE5E4DF }));
+  topBrick(w, fx, fz, 0.6, 15, 15, 0.4, 0x04AFEC, { kind: 'plain' });
+  w.shape({ s: 'cylinder', p: [fx, 2.6, fz], z: [1.6, 4, 1.6], c: '#e5e4df' });
+  w.shape({ s: 'cylinder', p: [fx, 4.8, fz], z: [5, 0.6, 5], c: '#e5e4df' });
+  const spout = w.shape({ s: 'ball', p: [fx, 5.8, fz], z: [1.6, 2.4, 1.6], c: '#80dfff', collide: false });
+  w.updaters.push((dt, t) => { spout.mesh.scale.y = 2.4 + Math.sin(t * 6) * 0.5; });
+  [[-16, 0], [16, 0], [0, 16]].forEach(q => { w.brick({ p: [fx + q[0], 1, fz + q[1]], s: [q[0] ? 1.6 : 6, 0.5, q[0] ? 6 : 1.6], c: 0x694028 }); });
+  [[20, -20], [-20, -20], [22, 18], [-22, 20], [0, -24]].forEach(q => tree(w, fx + q[0], fz + q[1], r));
+  // NW: houses
+  house(w, -36, -34, 0xF2F3F3, '#c4281c'); house(w, -66, -34, 0xF5CD30, '#0d69ac'); house(w, -36, -70, 0x80BBDB, '#4b974b'); house(w, -66, -70, 0xE8BAC8, '#6b327c');
+  // SW: shops that give you things
+  shop(w, -34, 34, 0xC4281C, 'COLA CAFE', 'Free Cartblox Cola!', 'cola');
+  shop(w, -66, 34, 0x6B327C, 'PARTY SHOP', 'Free Confetti Popper!', 'popper');
+  // SE: playground (slide, trampoline, climbing bars) and the clock tower
+  const px = 34, pz = 36;
+  topBrick(w, px, pz, 0.2, 36, 30, 0.2, 0xD7C59A, { kind: 'plain', cast: false });
+  for (let i = 0; i < 6; i++) topBrick(w, px - 10, pz + 6 - i * 1.5, 1 + i, 3, 1.5, 1, 0xF5CD30);       // ladder steps
+  topBrick(w, px - 10, pz - 4, 7, 4, 4, 1, 0xC4281C);                                                   // top of the slide
+  w.shape({ s: 'wedge', p: [px - 10, 3.5, pz - 14], z: [3, 6.2, 16], r: [0, 180, 0], c: '#04afec' });  // the slide
+  topBrick(w, px + 6, pz + 4, 0.8, 8, 8, 0.6, 0x7DFF1A, { kind: 'neon', bounce: 90 });                  // trampoline
+  [[px + 10, pz - 8], [px + 4, pz - 8], [px + 16, pz - 8]].forEach((q, i) => topBrick(w, q[0], q[1], 2 + i * 1.5, 3, 3, 0.6, [0xFF66CC, 0xDA8541, 0x4B974B][i]));
+  const cx = 75, cz = 75, base = 0;
+  building(w, cx, cz, 10, 10, 34, 0xD7C59A, 0x694028, {});
+  squareStairs(w, cx, cz, base, 33, [0xA3A2A5, 0xE5E4DF]);
+  const top = 33;
+  [[-4.5, -4.5], [4.5, -4.5], [-4.5, 4.5], [4.5, 4.5]].forEach(q => w.brick({ p: [cx + q[0], top + 4, cz + q[1]], s: [1, 6, 1], c: 0x694028 }));
+  topBrick(w, cx, cz, top + 8, 11, 11, 1, 0x694028);
+  const cm = new THREE.MeshLambertMaterial({ map: clockTex() });
+  [[0, 5.06, 0], [Math.PI, -5.06, 0], [Math.PI / 2, 0, 5.06], [-Math.PI / 2, 0, -5.06]].forEach(q => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), cm); m.position.set(cx + q[2], 26, cz + q[1]); m.rotation.y = q[0]; m.userData.shared = true; w.root.add(m);
+  });
+  w.shape({ s: 'pyramid', p: [cx, top + 11, cz], z: [10, 6, 10], c: '#c4281c', collide: false });
+  // parked cars and trees around town
+  [[-20, 10, 0xC4281C], [-46, 10, 0x0D69AC], [44, -10, 0xF5CD30], [60, 10, 0x4B974B], [-10, 60, 0xFF66CC]].forEach(q => {
+    const along = Math.abs(q[1]) < 12, [x, z, c] = q;
+    w.brick({ p: [x, 1.4, z], s: along ? [8, 1.6, 4] : [4, 1.6, 8], c });
+    w.brick({ p: [x, 2.8, z], s: along ? [4.4, 1.4, 3.6] : [3.6, 1.4, 4.4], c: 0x80BBDB, kind: 'plain' });
+    [[-2.6, -2], [2.6, -2], [-2.6, 2], [2.6, 2]].forEach(o => w.brick({ p: [x + (along ? o[0] : o[1]), 0.7, z + (along ? o[1] : o[0])], s: [1.4, 1.4, 1.4], c: 0x1B2A35, kind: 'plain' }));
+  });
+  for (let n = 0, tries = 0; n < 30 && tries < 400; tries++) {
+    const x = (r() - 0.5) * 290, z = (r() - 0.5) * 290;
+    if (Math.abs(x) < 16 || Math.abs(z) < 16) continue;                                   // off the roads
+    if (Math.max(Math.abs(x), Math.abs(z)) < 100) continue;                             // keep the town blocks clear
+    tree(w, x, z, r); n++;
+  }
+}
+
+/* ---------- add them to the Games page (posted by the Cartblox account) ---------- */
+GAMES.push(
+  {
+    id: 'parkour', name: 'Parkour Rush', creator: BRAND, genre: 'Parkour', maxPlayers: 1,
+    visits: 3120, favorites: 410, up: 268, down: 14, age: -1, gear: false, created: 'Today', updated: 'Today',
+    desc: 'Run across the city rooftops! Hop between buildings, walk the pipes, ride the crane platforms, bounce up to the skyscrapers, dodge the laser, cross breaking glass, hit the speed strip for a huge long jump and climb the ledges. Nine stages, one golden roof. How fast can you do it?',
+    stat: 'Stage', statText: n => (n > 9 ? 'WIN' : String(n)), env: ENV_DAY, build: buildParkour,
+    win: { stage: 10, msg: 'You finished Parkour Rush!', chat: 'finished Parkour Rush!', badge: 'parkour', timed: true },
+    thumb: { cam: [-16, 44, 16], look: [2, 31, -40], fov: 64 },
+    hint: 'Reach the golden roof! Stand on a colored pad to save your stage. Falling off a roof sends you back.'
+  },
+  {
+    id: 'coins', name: 'Coin Island', creator: BRAND, genre: 'Adventure', maxPlayers: 1,
+    visits: 2685, favorites: 322, up: 231, down: 11, age: -1, gear: true, created: 'Today', updated: 'Today',
+    desc: '25 gold coins are hidden all over a tropical island. Climb the hill, take the spiral stairs up the lighthouse, hop across the stepping stones, bounce up to the clouds and jump the old ruins. Watch out for the sea! Find every coin to win.',
+    stat: 'Coins', statStart: 0, statText: n => n + '/25', env: ENV_DAY, build: buildCoinIsland,
+    thumb: { cam: [26, 22, 120], look: [0, 4, 40], fov: 60 },
+    hint: 'Find all 25 gold coins! Touch a coin to collect it. Don\'t fall in the sea.'
+  },
+  {
+    id: 'battle', name: 'Brick Battle Arena', creator: BRAND, genre: 'Fighting', maxPlayers: 1,
+    visits: 4410, favorites: 515, up: 342, down: 29, age: -1, gear: true, created: 'Today', updated: 'Today',
+    desc: 'Five floating islands under the night sky. Grab your sword, slingshot, paintball gun or rocket launcher and battle across the bridges, ride the moving stones, bounce up to the sky fort and hide behind the forts. Practise on the dummies. Every knockout counts!',
+    stat: 'KOs', env: ENV_NIGHT, build: buildBattle, tools: ['sword', 'slingshot', 'paintball', 'rocket', 'trowel', 'cola'],
+    thumb: { cam: [-30, 26, 44], look: [0, 4, 0], fov: 62 },
+    hint: 'Brick Battle! Press 1-6 (or tap a slot) to pick a tool, click to use it. Knock people out to get KOs.'
+  },
+  {
+    id: 'town', name: 'Cartblox Town', creator: BRAND, genre: 'Hangout', maxPlayers: 1,
+    visits: 3874, favorites: 486, up: 301, down: 17, age: -1, gear: true, created: 'Today', updated: 'Today',
+    desc: 'Hang out with your friends in a little brick town. Visit the houses, grab a free Cartblox Cola at the Cola Cafe and a Confetti Popper at the Party Shop, play on the slide and trampoline, relax by the fountain in the park and climb the clock tower for the best view in town.',
+    stat: null, env: ENV_DAY, build: buildTown,
+    thumb: { cam: [-6, 16, 40], look: [26, 6, 20], fov: 62 },
+    hint: 'Welcome to Cartblox Town! Explore, hang out and climb the clock tower.'
+  }
+);
 
 /* ====================== online: Firebase (messages / feed / community items) ====================== */
 const FB_VER = '10.12.2';
@@ -4178,8 +4661,23 @@ function onWorldEvent(name, d) {
     Sfx.play('win'); showMsg('You found the golden brick!', 4200); Badges.award('golden');
     chatAdd('You found the secret golden brick!', 'sys'); confetti(d[0], d[1], d[2], 40);
   } else if (name === 'win') {
-    R.P.stage = 9; updatePlist(); Sfx.play('win'); showMsg('You beat the obby! You win!', 6500); Badges.award('obby');
-    chatAdd(`${esc(S.user)} beat Mega Lava Obby!`, 'sys'); confetti(d[0], d[1] + 3, d[2], 70);
+    const W = R.def.win || { stage: 9, msg: 'You beat the obby! You win!', chat: 'beat Mega Lava Obby!', badge: 'obby' };
+    let msg = W.msg;
+    if (W.timed) { const s = Math.floor(R.time), t = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); msg += ' Time: ' + t; chatAdd(`${esc(S.user)} ${esc(W.chat)} (${t})`, 'sys'); }
+    else chatAdd(`${esc(S.user)} ${esc(W.chat)}`, 'sys');
+    R.P.stage = W.stage; updatePlist(); Sfx.play('win'); showMsg(msg, 6500); if (W.badge) Badges.award(W.badge);
+    confetti(d[0], d[1] + 3, d[2], 70);
+  } else if (name === 'coin') {                                     // Coin Island
+    const tot = R.world.coins || 0; R.P.stage++; updatePlist(); confetti(d[0], d[1], d[2], 8);
+    if (R.P.stage >= tot) {
+      Sfx.play('win'); showMsg('You found all ' + tot + ' coins! You win!', 6500); Badges.award('coins');
+      chatAdd(`${esc(S.user)} found all ${tot} coins on Coin Island!`, 'sys'); confetti(R.P.x, R.P.y + 4, R.P.z, 70);
+    } else { Sfx.play('checkpoint'); showHint('Coin ' + R.P.stage + ' of ' + tot, 2000); }
+  } else if (name === 'boost') {                                    // Parkour Rush speed strip
+    const P = R.P; if (!P.alive) return;
+    P.push = { x: d[0], y: 0, z: d[1], t: 0.45, rel: false, track: false, face: P.face, fade: 0.6, fl: 0.6 };
+    if (!(R.time - (P.boostT || -9) < 1.5)) { Sfx.play('bounce'); showHint('BOOST! Jump at the edge!', 2200); }
+    P.boostT = R.time;
   }
 }
 function setCheckpoint(cp) {
@@ -4616,6 +5114,7 @@ function startRun(def) {
   world.onEvent = onWorldEvent;
   const first = world.checkpoints[0];
   if (first && !world.spawns.length) { R.P.cp = first.checkpoint; R.P.stage = first.checkpoint.stage; }
+  if (def.statStart != null) R.P.stage = def.statStart;
   r.setClearColor(def.env.fog, 1);
   $('#chatlog').innerHTML = '';
   $('#plist').classList.remove('hide');
@@ -4852,6 +5351,8 @@ const BADGES = [
   ['welcome', 'Welcome!', 'Joined Cartblox.', '#0d69ac'],
   ['obby', 'Obby Champion', 'Beat the Mega Lava Obby.', '#da8541'],
   ['golden', 'Golden Brick', 'Found the secret golden brick on Baseplate.', '#e0a800'],
+  ['parkour', 'Parkour Pro', 'Finished Parkour Rush.', '#ff6a00'],
+  ['coins', 'Coin Hunter', 'Found all 25 coins on Coin Island.', '#c99a06'],
   ['ko', 'First Knockout', 'Knocked out someone with a tool.', '#c4281c'],
   ['creator', 'Game Creator', 'Published a game made in CartStudio.', '#4b974b'],
   ['designer', 'Designer', 'Uploaded an item to the Catalog.', '#d4459e'],
@@ -5668,7 +6169,7 @@ function sanitizeTools(list) {
 // StarterPlayer: how players move and how the camera works
 function sanitizePlayer(p) {
   p = p && typeof p === 'object' ? p : {};
-  return { exec: p.exec === true, shiftlock: p.shiftlock !== false, walk: cleanNum(p.walk, 16, 0, 100), jump: cleanNum(p.jump, 50, 0, 250), zoom: cleanNum(p.zoom, 80, 5, 200), cam: p.cam === 'first' ? 'first' : 'classic' };
+  return { shiftlock: p.shiftlock !== false, walk: cleanNum(p.walk, 16, 0, 100), jump: cleanNum(p.jump, 50, 0, 250), zoom: cleanNum(p.zoom, 80, 5, 200), cam: p.cam === 'first' ? 'first' : 'classic' };
 }
 function sanitizeDoc(txt) {                           // accepts text or an object; returns a safe place doc or null
   let o; try { o = typeof txt === 'string' ? JSON.parse(txt) : JSON.parse(JSON.stringify(txt)); } catch (e) { return null; }
@@ -6426,8 +6927,8 @@ class Studio {
       const p = d.player;
       h = `<div class="cs-pt">StarterPlayer</div>` + row('Shift lock allowed', chk('shiftlock', p.shiftlock)) + row('Walk speed', `<input type="number" data-o="walk" min="0" max="100" value="${p.walk}">`) +
         row('Jump power', `<input type="number" data-o="jump" min="0" max="250" value="${p.jump}">`) + row('Max camera zoom', `<input type="number" data-o="zoom" min="5" max="200" value="${p.zoom}">`) +
-        row('Camera', sel('cam', [['classic', 'Classic (zoom in and out)'], ['first', 'First person only']], p.cam)) + row('Allow F12 executor', chk('exec', p.exec)) +
-        '<div class="cs-empty">How every player starts. <b>Shift lock</b>: players press Shift (or the lock button on phones) so their character faces where the camera looks, great for shooting and sword games. <b>Allow F12 executor</b>: lets players use the Cartblox console executor in your published game (it always works in Play Solo).</div>';
+        row('Camera', sel('cam', [['classic', 'Classic (zoom in and out)'], ['first', 'First person only']], p.cam)) +
+        '<div class="cs-empty">How every player starts. <b>Shift lock</b>: players press Shift (or the lock button on phones) so their character faces where the camera looks, great for shooting and sword games.</div>';
     } else if (!x) h = '<div class="cs-empty">Select something to see its properties.</div>';
     else if (os.k === 'script') {
       const ev = evDef(x.e), mod = x.k === 'module';
@@ -6481,7 +6982,7 @@ class Studio {
     const os = this.osel, d = this.doc; if (!os) return;
     if (os.k === 'player') {
       const p = d.player;
-      if (key === 'shiftlock') p.shiftlock = !!val; else if (key === 'exec') p.exec = !!val; else if (key === 'cam') p.cam = val === 'first' ? 'first' : 'classic';
+      if (key === 'shiftlock') p.shiftlock = !!val; else if (key === 'cam') p.cam = val === 'first' ? 'first' : 'classic';
       else if (['walk', 'jump', 'zoom'].includes(key)) p[key] = Object.assign({}, sanitizePlayer(Object.assign({}, p, { [key]: +val })))[key];
     } else if (os.k === 'team') {
       const x = this.objOf(os); if (!x) return;
@@ -6970,8 +7471,7 @@ Object.assign(Studio.prototype, {
 /* ====================== F12 EXECUTOR API (window.Cartblox) ======================
    Open the browser console (F12) while playing and type Cartblox.help(). Each line of Cartblox.run("...") becomes
    Cartblox script actions, so it runs through the same safe system as CartStudio scripts (and the game server still
-   checks damage). Works in the built-in games and CartStudio's Play Solo; a published game only allows it when its
-   creator ticks StarterPlayer > "Allow F12 executor". */
+   checks damage). Works in the built-in Cartblox games and CartStudio's Play Solo (not in published community games). */
 const EXEC_HELP = [
   ['speed 50', 'walk speed (normal 16)'], ['jump 120', 'jump power (normal 50)'], ['gravity 60', 'gravity (normal 196)'], ['fov 90', 'camera field of view'],
   ['fly [on|off] [speed]', 'fly mode (WASD, Space up, C down)'], ['noclip [on|off]', 'walk through walls'], ['heal [amount]', 'heal (default 100)'],
@@ -6987,7 +7487,7 @@ const EXEC_HELP = [
 const Executor = {
   allowed() {
     if (!R) return 'Join a game first, then run it again.';
-    if (R.def.place && R.def.id !== 'test' && !(R.def.place.player && R.def.place.player.exec)) return 'This game does not allow the executor (its creator can turn on StarterPlayer > Allow F12 executor).';
+    if (R.def.place && R.def.id !== 'test') return 'The executor only works in the built-in Cartblox games and in CartStudio Play Solo.';
     return '';
   },
   part(name) { const d = R.def.place; if (!d || !R.world.byId) return null; const n = String(name).toLowerCase(), q = d.parts.find(p => p.n.toLowerCase() === n) || d.parts.find(p => p.n.toLowerCase().startsWith(n)); return q ? R.world.byId.get(q.id) || null : null; },
