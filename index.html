@@ -2003,6 +2003,7 @@ const FX = {
     if (em) { (ent.fx || (ent.fx = [])).push(em); }
     return em;
   },
+  stopChar(ent, id) { for (const em of ent.fx || []) if (em.fx.id === id) em.stop(); ent.fx = (ent.fx || []).filter(em => !em.stopped); },
   clearChar(ent) { for (const em of ent.fx || []) em.stop(); ent.fx = []; },
   playersEffects(ent) { const d = R.def.place; if (!d) return; for (const e of d.effects || []) if (e.on !== false && e.at === 'players') this.forChar(ent, e.id, 0); }
 };
@@ -2189,6 +2190,11 @@ const Tools = {
       const t = toolById(id), img = TOOL_IMG[id];
       return `<button class="slot${i === R.eq ? ' on' : ''}" data-slot="${i}" type="button" title="${esc(t.n)}"><b>${(i + 1) % 10}</b>${img ? `<img src="${img}" alt="">` : ''}<span${img ? ' class="sm"' : ''}>${esc(t.n)}</span><i class="cdv"></i></button>`;
     }).join('');
+  },
+  take(id) {                                                         // remove a tool from the backpack
+    if (!R || !R.bp) return; const i = R.bp.indexOf(id); if (i < 0) return;
+    if (R.eq === i) { this.detach(R.ch); R.eq = -1; } else if (R.eq > i) R.eq--;
+    R.bp.splice(i, 1); this.applyPassive(); this.renderBar();
   },
   give(id) {
     if (!R || !R.bp || R.bp.includes(id)) return;
@@ -3413,14 +3419,14 @@ const SCRIPT_ACTIONS = [
   ['announce', 'Announce in the chat', [['text', 'text', 'Text', '{name} found the secret!']]],
   ['points', 'Give points', [['num', 'num', 'Points', 1]]],
   ['ifpts', 'Only go on if points are at least', [['num', 'num', 'Points', 5]]],
-  ['tool', 'Give a tool', [['tool', 'tool', 'Tool']]],
+  ['tool', 'Give a tool', [['tool', 'tool', 'Tool'], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
   ['tp', 'Teleport the player to a part', [['part', 'part', 'Part']]],
   ['heal', 'Heal the player', [['num', 'num', 'Health', 25]]],
   ['kill', 'Knock out the player', []],
-  ['speed', 'Set walk speed', [['num', 'num', 'Speed (normal 16)', 16]]],
-  ['jump', 'Set jump power', [['num', 'num', 'Power (normal 50)', 50]]],
-  ['gravity', 'Set gravity', [['num', 'num', 'Gravity (normal 196)', 196]]],
-  ['fov', 'Set screen FOV', [['num', 'num', 'Field of view (normal 70)', 70]]],
+  ['speed', 'Set walk speed', [['num', 'num', 'Speed (normal 16)', 16], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
+  ['jump', 'Set jump power', [['num', 'num', 'Power (normal 50)', 50], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
+  ['gravity', 'Set gravity', [['num', 'num', 'Gravity (normal 196)', 196], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
+  ['fov', 'Set screen FOV', [['num', 'num', 'Field of view (normal 70)', 70], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
   ['hide', 'Make a part disappear', [['part', 'part', 'Part'], ['num', 'num', 'For seconds (0 = forever)', 3]]],
   ['show', 'Make a part appear again', [['part', 'part', 'Part']]],
   ['color', 'Change a part\'s color', [['part', 'part', 'Part'], ['c', 'color', 'Color', '#c4281c']]],
@@ -3435,12 +3441,13 @@ const SCRIPT_ACTIONS = [
   ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show it', ['yes', 'no']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
   ['shoot', 'Shoot a projectile', [['dmg', 'num', 'Damage', 15], ['sp', 'num', 'Speed', 120], ['size', 'num', 'Size', 1], ['c', 'color', 'Color', '#ff6a00'], ['drop', 'sel', 'Drops down', ['no', 'yes']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
   ['explode', 'Make an explosion', [['dmg', 'num', 'Damage', 40], ['rad', 'num', 'Radius', 9], ['at', 'sel', 'Where', ['aim', 'player']], ['fx', 'effect', 'Attach effect', 0], ['onhit', 'branch', 'When it hits, run branch', 0]]],
-  ['addfx', 'Add an effect to the player', [['fx', 'effect', 'Effect', 0], ['num', 'num', 'For seconds (0 = forever)', 3]]],
+  ['addfx', 'Add an effect to the player', [['fx', 'effect', 'Effect', 0], ['num', 'num', 'For seconds (0 = forever)', 3], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
+  ['respawn', 'Respawn the player', []],
   ['clearfx', 'Remove effects from the player', []],
   ['damage', 'Damage the player', [['num', 'num', 'Damage', 10]]],
   ['setpts', 'Set points to', [['num', 'num', 'Points', 0]]],
   ['chance', 'Only go on with a chance of', [['num', 'num', 'Percent', 50]]],
-  ['emote', 'Play an animation', [['v', 'sel', 'Built-in animation', ['slash', 'lunge', 'shoot', 'drink', 'build', 'wave', 'dance', 'cheer']], ['id', 'animid', 'Or an Animation ID', ''], ['sp', 'num', 'Speed', 1]]],
+  ['emote', 'Play an animation', [['v', 'sel', 'Built-in animation', ['slash', 'lunge', 'shoot', 'drink', 'build', 'wave', 'dance', 'cheer']], ['id', 'animid', 'Or an Animation ID', ''], ['sp', 'num', 'Speed', 1], ['rod', 'sel', 'Remove on death', ['no', 'yes']]]],
   ['stopanim', 'Stop animations', []],
   ['sfx', 'Play a sound effect', [['v', 'sel', 'Sound', ['win', 'boom', 'hit', 'hurt', 'oof', 'jump', 'bounce', 'checkpoint', 'pop', 'slash', 'lunge', 'sling', 'rocket', 'build', 'splat', 'drink', 'burp', 'equip', 'click']]]],
   ['runbr', 'Run a branch', [['br', 'branch', 'Branch', 0]]],
@@ -3538,7 +3545,7 @@ function scriptPreview(s, doc) {
     tooluse: `${s.ev.tl ? 'StarterPack.' + toolLabel(s.ev.tl, doc).replace(/\s+/g, '') : 'tool'}.Activated:Connect(function()`,
     clickpart: `${'workspace.' + nm(doc.parts, s.ev.part, 'Part')}.ClickDetector.MouseClick:Connect(function(player)`, hbhit: 'hitbox.Hit:Connect(function(target)', spawn: 'player.CharacterAdded:Connect(function(character)', die: 'humanoid.Died:Connect(function()', points: `leaderstats.Points.Changed:Connect(function(value)  -- reaches ${s.ev.num}` }[s.e];
   const P = id => `workspace.${nm(doc.parts, id, 'Part')}`;
-  const line = a => ({
+  const line0 = a => ({
     msg: `showMessage(${q(a.text)})`, hint: `showHint(${q(a.text)})`, announce: `TextChatService:DisplaySystemMessage(${q(a.text)})`, points: `leaderstats.Points.Value += ${a.num}`,
     ifpts: `if leaderstats.Points.Value < ${a.num} then return end`, tool: `giveTool(${q(toolLabel(a.tool, doc))})`,
     tp: `character:MoveTo(${P(a.part)}.Position)`, heal: `humanoid.Health += ${a.num}`, kill: 'humanoid.Health = 0', speed: `humanoid.WalkSpeed = ${a.num}`, jump: `humanoid.JumpPower = ${a.num}`,
@@ -3558,9 +3565,10 @@ function scriptPreview(s, doc) {
     runbr: `${brName(s, a.br)}(${((s.branches || [])[a.br - 1] || {}).on === 'target' ? 'enemy' : 'player'})`, chatif: `if message:sub(1, ${String(a.text).length}) == ${q(a.text)} then ${brName(s, a.br)}(enemy) end`,
     ifname: `if not table.find({${nameList(a.text).map(n => q(n)).join(', ')}}, player.Name:lower()) then return end`, ifteam: `if player.Team ~= Teams.${teamName(a.team, doc)} then return end`,
     setteam: `player.Team = Teams.${teamName(a.team, doc)}`, flight: `setFlying(player, ${q(a.v)}, ${a.num})  -- WASD + Space up, C down`,
-    tpto: `character:MoveTo(Players[${q(a.text)}].Character.PrimaryPart.Position)`, kick: `player:Kick(${q(a.text)})`,
+    tpto: `character:MoveTo(Players[${q(a.text)}].Character.PrimaryPart.Position)`, kick: `player:Kick(${q(a.text)})`, respawn: 'player:LoadCharacter()',
     win: `celebrate(${q(a.text)})`, wait: `wait(${a.num})`
   })[a.a] || '-- ?';
+  const line = a => line0(a) + (a.rod === 'yes' ? '  -- removed on death' : '');
   const body = (s.acts.length ? s.acts.map(a => '    ' + line(a)) : ['    -- add actions below']);
   const brs = (s.branches || []).map((b, i) => `local function ${brName(s, i + 1)}(${b.on === 'target' ? 'enemy' : 'player'})  -- branch, runs on ${b.on === 'target' ? 'the enemy (the player it targets)' : 'this player'}\n${(b.acts.length ? b.acts.map(a => '    ' + line(a)) : ['    -- empty']).join('\n')}\nend\n`).join('');
   if (s.k === 'module') return `-- ${s.n} (ModuleScript in ${svc(s.p)})\n-- runs when another script uses "Run a ModuleScript"\nreturn function(player)\n${body.join('\n')}\nend`;
@@ -3579,7 +3587,7 @@ function guiStyle(el, g) {
 const Scripts = {
   setup(def) {
     const d = def.place;
-    R.sc = { list: [], jobs: [], touch: new Map(), timers: [], acc: new Map(), fired: new Set(), audio: new Map(), gui: new Map(), clones: [], tw: [], moved: [], last: new Map(), doc: d };
+    R.sc = { list: [], jobs: [], touch: new Map(), timers: [], acc: new Map(), fired: new Set(), audio: new Map(), gui: new Map(), clones: [], tw: [], moved: [], last: new Map(), rod: [], doc: d };
     if (d && scriptUsesPoints(d)) { R.P.stage = 0; updatePlist(); }     // points start at zero (before any GUI shows them)
     this.renderGui(d ? d.gui : []);
     if (!d) return;
@@ -3660,6 +3668,9 @@ const Scripts = {
   },
   onWelcome() { if (R && R.sc) this.pickTeam(); },
   onDie() { this.fire('die'); },
+  // "Remove on death": undo these when the player respawns
+  onDeathUndo(fn) { if (R && R.sc) R.sc.rod.push(fn); },
+  onRespawn() { const sc = R && R.sc; if (!sc) return; const list = sc.rod.splice(0); for (let i = list.length - 1; i >= 0; i--) { try { list[i](); } catch (e) { /* ignore */ } } },
   onUse(toolId) { this.fire('tooluse', s => !s.ev.tl || s.ev.tl === toolId); },
   onClick(clientX, clientY) {                                       // ClickDetector: did the click land on a part a script listens to?
     const sc = R && R.sc; if (!sc) return false;
@@ -3703,6 +3714,7 @@ const Scripts = {
       while (job.wait <= 0 && job.i < job.acts.length && budget-- > 0) {
         const a = job.acts[job.i++];
         if (a.a === 'wait') job.wait = Math.max(0, Math.min(600, a.num || 0));
+        else if (a.a === '_fn') { try { const r = a.fn(); if (r) Executor.log([r]); } catch (e) { Executor.log([String(e.message || e)], true); } }   // F12 executor helpers
         else if (a.a === 'ifpts') { if (P.stage < a.num) job.i = job.acts.length; }
         else if (a.a === 'chance') { if (Math.random() * 100 >= a.num) job.i = job.acts.length; }
         else if (a.a === 'ifname') { if (!nameList(this.fill(a.text, job.ctx)).includes(S.user.toLowerCase())) job.i = job.acts.length; }
@@ -3738,14 +3750,15 @@ const Scripts = {
       case 'hint': showHint(this.fill(a.text, ctx), 4500); break;
       case 'announce': chatAdd(esc(this.fill(a.text, ctx)), 'sys'); break;
       case 'points': this.addPoints(a.num); break;
-      case 'tool': Tools.give(a.tool); break;
+      case 'tool': { const had = R.bp && R.bp.includes(a.tool); Tools.give(a.tool); if (a.rod === 'yes' && !had) this.onDeathUndo(() => Tools.take(a.tool)); break; }
       case 'tp': { const p = this.part(a.part); if (p && P.alive) { Object.assign(P, { x: (p.x0 + p.x1) / 2, y: p.y1 + 0.05, z: (p.z0 + p.z1) / 2, vx: 0, vy: 0, vz: 0, kx: 0, kz: 0 }); R.cam.fx = P.x; R.cam.fz = P.z; R.cam.fy = P.y + 4.8; } break; }
       case 'heal': if (P.alive) { P.health = clamp(P.health + a.num, 0, 100); updateHealth(); Net.send({ t: 'heal', d: Math.round(clamp(a.num, -100, 100)) }); if (P.health <= 0) die(); } break;
       case 'kill': die(); break;
-      case 'speed': P.walk = clamp(a.num, 0, 100); break;
-      case 'jump': P.jump = clamp(a.num, 0, 250); break;
-      case 'gravity': P.gravS = clamp(a.num, 0, 1000) / PHYS.G; break;
-      case 'fov': R.fov = clamp(a.num, 20, 120); resize(); break;
+      case 'speed': { const was = P.walk; P.walk = clamp(a.num, 0, 100); if (a.rod === 'yes') this.onDeathUndo(() => { P.walk = was; }); break; }
+      case 'jump': { const was = P.jump; P.jump = clamp(a.num, 0, 250); if (a.rod === 'yes') this.onDeathUndo(() => { P.jump = was; }); break; }
+      case 'gravity': { const was = P.gravS; P.gravS = clamp(a.num, 0, 1000) / PHYS.G; if (a.rod === 'yes') this.onDeathUndo(() => { P.gravS = was; }); break; }
+      case 'fov': { const was = R.fov; R.fov = clamp(a.num, 20, 120); resize(); if (a.rod === 'yes') this.onDeathUndo(() => { R.fov = was; resize(); }); break; }
+      case 'respawn': setTimeout(() => { if (R) respawn(); }, 0); break;
       case 'hide': this.hide(this.part(a.part), a.num); break;
       case 'show': this.show(this.part(a.part)); break;
       case 'color': { const p = this.part(a.part); if (p && p.mk) { p.mk.c = a.c; this.paint(p); } break; }
@@ -3774,11 +3787,14 @@ const Scripts = {
       case 'damage': if (P.alive && a.num > 0) Tools.applyDamage(a.num, null, null); break;
       case 'setpts': P.stage = Math.max(0, Math.round(a.num)); updatePlist(); this.refreshGui(); break;
       case 'emote': if (P.alive) {
-        if (a.id) { ANIMS.play(P, a.id, a.sp); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'panim', id: a.id, sp: a.sp || 1 } }); }      // everyone sees it
+        if (a.id) { ANIMS.play(P, a.id, a.sp); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'panim', id: a.id, sp: a.sp || 1 } }); if (a.rod === 'yes') this.onDeathUndo(() => { ANIMS.stop(P); Net.send({ t: 'sx', a: { a: 'pstop' } }); }); }      // everyone sees it
         else if (['wave', 'dance', 'cheer'].includes(a.v)) { P.emote = a.v; P.emoteT = 0; } else Tools.act(a.v, ({ slash: 0.28, lunge: 0.55, drink: 1.3, shoot: 0.25, build: 0.35 })[a.v] || 0.3);
       } break;
       case 'stopanim': ANIMS.stop(P); P.emote = null; if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pstop' } }); break;
-      case 'addfx': if (FX.effect(a.fx)) { FX.forChar(R.me, a.fx, Math.max(0, a.num)); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfx', fx: a.fx, num: Math.max(0, a.num) } }); } break;
+      case 'addfx': if (FX.effect(a.fx)) {
+        const em = FX.forChar(R.me, a.fx, Math.max(0, a.num)); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfx', fx: a.fx, num: Math.max(0, a.num) } });
+        if (a.rod === 'yes' && em) this.onDeathUndo(() => { em.stop(); Net.send({ t: 'sx', a: { a: 'pfxstop', fx: a.fx } }); });
+      } break;
       case 'clearfx': FX.clearChar(R.me); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfxoff' } }); break;
       case 'sfx': Sfx.play(a.v); break;
       case 'win': confetti(P.x, P.y + 4, P.z, 50); Sfx.play('win'); showMsg(this.fill(a.text || 'You win!', ctx), 5000); break;
@@ -3803,6 +3819,7 @@ const Scripts = {
       R.sc.jobs.push({ acts: b.acts.slice(), i: 0, wait: 0, req: 0, ctx: { srv: s.side !== 'client', script: s, sender: cleanName(a.from, 'Player'), enemy: S.user, targets: [] } });
       return;
     }
+    if (a.a === 'pfxstop') { const rp = R.remote.get(String(m.id)); if (rp) FX.stopChar(rp, Number(a.fx) | 0); return; }
     if (['panim', 'pstop', 'pfx', 'pfxoff'].includes(a.a)) {         // another player's animation / effects
       const rp = R.remote.get(String(m.id)); if (!rp) return;
       if (a.a === 'panim') ANIMS.play(rp, String(a.id || ''), Number(a.sp) || 1); else if (a.a === 'pstop') ANIMS.stop(rp);
@@ -4102,7 +4119,7 @@ function addForcefield(ch) {
   return { g, s, wf };
 }
 function spawnPlayer() {
-  const P = R.P, sp = pickSpawn(); P.push = null; P.fly = null;
+  const P = R.P, sp = pickSpawn(); P.push = null; P.fly = null; P.noclip = false;
   if (R.ch) { R.scene.remove(R.ch.root); disposeObject(R.ch.root); R.ch.dispose(); }
   const jit = R.remote.size ? 1.6 : 0;                               // don't stack on top of other players
   P.x = sp[0] + (Math.random() - 0.5) * jit * 2; P.y = sp[1] + 0.02; P.z = sp[2] + (Math.random() - 0.5) * jit * 2;
@@ -4139,7 +4156,7 @@ function die(by, fromServer) {
   if (killer) chatAdd(esc(killer.name) + ' knocked you out!', 'sys');
   if (!fromServer) Net.send(killer && !Net.authority() ? { t: 'die', by: killer.id } : { t: 'die' });   // new servers work out who did it
 }
-function respawn() { clearDebris(); spawnPlayer(); Net.send({ t: 'spawn' }); Scripts.fire('spawn'); }
+function respawn() { clearDebris(); spawnPlayer(); Net.send({ t: 'spawn' }); Scripts.onRespawn(); Scripts.fire('spawn'); }
 function confetti(x, y, z, n) {
   if (!R) return;
   const geo = (window.__cbConfGeo || (window.__cbConfGeo = new THREE.BoxGeometry(0.7, 0.7, 0.7)));
@@ -4265,6 +4282,7 @@ function netHandlers() {
 /* ====================== physics ====================== */
 function overlapList(P, out) {
   out.length = 0;
+  if (P.noclip) return out;                                         // executor "noclip": walk through everything
   const parts = R.world.parts, H = PHYS.HALF, E = PHYS.EPS;
   const x0 = P.x - H, x1 = P.x + H, y0 = P.y, y1 = P.y + PHYS.HGT, z0 = P.z - H, z1 = P.z + H;
   for (let i = 0; i < parts.length; i++) {
@@ -5650,7 +5668,7 @@ function sanitizeTools(list) {
 // StarterPlayer: how players move and how the camera works
 function sanitizePlayer(p) {
   p = p && typeof p === 'object' ? p : {};
-  return { shiftlock: p.shiftlock !== false, walk: cleanNum(p.walk, 16, 0, 100), jump: cleanNum(p.jump, 50, 0, 250), zoom: cleanNum(p.zoom, 80, 5, 200), cam: p.cam === 'first' ? 'first' : 'classic' };
+  return { exec: p.exec === true, shiftlock: p.shiftlock !== false, walk: cleanNum(p.walk, 16, 0, 100), jump: cleanNum(p.jump, 50, 0, 250), zoom: cleanNum(p.zoom, 80, 5, 200), cam: p.cam === 'first' ? 'first' : 'classic' };
 }
 function sanitizeDoc(txt) {                           // accepts text or an object; returns a safe place doc or null
   let o; try { o = typeof txt === 'string' ? JSON.parse(txt) : JSON.parse(JSON.stringify(txt)); } catch (e) { return null; }
@@ -6408,8 +6426,8 @@ class Studio {
       const p = d.player;
       h = `<div class="cs-pt">StarterPlayer</div>` + row('Shift lock allowed', chk('shiftlock', p.shiftlock)) + row('Walk speed', `<input type="number" data-o="walk" min="0" max="100" value="${p.walk}">`) +
         row('Jump power', `<input type="number" data-o="jump" min="0" max="250" value="${p.jump}">`) + row('Max camera zoom', `<input type="number" data-o="zoom" min="5" max="200" value="${p.zoom}">`) +
-        row('Camera', sel('cam', [['classic', 'Classic (zoom in and out)'], ['first', 'First person only']], p.cam)) +
-        '<div class="cs-empty">How every player starts. <b>Shift lock</b>: players press Shift (or the lock button on phones) so their character faces where the camera looks, great for shooting and sword games.</div>';
+        row('Camera', sel('cam', [['classic', 'Classic (zoom in and out)'], ['first', 'First person only']], p.cam)) + row('Allow F12 executor', chk('exec', p.exec)) +
+        '<div class="cs-empty">How every player starts. <b>Shift lock</b>: players press Shift (or the lock button on phones) so their character faces where the camera looks, great for shooting and sword games. <b>Allow F12 executor</b>: lets players use the Cartblox console executor in your published game (it always works in Play Solo).</div>';
     } else if (!x) h = '<div class="cs-empty">Select something to see its properties.</div>';
     else if (os.k === 'script') {
       const ev = evDef(x.e), mod = x.k === 'module';
@@ -6463,7 +6481,7 @@ class Studio {
     const os = this.osel, d = this.doc; if (!os) return;
     if (os.k === 'player') {
       const p = d.player;
-      if (key === 'shiftlock') p.shiftlock = !!val; else if (key === 'cam') p.cam = val === 'first' ? 'first' : 'classic';
+      if (key === 'shiftlock') p.shiftlock = !!val; else if (key === 'exec') p.exec = !!val; else if (key === 'cam') p.cam = val === 'first' ? 'first' : 'classic';
       else if (['walk', 'jump', 'zoom'].includes(key)) p[key] = Object.assign({}, sanitizePlayer(Object.assign({}, p, { [key]: +val })))[key];
     } else if (os.k === 'team') {
       const x = this.objOf(os); if (!x) return;
@@ -6947,6 +6965,112 @@ Object.assign(Studio.prototype, {
     while (o && !map.has(o)) o = o.parent;
     if (o) { this.anim.joint = map.get(o); this.animGizmo(); this.renderAnimPanel(true); }
   }
+});
+
+/* ====================== F12 EXECUTOR API (window.Cartblox) ======================
+   Open the browser console (F12) while playing and type Cartblox.help(). Each line of Cartblox.run("...") becomes
+   Cartblox script actions, so it runs through the same safe system as CartStudio scripts (and the game server still
+   checks damage). Works in the built-in games and CartStudio's Play Solo; a published game only allows it when its
+   creator ticks StarterPlayer > "Allow F12 executor". */
+const EXEC_HELP = [
+  ['speed 50', 'walk speed (normal 16)'], ['jump 120', 'jump power (normal 50)'], ['gravity 60', 'gravity (normal 196)'], ['fov 90', 'camera field of view'],
+  ['fly [on|off] [speed]', 'fly mode (WASD, Space up, C down)'], ['noclip [on|off]', 'walk through walls'], ['heal [amount]', 'heal (default 100)'],
+  ['kill', 'knock yourself out'], ['respawn', 'respawn right away'], ['give sword', 'give a tool (name or id)'], ['tools', 'list the tools'],
+  ['tp Bob', 'teleport to a player'], ['tp 0 20 0', 'teleport to x y z'], ['players', 'list the players'], ['parts', 'list named parts'],
+  ['hide Door / show Door', 'hide or show a part (only on your screen)'], ['color Door #ff0000', 'recolor a part (your screen)'],
+  ['msg Hello', 'big message'], ['hint Hello', 'hint at the top'], ['chat Hello', 'say something in chat'], ['effect Fire 5', 'put a game effect on you'],
+  ['anim a_xxxx [speed]', 'play an animation by ID'], ['stopanim', 'stop animations'], ['emote dance', 'wave / dance / cheer'],
+  ['points 5 / setpoints 0', 'change your points'], ['team Red', 'join a team'], ['shiftlock [on|off]', 'shift lock'],
+  ['velocity 0 80 0 [time]', 'push yourself'], ['dash [power]', 'dash where the camera looks'], ['explode [damage] [radius]', 'explosion at you'],
+  ['shoot [damage] [speed]', 'fire a projectile'], ['wait 1', 'pause before the next line'], ['repeat 3 <command>', 'do a command several times']
+];
+const Executor = {
+  allowed() {
+    if (!R) return 'Join a game first, then run it again.';
+    if (R.def.place && R.def.id !== 'test' && !(R.def.place.player && R.def.place.player.exec)) return 'This game does not allow the executor (its creator can turn on StarterPlayer > Allow F12 executor).';
+    return '';
+  },
+  part(name) { const d = R.def.place; if (!d || !R.world.byId) return null; const n = String(name).toLowerCase(), q = d.parts.find(p => p.n.toLowerCase() === n) || d.parts.find(p => p.n.toLowerCase().startsWith(n)); return q ? R.world.byId.get(q.id) || null : null; },
+  tool(name) { const n = String(name || '').toLowerCase().replace(/\s+/g, ''); const all = TOOLS.concat(CUSTOM_TOOLS); return all.find(t => t.id.toLowerCase() === n) || all.find(t => t.n.toLowerCase().replace(/\s+/g, '').startsWith(n)) || null; },
+  // one line -> a list of actions (real script actions, or a small function for things scripts can't do)
+  parse(line, out) {
+    const w = line.trim().split(/\s+/), c = (w[0] || '').toLowerCase(), n = (i, d) => { const v = Number(w[i]); return Number.isFinite(v) ? v : d; }, rest = w.slice(1).join(' ');
+    const fn = (f, say) => out.push({ a: '_fn', fn: f, say });
+    const P = R.P;
+    switch (c) {
+      case '': return true;
+      case 'speed': case 'ws': out.push({ a: 'speed', num: n(1, 16) }); return true;
+      case 'jump': case 'jp': out.push({ a: 'jump', num: n(1, 50) }); return true;
+      case 'gravity': out.push({ a: 'gravity', num: n(1, 196) }); return true;
+      case 'fov': out.push({ a: 'fov', num: n(1, 70) }); return true;
+      case 'fly': { const v = (w[1] || 'toggle').toLowerCase(); out.push({ a: 'flight', v: ['on', 'off'].includes(v) ? v : 'toggle', num: n(Number.isFinite(Number(w[1])) ? 1 : 2, 50) }); return true; }
+      case 'noclip': { const v = (w[1] || '').toLowerCase(); fn(() => { P.noclip = v === 'on' ? true : v === 'off' ? false : !P.noclip; return 'noclip ' + (P.noclip ? 'on' : 'off'); }); return true; }
+      case 'heal': out.push({ a: 'heal', num: n(1, 100) }); return true;
+      case 'kill': out.push({ a: 'kill' }); return true;
+      case 'respawn': case 're': out.push({ a: 'respawn' }); return true;
+      case 'give': { const t = this.tool(rest); if (!t) return 'No tool called "' + rest + '". Try: tools'; out.push({ a: 'tool', tool: t.id }); return true; }
+      case 'tools': fn(() => 'Tools: ' + TOOLS.concat(CUSTOM_TOOLS).map(t => t.n + ' (' + t.id + ')').join(', ')); return true;
+      case 'tp': case 'goto':
+        if (w.length >= 4 && w.slice(1, 4).every(x => Number.isFinite(Number(x)))) { fn(() => { Object.assign(P, { x: n(1, 0), y: n(2, 5), z: n(3, 0), vx: 0, vy: 0, vz: 0 }); return 'teleported'; }); return true; }
+        out.push({ a: 'tpto', text: rest }); return true;
+      case 'players': fn(() => 'Players: ' + [S.user + ' (you)'].concat([...R.remote.values()].map(r => r.name)).join(', ')); return true;
+      case 'parts': fn(() => R.def.place ? 'Parts: ' + R.def.place.parts.map(p => p.n).slice(0, 80).join(', ') : 'This game has no named parts.'); return true;
+      case 'hide': case 'show': { const p = this.part(rest); if (!p) return 'No part called "' + rest + '". Try: parts'; fn(() => { if (c === 'hide') Scripts.hide(p, 0); else Scripts.show(p); return c + ' ' + rest; }); return true; }
+      case 'color': { const p = this.part(w[1] || ''), hex = /^#[0-9a-f]{6}$/i.test(w[2] || '') ? w[2] : null; if (!p || !hex || !p.mk) return 'Use: color PartName #ff0000'; fn(() => { p.mk.c = hex; Scripts.paint(p); return 'colored ' + w[1]; }); return true; }
+      case 'msg': out.push({ a: 'msg', text: rest }); return true;
+      case 'hint': out.push({ a: 'hint', text: rest }); return true;
+      case 'chat': case 'say': fn(() => { chatSay(rest); return 'said: ' + rest; }); return true;
+      case 'effect': { const d = R.def.place, e = d && (d.effects || []).find(x => x.n.toLowerCase().startsWith(String(w[1] || '').toLowerCase())); if (!e) return 'No effect called "' + (w[1] || '') + '" in this game.'; out.push({ a: 'addfx', fx: e.id, num: n(2, 0) }); return true; }
+      case 'anim': if (!ASSET_ID.test(w[1] || '')) return 'Use: anim a_xxxxxx (an Animation ID)'; out.push({ a: 'emote', v: 'slash', id: w[1], sp: n(2, 1) }); return true;
+      case 'stopanim': out.push({ a: 'stopanim' }); return true;
+      case 'emote': { const v = (w[1] || '').toLowerCase(); if (!['wave', 'dance', 'cheer', 'slash', 'lunge', 'shoot', 'drink', 'build'].includes(v)) return 'Use: emote wave / dance / cheer'; out.push({ a: 'emote', v, id: '', sp: 1 }); return true; }
+      case 'points': out.push({ a: 'points', num: n(1, 1) }); return true;
+      case 'setpoints': out.push({ a: 'setpts', num: n(1, 0) }); return true;
+      case 'team': { const d = R.def.place, t = d && (d.teams || []).find(x => x.n.toLowerCase().startsWith(rest.toLowerCase())); if (!t) return 'No team called "' + rest + '".'; out.push({ a: 'setteam', team: t.id }); return true; }
+      case 'shiftlock': { const v = (w[1] || '').toLowerCase(); fn(() => { const was = R.allowShiftLock; R.allowShiftLock = true; setShiftLock(v === 'on' ? true : v === 'off' ? false : !R.shiftLock); R.allowShiftLock = was; return 'shift lock ' + (R.shiftLock ? 'on' : 'off'); }); return true; }
+      case 'velocity': out.push({ a: 'velocity', x: n(1, 0), y: n(2, 0), z: n(3, 0), num: n(4, 0.3), rel: 'world', track: 'no', fade: 0.2 }); return true;
+      case 'dash': out.push({ a: 'velocity', x: 0, y: 0, z: n(1, 100), num: 0.2, rel: 'facing', track: 'yes', fade: 0.3 }); return true;
+      case 'explode': out.push({ a: 'explode', dmg: n(1, 30), rad: n(2, 10), at: 'player', fx: 0, onhit: 0 }); return true;
+      case 'shoot': out.push({ a: 'shoot', dmg: n(1, 15), sp: n(2, 140), size: 1, c: '#ff6a00', drop: 'no', fx: 0, onhit: 0 }); return true;
+      case 'wait': out.push({ a: 'wait', num: Math.min(60, Math.max(0, n(1, 1))) }); return true;
+      case 'repeat': { const k = Math.max(1, Math.min(50, n(1, 1) | 0)), cmd = w.slice(2).join(' '), tmp = []; const r = this.parse(cmd, tmp); if (r !== true) return r; for (let i = 0; i < k; i++) out.push(...tmp); return true; }
+      default: return 'Unknown command "' + c + '". Type Cartblox.help() for the list.';
+    }
+  },
+  run(src) {
+    const no = this.allowed(); if (no) return this.log([no], true);
+    const lines = String(src || '').split(/[\n;]+/), acts = [], errs = [];
+    for (const l of lines.slice(0, 200)) { const r = this.parse(l, acts); if (r !== true) errs.push(r); }
+    const msgs = [];
+    for (const a of acts) if (a.a !== '_fn' && actDef(a.a)) Object.assign(a, cleanArgs(actDef(a.a)[2], a), { rod: 'no' });
+    if (acts.length && R.sc) R.sc.jobs.push({ acts, i: 0, wait: 0, req: 0, ctx: { srv: true, script: { id: 0, branches: [] }, sender: S.user, out: msgs } });
+    else if (acts.length) acts.forEach(a => { if (a.a === '_fn') msgs.push(a.fn()); });
+    return this.log(errs.length ? errs : ['ran ' + acts.length + ' action' + (acts.length === 1 ? '' : 's')], !!errs.length);
+  },
+  log(lines, bad) { lines.forEach(l => console.log('%c[Cartblox]%c ' + l, 'color:#fff;background:#c4281c;padding:1px 4px;border-radius:3px', bad ? 'color:#d12' : 'color:#2a8a3a')); return lines.join('\n'); },
+  help() {
+    console.log('%cCartblox executor', 'font:bold 16px Arial;color:#c4281c');
+    console.table(EXEC_HELP.map(([cmd, what]) => ({ command: cmd, does: what })));
+    console.log('Run commands with Cartblox.run("speed 50; fly on"). Lines can be split with ; or new lines.\nCartblox.exec({ a: "msg", text: "Hi" }) runs one CartStudio action directly. Cartblox.players() / Cartblox.me() give info.');
+    return 'Cartblox executor: ' + EXEC_HELP.length + ' commands';
+  }
+};
+window.Cartblox = Object.freeze({
+  version: 1,
+  help: () => Executor.help(),
+  commands: () => EXEC_HELP.map(x => x.slice()),
+  run: src => Executor.run(src),
+  exec: a => {
+    const no = Executor.allowed(); if (no) return Executor.log([no], true);
+    if (!a || !actDef(a.a) || ['require', 'runbr', 'chatif'].includes(a.a)) return Executor.log(['Unknown action. Names are like "msg", "speed", "flight", "hitbox". See Cartblox.actions().'], true);
+    R.sc.jobs.push({ acts: [Object.assign({ a: a.a }, cleanArgs(actDef(a.a)[2], a))], i: 0, wait: 0, req: 0, ctx: { srv: true, script: { id: 0, branches: [] }, sender: S.user } });
+    return Executor.log(['ran ' + a.a]);
+  },
+  actions: () => SCRIPT_ACTIONS.map(a => ({ name: a[0], does: a[1], args: a[2].map(x => x[0] + ' (' + x[2] + ')').join(', ') })),
+  players: () => (R ? [{ name: S.user, me: true }].concat([...R.remote.values()].map(r => ({ name: r.name, team: (Scripts.team(r.team) || {}).n || '', health: Math.round(r.hp) }))) : []),
+  me: () => (R ? { name: S.user, x: +R.P.x.toFixed(1), y: +R.P.y.toFixed(1), z: +R.P.z.toFixed(1), health: Math.round(R.P.health), points: R.P.stage, flying: !!R.P.fly, game: R.def.name } : null),
+  inGame: () => !!R,
+  allowed: () => !Executor.allowed()
 });
 
 /* ====================== SITE UI ====================== */
