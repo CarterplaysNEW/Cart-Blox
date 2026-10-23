@@ -18,9 +18,9 @@ const { WebSocketServer } = require('ws');
 const PORT = parseInt(process.env.PORT, 10) || 10000;
 const MAX_PLAYERS = parseInt(process.env.MAX_PLAYERS, 10) || 16;   // per room instance
 const TICK_MS = 66;                                                 // ~15 snapshots per second
-const VERSION = 4;                                                  // the website checks this (tools + server scripts need 4)
+const VERSION = 5;                                                  // the website checks this (5 = hitboxes from scripts)
 const SPAWN_FF = 3200, REGEN = 1.2;                                 // forcefield after spawning (ms), health regen per second
-const MAX_HIT = { m: 30, r: 60 }, MAX_RANGE = { m: 28, r: 700 };    // melee / ranged: biggest single hit and reach
+const MAX_HIT = { m: 30, r: 60, h: 100 }, MAX_RANGE = { m: 28, r: 700, h: 160 };   // melee / ranged / script hitbox: biggest hit and reach
 const rooms = new Map();                                            // key -> { key, game, players:Map, dirty }
 let nextId = 1;
 
@@ -168,7 +168,7 @@ wss.on('connection', ws => {
         if (!c.room || !allow(c, 'hit', 25) || !c.alive) return;
         const tgt = c.room.players.get(String(m.to));
         if (!tgt || tgt === c || !tgt.alive || now < tgt.ff) return;
-        const w = m.w === 'm' ? 'm' : 'r';
+        const w = m.w === 'm' || m.w === 'h' ? m.w : 'r';
         if (Math.hypot(tgt.s.x - c.s.x, tgt.s.y - c.s.y, tgt.s.z - c.s.z) > MAX_RANGE[w]) return;          // too far away: ignored
         const d = Math.max(0, Math.min(MAX_HIT[w], Math.round(Number(m.d) || 0))); if (!d) return;
         tgt.hp = Math.max(0, tgt.hp - d); tgt.lastHitBy = c.id; tgt.lastHitT = now;
