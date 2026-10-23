@@ -740,6 +740,42 @@ a.pcard:hover{ text-decoration:none; color:inherit; border-color:#bdd0e3; backgr
 .cs-scard small{ font:10px/1.3 "Segoe UI",Arial; color:#5a6878; }
 .cs-scard i{ position:absolute; right:5px; top:4px; font:normal 9px Arial; color:#2f7bd6; }
 .cs-sdel{ position:absolute; right:3px; bottom:3px; width:18px; height:18px; padding:0; border:1px solid #c3cddb; border-radius:3px; background:#fff; color:#a33; cursor:pointer; line-height:14px; }
+/* shift lock */
+#c-sl[hidden]{ display:none; }
+#c-sl.on{ background:rgba(47,123,214,.85); border-color:#fff; }
+#slcur{ left:50%; top:50%; width:22px; height:22px; margin:-11px 0 0 -11px; pointer-events:none !important; border:2px solid rgba(255,255,255,.9); border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.6); }
+#slcur::after{ content:""; position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px 0 0 -2px; background:#fff; border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,.6); }
+#slcur[hidden]{ display:none; }
+/* Animator */
+.cs-anim{ position:absolute; left:0; right:0; bottom:0; z-index:4; background:#f4f6fa; border-top:2px solid #2f7bd6; box-shadow:0 -3px 10px rgba(0,0,0,.2); font:12px "Segoe UI",Arial; color:#1b2a35; }
+.cs-anim[hidden]{ display:none; }
+.an-head{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:5px 8px; background:linear-gradient(#fff,#e3e9f2); border-bottom:1px solid #b9c4d4; }
+.an-head svg{ width:18px; height:18px; }
+.an-head input[type=text]{ width:130px; font:12px "Segoe UI",Arial; padding:2px 4px; }
+.an-head input[type=number]{ width:52px; font:12px "Segoe UI",Arial; }
+.an-head .btn{ padding:3px 8px; }
+.an-body{ display:grid; grid-template-columns:auto auto 1fr; gap:8px; padding:6px 8px 8px; align-items:start; }
+.an-joints{ display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+.an-joints button{ padding:3px 6px; font:11px "Segoe UI",Arial; border:1px solid #98a5b8; border-radius:3px; background:#fff; cursor:pointer; white-space:nowrap; }
+.an-joints button.on{ background:#2f7bd6; border-color:#1d4f8c; color:#fff; }
+.an-rot{ display:flex; flex-direction:column; gap:3px; }
+.an-sl{ display:flex; align-items:center; gap:4px; }
+.an-sl span{ width:22px; font-weight:bold; }
+.an-sl input[type=range]{ width:120px; }
+.an-sl input[type=number]{ width:54px; font:11px "Segoe UI",Arial; }
+.an-tl{ min-width:0; }
+.an-bar{ position:relative; height:44px; background:#fff; border:1px solid #98a5b8; border-radius:3px; cursor:pointer; overflow:hidden; touch-action:none; }
+.an-bar .tick{ position:absolute; top:0; height:8px; border-left:1px solid #c3cddb; font:normal 9px Arial; color:#6a7888; padding-left:2px; }
+.an-bar .tick.big{ height:14px; border-color:#8a97ab; }
+.an-bar .key{ position:absolute; top:20px; width:12px; height:12px; margin-left:-6px; background:#f5cd30; border:1px solid #8a6a00; transform:rotate(45deg); cursor:pointer; }
+.an-bar .key.sel{ background:#ff6a00; border-color:#7a2a00; }
+.an-bar .scrub{ position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:#d12; text-decoration:none; pointer-events:none; }
+.an-tlb{ display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-top:5px; }
+.an-tlb .btn{ padding:3px 7px; }
+.an-time{ min-width:96px; }
+.an-idbox{ width:100%; font:14px monospace; padding:6px; }
+code.aid{ font-size:11px; background:#eef2f8; padding:1px 4px; border-radius:3px; }
+@media (max-width:820px){ .an-body{ grid-template-columns:1fr; } }
 
 </style>
 </head>
@@ -809,6 +845,7 @@ a.pcard:hover{ text-decoration:none; color:inherit; border-color:#bdd0e3; backgr
   <canvas id="gl" tabindex="0"></canvas>
   <div id="hud">
     <div id="hint" class="outline"></div>
+    <div id="slcur" hidden></div>
     <div id="msg" class="outline"></div>
 
     <div id="chat">
@@ -832,6 +869,7 @@ a.pcard:hover{ text-decoration:none; color:inherit; border-color:#bdd0e3; backgr
       <button class="gbtn" id="c-out" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg></button>
       <button class="gbtn" id="c-rl"  title="Rotate camera left"  aria-label="Rotate camera left"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
       <button class="gbtn" id="c-rr"  title="Rotate camera right" aria-label="Rotate camera right"><svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
+      <button class="gbtn" id="c-sl" title="Shift lock (Shift)" aria-label="Shift lock" type="button" hidden><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3zm3 4a2 2 0 0 1 1 3.7V19h-2v-1.3A2 2 0 0 1 12 14z"/></svg></button>
     </div>
 
     <div id="hurt"></div>
@@ -1712,7 +1750,7 @@ function myLook() { return { colors: S.colors, eq: S.equipped }; }
 function normLook(l) { return l && l.colors ? { colors: Object.assign({}, DEFAULT_COLORS, l.colors), eq: l.eq || {} } : { colors: Object.assign({}, DEFAULT_COLORS, l || {}), eq: {} }; }
 
 function buildCharacter(look0) {
-  const root = new THREE.Group();
+  const root = new THREE.Group(); root.rotation.order = 'YXZ';        // turn first, then tilt (animations lean the body)
   const ac = mkCanvasN(ATL.W, ATL.H), ax = ac.getContext('2d');
   const atex = new THREE.CanvasTexture(ac); atex.minFilter = THREE.LinearFilter; atex.generateMipmaps = false; atex.anisotropy = 1;
   const amat = new THREE.MeshLambertMaterial({ map: atex });
@@ -1848,6 +1886,170 @@ function itemThumb(meta, cb) {
     });
   });
 }
+
+/* ====================== EFFECTS (particles): Fire, Smoke, Sparkles, Trail, Glow, Stars ======================
+   An Effect is an object in ReplicatedStorage. Its "Attach" property puts it on a part or on every player, and actions
+   (Shoot a projectile, Make a hitbox, Make an explosion, Add an effect to the player) can attach it too. */
+const FX_KINDS = [['fire', 'Fire'], ['smoke', 'Smoke'], ['sparkles', 'Sparkles'], ['trail', 'Trail'], ['glow', 'Glow'], ['stars', 'Stars']];
+const FX_DEF = { fire: '#ff7a1a', smoke: '#8a8a8a', sparkles: '#fff27a', trail: '#7ad7ff', glow: '#ffe066', stars: '#ffffff' };
+function sanitizeEffects(list) {
+  return (Array.isArray(list) ? list : []).slice(0, 30).map((e, i) => {
+    e = e && typeof e === 'object' ? e : {};
+    const kind = FX_KINDS.some(k => k[0] === e.kind) ? e.kind : 'fire';
+    return { id: i + 1, n: cleanName(e.n, 'Effect'), kind, c: cleanHex(e.c, FX_DEF[kind]), size: cleanNum(e.size, 1, 0.1, 10), rate: cleanNum(e.rate, 30, 1, 120), life: cleanNum(e.life, 1, 0.1, 6),
+      at: e.at === 'part' || e.at === 'players' ? e.at : 'none', part: Number.isInteger(e.part) && e.part > 0 ? e.part : 0, on: e.on !== false };
+  });
+}
+let FX_TEX = null;
+function fxTexture() {
+  if (FX_TEX) return FX_TEX;
+  const c = mkCanvasN(64, 64), x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,.75)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  FX_TEX = new THREE.CanvasTexture(c); return FX_TEX;
+}
+const FX_VERT = 'attribute float psize; attribute float alpha; attribute vec3 pcol; varying float vA; varying vec3 vC; uniform float scale;\n' +
+  'void main(){ vA = alpha; vC = pcol; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = psize * scale / max(0.1, -mv.z); gl_Position = projectionMatrix * mv; }';
+const FX_FRAG = 'uniform sampler2D map; varying float vA; varying vec3 vC;\nvoid main(){ vec4 t = texture2D(map, gl_PointCoord); float a = t.a * vA; if (a < 0.01) discard; gl_FragColor = vec4(vC * t.rgb, a); }';
+// one particle emitter. src() returns the world position to emit from (or null = stop emitting). Lives in `scene`.
+class Emitter {
+  constructor(scene, fx, src, o) {
+    o = o || {};
+    this.scene = scene; this.fx = fx; this.src = src; this.dur = o.dur || 0; this.t = 0; this.acc = 0; this.stopped = false; this.burst = o.burst || 0;
+    const life = fx.kind === 'glow' ? 0 : fx.life, N = this.N = fx.kind === 'glow' ? 1 : Math.min(400, Math.ceil(fx.rate * life * 1.3) + (o.burst || 0) + 4);
+    this.p = []; for (let i = 0; i < N; i++) this.p.push({ a: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, age: 0, life: 1 });
+    const g = this.geo = new THREE.BufferGeometry();
+    this.pos = new Float32Array(N * 3); this.col = new Float32Array(N * 3); this.size = new Float32Array(N); this.alpha = new Float32Array(N);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('pcol', new THREE.BufferAttribute(this.col, 3));
+    g.setAttribute('psize', new THREE.BufferAttribute(this.size, 1)); g.setAttribute('alpha', new THREE.BufferAttribute(this.alpha, 1));
+    const add = fx.kind !== 'smoke';
+    this.mat = new THREE.ShaderMaterial({ uniforms: { map: { value: fxTexture() }, scale: { value: 400 } }, vertexShader: FX_VERT, fragmentShader: FX_FRAG, transparent: true, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending });
+    this.pts = new THREE.Points(g, this.mat); this.pts.frustumCulled = false; this.pts.renderOrder = 5; scene.add(this.pts);
+    this.c0 = new THREE.Color(fx.c); this.c1 = fx.kind === 'fire' ? new THREE.Color(0x601000) : this.c0.clone();
+  }
+  spawn(at) {
+    const f = this.fx, s = f.size, q = this.p.find(p => !p.a); if (!q) return;
+    const r = () => Math.random() - 0.5;
+    q.a = true; q.age = 0; q.life = f.life * (0.6 + Math.random() * 0.5); q.x = at.x + r() * 0.6 * s; q.y = at.y + r() * 0.4 * s; q.z = at.z + r() * 0.6 * s;
+    switch (f.kind) {
+      case 'fire': q.vx = r() * 1.2 * s; q.vy = (2.5 + Math.random() * 2.5) * s; q.vz = r() * 1.2 * s; break;
+      case 'smoke': q.vx = r() * 1.5 * s; q.vy = (1.5 + Math.random() * 1.5) * s; q.vz = r() * 1.5 * s; break;
+      case 'sparkles': { const a = Math.random() * 6.283, b = Math.random() * 2 - 1, sp = (1.5 + Math.random() * 2) * s; q.vx = Math.cos(a) * Math.sqrt(1 - b * b) * sp; q.vy = b * sp; q.vz = Math.sin(a) * Math.sqrt(1 - b * b) * sp; break; }
+      case 'stars': q.vx = r() * 6 * s; q.vy = (3 + Math.random() * 4) * s; q.vz = r() * 6 * s; break;
+      default: q.vx = r() * 0.3; q.vy = r() * 0.3; q.vz = r() * 0.3;
+    }
+  }
+  update(dt, cam, h) {
+    const f = this.fx, at = this.stopped ? null : this.src();
+    this.t += dt; if (this.dur && this.t >= this.dur) this.stopped = true;
+    if (cam) this.mat.uniforms.scale.value = (h || (renderer ? renderer.domElement.height : 600)) / (2 * Math.tan((cam.fov || 70) * D2R / 2));
+    if (f.kind === 'glow') {                                       // one soft pulsing light that sits on the target
+      const q = this.p[0]; q.a = !!at; if (at) { q.x = at.x; q.y = at.y; q.z = at.z; }
+      this.pos.set([q.x, q.y, q.z]); this.col.set([this.c0.r, this.c0.g, this.c0.b]); this.size[0] = f.size * 5 * (1 + 0.08 * Math.sin(this.t * 6)); this.alpha[0] = q.a ? 0.9 : 0;
+    } else {
+      if (at) {
+        if (this.burst) { for (let i = 0; i < this.burst; i++) this.spawn(at); this.burst = 0; }
+        this.acc += dt * f.rate; while (this.acc >= 1) { this.acc -= 1; this.spawn(at); }
+      }
+      const tmp = new THREE.Color();
+      for (let i = 0; i < this.N; i++) {
+        const q = this.p[i], j = i * 3;
+        if (q.a) {
+          q.age += dt; if (q.age >= q.life) q.a = false;
+          q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
+          if (f.kind === 'stars') q.vy -= 20 * dt; else if (f.kind === 'sparkles') { q.vx *= 0.96; q.vy *= 0.96; q.vz *= 0.96; }
+        }
+        const k = q.a ? q.age / q.life : 1;
+        this.pos[j] = q.x; this.pos[j + 1] = q.y; this.pos[j + 2] = q.z;
+        tmp.copy(this.c0).lerp(this.c1, k); this.col[j] = tmp.r; this.col[j + 1] = tmp.g; this.col[j + 2] = tmp.b;
+        const base = f.size * ({ fire: 2.2, smoke: 2.6, sparkles: 0.7, trail: 1.2, stars: 0.8 })[f.kind];
+        this.size[i] = q.a ? base * (f.kind === 'smoke' ? 0.6 + k * 1.6 : f.kind === 'fire' ? 1 - k * 0.7 : f.kind === 'trail' ? 1 - k * 0.8 : 1) : 0;
+        this.alpha[i] = q.a ? (f.kind === 'sparkles' || f.kind === 'stars' ? (0.6 + 0.4 * Math.sin(q.age * 25 + i)) * (1 - k) : f.kind === 'smoke' ? 0.55 * (1 - k) : f.kind === 'fire' ? 0.6 * (1 - k) : 1 - k) : 0;
+      }
+    }
+    for (const n of ['position', 'pcol', 'psize', 'alpha']) this.geo.attributes[n].needsUpdate = true;
+    return !(this.stopped && !this.p.some(p => p.a));                // false = finished, remove me
+  }
+  stop() { this.stopped = true; }
+  dispose() { this.scene.remove(this.pts); this.geo.dispose(); this.mat.dispose(); }
+}
+// all emitters in the running game
+const FX = {
+  list: [],
+  effect(id) { return R && R.def && R.def.place ? (R.def.place.effects || []).find(e => e.id === id && e.on !== false) || null : null; },
+  add(id, src, o) { const fx = typeof id === 'object' ? id : this.effect(id); if (!fx || !R) return null; const em = new Emitter(R.scene, fx, src, o); this.list.push(em); return em; },
+  onObject(id, obj, o) { return this.add(id, () => (obj.parent ? obj.getWorldPosition(new THREE.Vector3()) : null), o); },
+  update(dt) { for (let i = this.list.length - 1; i >= 0; i--) { const em = this.list[i]; if (!em.update(dt, R.camera)) { em.dispose(); this.list.splice(i, 1); } } },
+  clear() { for (const em of this.list) em.dispose(); this.list = []; },
+  // effects whose "Attach" property puts them on a part or on every player
+  setup(def) {
+    this.clear(); const d = def.place; if (!d) return;
+    for (const e of d.effects || []) {
+      if (e.on === false) continue;
+      if (e.at === 'part') { const p = R.world.byId && R.world.byId.get(e.part); if (p && p.mesh) this.add(e, () => (p.hidden ? null : new THREE.Vector3((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2 + (e.kind === 'fire' || e.kind === 'smoke' ? (p.y1 - p.y0) / 2 : 0), (p.z0 + p.z1) / 2)), { keep: true }); }
+    }
+  },
+  // "Players" effects and "Add an effect to the player" follow a character's torso
+  forChar(ent, id, secs) {
+    const ch = () => (ent.isMe ? R.ch : ent.ch);
+    const em = this.add(id, () => { const c = ch(); return c && c.torso && (ent.isMe ? R.P.alive : ent.alive) ? c.torso.getWorldPosition(new THREE.Vector3()) : (secs ? null : new THREE.Vector3(0, -9999, 0)); }, { dur: secs || 0 });
+    if (em) { (ent.fx || (ent.fx = [])).push(em); }
+    return em;
+  },
+  clearChar(ent) { for (const em of ent.fx || []) em.stop(); ent.fx = []; },
+  playersEffects(ent) { const d = R.def.place; if (!d) return; for (const e of d.effects || []) if (e.on !== false && e.at === 'players') this.forChar(ent, e.id, 0); }
+};
+// effect id <-> one letter, so tool messages to other players can carry it ("a" = none)
+const fxChar = id => String.fromCharCode(97 + Math.max(0, Math.min(25, id | 0)));
+const charFx = s => (typeof s === 'string' && s.length ? Math.max(0, s.charCodeAt(s.length - 1) - 97) : 0);
+
+/* ====================== ANIMATIONS (made in the CartStudio Animator, published to Animations) ======================
+   An animation is a list of keyframes. Each keyframe stores joint rotations in degrees: [x, y, z]; the Root also has a
+   4th number = how far the whole body moves up or down. Between keyframes the pose blends smoothly. */
+const ANIM_JOINTS = [['root', 'Root (whole body)'], ['head', 'Head'], ['armL', 'Left Arm'], ['armR', 'Right Arm'], ['legL', 'Left Leg'], ['legR', 'Right Leg']];
+function sanitizeAnim(o) {
+  if (typeof o === 'string') { try { o = JSON.parse(o); } catch (e) { return null; } }
+  if (!o || !Array.isArray(o.keys)) return null;
+  const n = (v, lim) => { v = Number(v); return Number.isFinite(v) ? Math.max(-lim, Math.min(lim, Math.round(v * 10) / 10)) : 0; };
+  const len = Math.max(0.1, Math.min(30, Number(o.len) || 1));
+  const keys = o.keys.slice(0, 80).map(k => {
+    const j = {};
+    for (const [id] of ANIM_JOINTS) { const v = k && k.j && k.j[id]; if (Array.isArray(v)) j[id] = [n(v[0], 360), n(v[1], 360), n(v[2], 360)].concat(id === 'root' ? [n(v[3], 20)] : []); }
+    return { t: Math.max(0, Math.min(len, Number(k && k.t) || 0)), j };
+  }).sort((a, b) => a.t - b.t);
+  if (!keys.length) return null;
+  return { v: 1, len, loop: !!o.loop, ease: o.ease === 'linear' ? 'linear' : 'smooth', keys };
+}
+const jointOf = (k, id) => (k.j[id] || (id === 'root' ? [0, 0, 0, 0] : [0, 0, 0]));
+function sampleAnim(a, t) {
+  const ks = a.keys, out = {};
+  let i = 0; while (i < ks.length - 1 && ks[i + 1].t <= t) i++;
+  const k0 = ks[i], k1 = ks[Math.min(ks.length - 1, i + 1)];
+  let f = k1 === k0 || k1.t <= k0.t ? 0 : Math.max(0, Math.min(1, (t - k0.t) / (k1.t - k0.t)));
+  if (a.ease !== 'linear') f = f * f * (3 - 2 * f);
+  for (const [id] of ANIM_JOINTS) { const p = jointOf(k0, id), q = jointOf(k1, id); out[id] = p.map((v, x) => v + (q[x] - v) * f); }
+  return out;
+}
+// put a sampled pose on a character (arms, legs and head); returns the root part for the caller to use
+function applyPose(ch, pose) {
+  const r = v => v * D2R;
+  for (const id of ['armL', 'armR', 'legL', 'legR']) { const v = pose[id]; ch[id].g.rotation.set(r(v[0]), r(v[1]), r(v[2])); }
+  const h = pose.head; ch.head.rotation.set(r(h[0]), r(h[1]), r(h[2]));
+  return pose.root;
+}
+const ANIMS = {
+  cache: new Map(),
+  load(id) {                                                      // -> Promise<anim | null>
+    if (!ASSET_ID.test(id || '')) return Promise.resolve(null);
+    if (this.cache.has(id)) return Promise.resolve(this.cache.get(id));
+    return Assets.get(id).then(r => { const a = r && r.k === 'anim' ? sanitizeAnim(r.d) : null; if (a) this.cache.set(id, a); return a; });
+  },
+  // start an animation on a character's state object (R.P for me, a remote player object for others)
+  play(st, id, speed, loopOverride) {
+    return this.load(id).then(a => { if (!a) return false; st.anim = { a, t: 0, sp: Math.max(0.05, Math.min(10, speed || 1)), loop: loopOverride == null ? a.loop : loopOverride, id }; return true; });
+  },
+  stop(st) { st.anim = null; }
+};
 
 /* ====================== TOOLS (gear) ====================== */
 // Tool models are built in "hand space": origin = the hand, -y points forward (away from the hand), +z points up
@@ -2237,7 +2439,8 @@ const Tools = {
       m.add(e); m.userData.ownMats = true; e.userData.ownMats = true; m.position.copy(hb.pos); m.rotation.y = face; R.scene.add(m); hb.m = m;
     }
     R.hbs.push(hb);
-    if (mine && show) Net.send({ t: 'fx', k: 'hbox', p: [hb.pos.x, hb.pos.y, hb.pos.z].map(v => +v.toFixed(2)), v: sz.map(v => +v.toFixed(2)), s: Math.round(life * 100) + Math.round(fwd + 60) * 10000, ang: +face.toFixed(3), a: follow ? 'follow' : 'stay' });
+    if (a.fx) FX.add(a.fx | 0, () => (R.hbs.includes(hb) ? hb.pos.clone() : null));
+    if (mine && show) Net.send({ t: 'fx', k: 'hbox', p: [hb.pos.x, hb.pos.y, hb.pos.z].map(v => +v.toFixed(2)), v: sz.map(v => +v.toFixed(2)), s: Math.round(life * 100) + Math.round(fwd + 60) * 10000, ang: +face.toFixed(3), a: (follow ? 'f' : 's') + fxChar(a.fx) });
   },
   inBox(hb, x, y, z) {                                              // is a character standing at x,y,z inside the (turned) hitbox?
     const dx = x - hb.pos.x, dz = z - hb.pos.z, c = Math.cos(-hb.face), s = Math.sin(-hb.face);
@@ -2264,12 +2467,13 @@ const Tools = {
     const h = this.handPos(), aim = this.aimPoint(80), sp = clamp(+a.sp || 120, 5, 600), dir = aim.sub(h).normalize(), v = dir.multiplyScalar(sp);
     const g = a.drop === 'yes' ? 60 : 0, size = clamp(+a.size || 1, 0.2, 7), col = parseInt(String(a.c || '#ff6a00').slice(1), 16) || 0xff6a00;
     if (g) v.y += 0.5 * g * Math.min(80, 150) / sp;
-    this.addShot([h.x, h.y, h.z], [v.x, v.y, v.z], col, size, g, true, Math.max(0, +a.dmg || 0));
-    Net.send({ t: 'fx', k: 'shot', o: [h.x, h.y, h.z].map(x => +x.toFixed(2)), v: [v.x, v.y, v.z].map(x => +x.toFixed(2)), s: col, ang: size, a: g ? 'drop' : 'flat' });
+    this.addShot([h.x, h.y, h.z], [v.x, v.y, v.z], col, size, g, true, Math.max(0, +a.dmg || 0), null, a.fx | 0);
+    Net.send({ t: 'fx', k: 'shot', o: [h.x, h.y, h.z].map(x => +x.toFixed(2)), v: [v.x, v.y, v.z].map(x => +x.toFixed(2)), s: col, ang: size, a: (g ? 'd' : 'f') + fxChar(a.fx) });
   },
-  addShot(o, v, col, size, g, mine, dmg, owner) {
+  addShot(o, v, col, size, g, mine, dmg, owner, fx) {
     const m = new THREE.Mesh(shapeGeo('ball'), accMat('#' + (col >>> 0).toString(16).padStart(6, '0').slice(-6), 'ball')); m.userData.shared = true;
     m.scale.setScalar(size); m.position.set(o[0], o[1], o[2]); R.scene.add(m);
+    if (fx) FX.onObject(fx, m);                                     // "Attach effect": a fire trail, sparkles...
     R.shots.push({ m, v: new THREE.Vector3(v[0], v[1], v[2]), g, mine, dmg, owner: owner || 'me', life: 4, age: 0, col, r: size / 2 });
   },
   updateShots(dt) {
@@ -2292,7 +2496,8 @@ const Tools = {
     const P = R.P; if (!P.alive) return;
     const p = a.at === 'player' ? new THREE.Vector3(P.x, P.y + 2.5, P.z) : this.aimPoint(30), rad = clamp(+a.rad || 9, 1, 60), dmg = Math.max(0, +a.dmg || 0);
     this.explode(p, false);
-    Net.send({ t: 'fx', k: 'boom', p: [p.x, p.y, p.z].map(v => +v.toFixed(2)) });
+    if (a.fx) FX.add(a.fx | 0, () => p, { dur: 0.5, burst: 30 });
+    Net.send({ t: 'fx', k: 'boom', p: [p.x, p.y, p.z].map(v => +v.toFixed(2)), a: 'e' + fxChar(a.fx) });
     for (const tg of this.targets()) {
       const d = Math.hypot(tg.x - p.x, tg.y + 2.5 - p.y, tg.z - p.z); if (d > rad) continue;
       const f = 1 - d / rad, kx = (tg.x - p.x) / Math.max(d, 0.5), kz = (tg.z - p.z) / Math.max(d, 0.5);
@@ -2379,11 +2584,11 @@ const Tools = {
       case 'act': rp.actK = m.a; rp.actD = rp.actT = ({ slash: 0.28, lunge: 0.55, drink: 1.3, shoot: 0.25, build: 0.35 })[m.a] || 0.3;
         if (near && (m.a === 'slash' || m.a === 'lunge')) Sfx.play(m.a); if (near && m.a === 'drink') Sfx.play('drink'); break;
       case 'proj': if (PROJ[m.a] && Array.isArray(m.o) && Array.isArray(m.v)) { this.spawnProj(m.a, m.o, m.v, String(id), m.s || 0); if (near) Sfx.play(m.a === 'rocket' ? 'rocket' : m.a === 'paint' ? 'paint' : 'sling'); } break;
-      case 'boom': if (p) { for (let i = R.proj.length - 1; i >= 0; i--) { const pr = R.proj[i]; if (pr.owner === String(id) && pr.kind === 'rocket') { R.scene.remove(pr.m); R.proj.splice(i, 1); break; } } this.explode(p, false); } break;
+      case 'boom': if (p) { if (typeof m.a === 'string' && m.a.length === 2) { const e = charFx(m.a); if (e) FX.add(e, () => p, { dur: 0.5, burst: 30 }); } for (let i = R.proj.length - 1; i >= 0; i--) { const pr = R.proj[i]; if (pr.owner === String(id) && pr.kind === 'rocket') { R.scene.remove(pr.m); R.proj.splice(i, 1); break; } } this.explode(p, false); } break;
       case 'wall': if (p) this.buildWall([p.x, p.y, p.z], m.ang ? 1 : 0, m.s | 0); break;
       case 'conf': if (p) { confetti(p.x, p.y, p.z, 30); if (near) Sfx.play('pop'); } break;
-      case 'hbox': if (p && Array.isArray(m.v)) this.hitbox({ x: m.v[0], y: m.v[1], z: m.v[2], num: ((m.s || 30) % 10000) / 100, follow: m.a === 'follow' ? 'true' : 'false', fwd: Math.floor((m.s || 0) / 10000) - 60, dmg: 0 }, false, rp, p); break;
-      case 'shot': if (Array.isArray(m.o) && Array.isArray(m.v)) this.addShot(m.o, m.v, m.s || 0xff6a00, clamp(+m.ang || 1, 0.2, 7), m.a === 'drop' ? 60 : 0, false, 0, String(id)); break;
+      case 'hbox': if (p && Array.isArray(m.v)) { const two = typeof m.a === 'string' && m.a.length === 2; this.hitbox({ x: m.v[0], y: m.v[1], z: m.v[2], num: ((m.s || 30) % 10000) / 100, follow: (two ? m.a[0] === 'f' : m.a === 'follow') ? 'true' : 'false', fwd: Math.floor((m.s || 0) / 10000) - 60, dmg: 0, fx: two ? charFx(m.a) : 0 }, false, rp, p); } break;
+      case 'shot': if (Array.isArray(m.o) && Array.isArray(m.v)) { const two = typeof m.a === 'string' && m.a.length === 2; this.addShot(m.o, m.v, m.s || 0xff6a00, clamp(+m.ang || 1, 0.2, 7), (two ? m.a[0] === 'd' : m.a === 'drop') ? 60 : 0, false, 0, String(id), two ? charFx(m.a) : 0); } break;
       default: break;
     }
   },
@@ -2899,7 +3104,7 @@ const Net = {
 };
 
 /* ====================== ASSETS: images, audio, models (Dashboard + Toolbox) ====================== */
-const ASSET_KINDS = { image: { label: 'Image', plural: 'Images' }, audio: { label: 'Audio', plural: 'Audio' }, model: { label: 'Model', plural: 'Models' } };
+const ASSET_KINDS = { image: { label: 'Image', plural: 'Images' }, audio: { label: 'Audio', plural: 'Audio' }, model: { label: 'Model', plural: 'Models' }, anim: { label: 'Animation', plural: 'Animations' } };
 const ASSET_ID = /^a_[a-z0-9]{6,24}$/;
 const SAFE_AUDIO = /^data:audio\/(mpeg|mp3|ogg|wav|x-wav|wave|webm|mp4|x-m4a|m4a|aac);base64,[A-Za-z0-9+/=]+$/;
 const LIMITS = { imageSide: 256, imageChars: 260000, audioBytes: 2 * 1024 * 1024, modelParts: 200 };
@@ -3115,12 +3320,13 @@ let dashTab = 'games';
 function assetRow(m) {
   const thumb = m.k === 'audio' ? '<div class="athumb aud">&#9835;</div>' : `<div class="athumb">${m.th ? `<img src="${m.th}" alt="">` : ''}</div>`;
   return `<div class="arow">${thumb}<div class="ainfo"><b>${esc(m.n)}</b><span class="muted small">${esc(ASSET_KINDS[m.k].label)} &bull; ${m.mine ? 'by you' : 'by ' + esc(m.c)} &bull; ${esc(timeAgo(m.t || Date.now()))}</span>
+    ${m.k === 'anim' ? `<span class="small">ID: <code class="aid">${esc(m.id)}</code> <button class="btn btn-sm" data-dash="copy" data-id="${m.id}" type="button">Copy ID</button></span>` : ''}
     <span class="small">${m.mine ? (m.shared ? '<span class="good">In the public Toolbox</span>' : '<span class="muted">Private (only in your Toolbox)</span>') : ''}</span></div>
     <div class="aact">${m.k === 'audio' ? `<button class="btn btn-sm" data-dash="play" data-id="${m.id}" type="button">Play</button>` : ''}${m.mine && !m.shared && Cloud.enabled ? `<button class="btn btn-sm btn-blue" data-dash="share" data-id="${m.id}" type="button">Share</button>` : ''}${m.mine ? `<button class="btn btn-sm btn-red" data-dash="del" data-id="${m.id}" type="button">Delete</button>` : ''}</div></div>`;
 }
 function viewDashboard(tab) {
-  dashTab = ['games', 'image', 'audio', 'model', 'items'].includes(tab) ? tab : (dashTab || 'games');
-  const tabs = [['games', 'My Games'], ['image', 'Images'], ['audio', 'Audio'], ['model', 'Models'], ['items', 'Catalog Items']];
+  dashTab = ['games', 'image', 'audio', 'model', 'anim', 'items'].includes(tab) ? tab : (dashTab || 'games');
+  const tabs = [['games', 'My Games'], ['image', 'Images'], ['audio', 'Audio'], ['model', 'Models'], ['anim', 'Animations'], ['items', 'Catalog Items']];
   let main = '';
   if (dashTab === 'games') {
     const docs = store.get('places', {}), names = Object.keys(docs);
@@ -3132,7 +3338,9 @@ function viewDashboard(tab) {
     const K = ASSET_KINDS[dashTab], mine = Assets.list(dashTab, 'mine'), comm = Assets.list(dashTab, 'community');
     const accept = dashTab === 'image' ? 'image/png,image/jpeg,image/gif,image/webp' : dashTab === 'audio' ? 'audio/*,.mp3,.ogg,.wav,.m4a' : '.json,.cbxm,application/json';
     const help = dashTab === 'image' ? 'PNG or JPG. Pictures are resized to 256 pixels. Use them as decals on parts in CartStudio.' : dashTab === 'audio' ? 'MP3, OGG or WAV, up to 2 MB. Use them as background music or sound effects in your games.' : 'Make models in CartStudio: select parts (Shift+click), then Edit > Save Selection as Model. You can also upload a .cbxm model file here.';
-    main = `<div class="box"><h2>Upload ${esc(K.label)}</h2><div class="in upform">
+    main = dashTab === 'anim' ? `<div class="box"><h2>Animations</h2><div class="in"><p>Make animations in CartStudio: press the <b>Rig</b> button (the little character) in the toolbar, pose the noob on the timeline and press <b>Publish</b>.</p><p class="small muted">Every animation has an ID. Put it in a script's <b>Play an animation</b> action to play it in your game. You can use your own animations and anyone's public ones.</p></div></div>
+      <div class="box"><h2>My Animations <span class="small">${mine.length}</span></h2>${mine.length ? mine.map(assetRow).join('') : '<div class="empty">No animations yet.</div>'}</div>
+      ${comm.length ? `<div class="box"><h2>Public Animations <span class="small">${comm.length}</span></h2>${comm.map(assetRow).join('')}</div>` : ''}` : `<div class="box"><h2>Upload ${esc(K.label)}</h2><div class="in upform">
         <p class="small muted">${help}</p>
         <div class="uprow"><input type="file" id="up-file" accept="${accept}"><input type="text" id="up-name" maxlength="40" placeholder="Name"></div>
         <label class="chk"><input type="checkbox" id="up-share"${Cloud.enabled ? '' : ' disabled'}> <span><b>Share in the public Toolbox</b> so anyone can use it${Cloud.enabled ? '' : ' (works on your own website)'}. Anything you share can be seen by everyone, so only upload things you made or are allowed to share.</span></label>
@@ -3150,6 +3358,7 @@ document.addEventListener('click', async e => {
   const el = e.target.closest('[data-dash]'); if (!el) return;
   const a = el.dataset.dash, id = el.dataset.id;
   if (a === 'play') return AudioPreview.toggle(id, el);
+  if (a === 'copy') { try { navigator.clipboard.writeText(id); el.textContent = 'Copied!'; } catch (e) { /* select it instead */ } return; }
   if (a === 'del') { const m = Assets.metas.get(id); const v = await dialog({ title: 'Delete', html: `<p>Delete "${esc(m ? m.n : '')}"? Games that use it will show it missing.</p>`, buttons: [{ label: 'Delete', cls: 'btn-red', value: true }, { label: 'Cancel', value: null }] }).promise; if (v) { await Assets.remove(id); render(true); } return; }
   if (a === 'share') { el.disabled = true; const r = await Assets.share(id); if (!r.ok) dialog({ title: "Couldn't share", html: `<p>${esc(String(r.err))}</p><p class="small">${esc(authHint(r.err))}</p>` }); render(true); return; }
   if (a === 'upload') {
@@ -3213,13 +3422,16 @@ const SCRIPT_ACTIONS = [
   ['gui', 'Change GUI text', [['gui', 'gui', 'GUI'], ['text', 'text', 'Text', 'Points: {points}']]],
   ['guivis', 'Show or hide a GUI', [['gui', 'gui', 'GUI'], ['v', 'sel', 'Make it', ['show', 'hide']]]],
   ['velocity', 'Push the player (velocity)', [['x', 'num', 'Move X', 0], ['y', 'num', 'Move Y', 0], ['z', 'num', 'Move Z', 60], ['num', 'num', 'Time (seconds)', 0.25], ['rel', 'sel', 'Directions', ['facing', 'world']], ['track', 'sel', 'Tracking (follow the camera)', ['no', 'yes']], ['fade', 'num', 'Fade out (seconds)', 0]]],
-  ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show it', ['yes', 'no']]]],
-  ['shoot', 'Shoot a projectile', [['dmg', 'num', 'Damage', 15], ['sp', 'num', 'Speed', 120], ['size', 'num', 'Size', 1], ['c', 'color', 'Color', '#ff6a00'], ['drop', 'sel', 'Drops down', ['no', 'yes']]]],
-  ['explode', 'Make an explosion', [['dmg', 'num', 'Damage', 40], ['rad', 'num', 'Radius', 9], ['at', 'sel', 'Where', ['aim', 'player']]]],
+  ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show it', ['yes', 'no']], ['fx', 'effect', 'Attach effect', 0]]],
+  ['shoot', 'Shoot a projectile', [['dmg', 'num', 'Damage', 15], ['sp', 'num', 'Speed', 120], ['size', 'num', 'Size', 1], ['c', 'color', 'Color', '#ff6a00'], ['drop', 'sel', 'Drops down', ['no', 'yes']], ['fx', 'effect', 'Attach effect', 0]]],
+  ['explode', 'Make an explosion', [['dmg', 'num', 'Damage', 40], ['rad', 'num', 'Radius', 9], ['at', 'sel', 'Where', ['aim', 'player']], ['fx', 'effect', 'Attach effect', 0]]],
+  ['addfx', 'Add an effect to the player', [['fx', 'effect', 'Effect', 0], ['num', 'num', 'For seconds (0 = forever)', 3]]],
+  ['clearfx', 'Remove effects from the player', []],
   ['damage', 'Damage the player', [['num', 'num', 'Damage', 10]]],
   ['setpts', 'Set points to', [['num', 'num', 'Points', 0]]],
   ['chance', 'Only go on with a chance of', [['num', 'num', 'Percent', 50]]],
-  ['emote', 'Play an animation', [['v', 'sel', 'Animation', ['slash', 'lunge', 'shoot', 'drink', 'build', 'wave', 'dance', 'cheer']]]],
+  ['emote', 'Play an animation', [['v', 'sel', 'Built-in animation', ['slash', 'lunge', 'shoot', 'drink', 'build', 'wave', 'dance', 'cheer']], ['id', 'animid', 'Or an Animation ID', ''], ['sp', 'num', 'Speed', 1]]],
+  ['stopanim', 'Stop animations', []],
   ['sfx', 'Play a sound effect', [['v', 'sel', 'Sound', ['win', 'boom', 'hit', 'hurt', 'oof', 'jump', 'bounce', 'checkpoint', 'pop', 'slash', 'lunge', 'sling', 'rocket', 'build', 'splat', 'drink', 'burp', 'equip', 'click']]]],
   ['fire', 'Fire a RemoteEvent', [['rem', 'remote', 'RemoteEvent']]],
   ['require', 'Run a ModuleScript', [['mod', 'mod', 'Module']]],
@@ -3246,6 +3458,7 @@ function cleanArgs(defs, src) {
     else if (type === 'ptool') o[k] = (TOOLS.some(t => t.id === v) || /^c\d{1,2}$/.test(v)) ? v : '';
     else if (type === 'sel') o[k] = def.includes(v) ? v : def[0];
     else if (type === 'key') o[k] = KEYS.includes(v) ? v : (def || 'E');
+    else if (type === 'animid') o[k] = ASSET_ID.test(v || '') ? v : '';
     else o[k] = Number.isInteger(v) && v > 0 && v < 1e6 ? v : 0;                // part / gui / store / sound / remote / module ids
   }
   return o;
@@ -3282,6 +3495,7 @@ function remapRefs(scripts, maps) {
 const runsAlone = s => s.k === 'script' && (s.p === 'sss' || s.p === 'pack') && s.on !== false;      // pack = inside a custom tool      // scripts that start by themselves
 function scriptUsesPoints(doc) { return (doc.scripts || []).some(s => s.on !== false && ((runsAlone(s) && s.e === 'points') || (s.acts || []).some(a => a.a === 'points' || a.a === 'ifpts'))); }
 // a read-only, Lua-flavoured view of a script (shown in the editor so builders can learn what it means)
+function fxName(id, doc) { const e = (doc.effects || []).find(x => x.id === id); return e ? e.n : 'Effect'; }
 function toolLabel(id, doc) { if (/^c\d+$/.test(id || '')) { const t = (doc.tools || []).find(x => 'c' + x.id === id); return t ? t.n : 'Tool'; } return (TOOLS.find(t => t.id === id) || { n: 'any tool' }).n; }
 function scriptPreview(s, doc) {
   const nm = (arr, id, fb) => { const x = (arr || []).find(o => o.id === id); return x ? x.n.replace(/\s+/g, '') : fb; };
@@ -3309,7 +3523,8 @@ function scriptPreview(s, doc) {
     shoot: `shootProjectile({Damage = ${a.dmg}, Speed = ${a.sp}, Size = ${a.size}, Color = ${q(a.c)}})`,
     explode: `local boom = Instance.new("Explosion")  boom.BlastRadius = ${a.rad}  -- damage ${a.dmg}, at ${a.at === 'aim' ? 'where you aim' : 'the player'}`,
     damage: `humanoid:TakeDamage(${a.num})`, setpts: `leaderstats.Points.Value = ${a.num}`, chance: `if math.random(1, 100) > ${a.num} then return end`,
-    emote: `humanoid:LoadAnimation(animations.${a.v}):Play()`, sfx: `SoundService.${a.v}:Play()`,
+    emote: a.id ? `humanoid:LoadAnimation(Animation(${q(a.id)})):Play(${a.sp !== 1 ? a.sp : ''})` : `humanoid:LoadAnimation(animations.${a.v}):Play()`, stopanim: 'for _, track in humanoid:GetPlayingAnimationTracks() do track:Stop() end',
+    addfx: `Instance.new(${q(fxName(a.fx, doc))}, character.Torso)${a.num ? '  -- for ' + a.num + 's' : ''}`, clearfx: 'character.Torso:ClearAllChildren()  -- effects', sfx: `SoundService.${a.v}:Play()`,
     fire: `${rem(a.rem)}:${client ? 'FireServer()' : 'FireAllClients()'}`, require: (() => { const m = (doc.scripts || []).find(o => o.id === a.mod); return m ? `require(${svc(m.p)}.${m.n.replace(/\s+/g, '')})(player)` : 'require(nil)  -- pick a module'; })(),
     win: `celebrate(${q(a.text)})`, wait: `wait(${a.num})`
   })[a.a] || '-- ?';
@@ -3460,7 +3675,13 @@ const Scripts = {
       case 'explode': Tools.scriptBoom(a); break;
       case 'damage': if (P.alive && a.num > 0) Tools.applyDamage(a.num, null, null); break;
       case 'setpts': P.stage = Math.max(0, Math.round(a.num)); updatePlist(); this.refreshGui(); break;
-      case 'emote': if (P.alive) { if (['wave', 'dance', 'cheer'].includes(a.v)) { P.emote = a.v; P.emoteT = 0; } else Tools.act(a.v, ({ slash: 0.28, lunge: 0.55, drink: 1.3, shoot: 0.25, build: 0.35 })[a.v] || 0.3); } break;
+      case 'emote': if (P.alive) {
+        if (a.id) { ANIMS.play(P, a.id, a.sp); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'panim', id: a.id, sp: a.sp || 1 } }); }      // everyone sees it
+        else if (['wave', 'dance', 'cheer'].includes(a.v)) { P.emote = a.v; P.emoteT = 0; } else Tools.act(a.v, ({ slash: 0.28, lunge: 0.55, drink: 1.3, shoot: 0.25, build: 0.35 })[a.v] || 0.3);
+      } break;
+      case 'stopanim': ANIMS.stop(P); P.emote = null; if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pstop' } }); break;
+      case 'addfx': if (FX.effect(a.fx)) { FX.forChar(R.me, a.fx, Math.max(0, a.num)); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfx', fx: a.fx, num: Math.max(0, a.num) } }); } break;
+      case 'clearfx': FX.clearChar(R.me); if (!ctx.net) Net.send({ t: 'sx', a: { a: 'pfxoff' } }); break;
       case 'sfx': Sfx.play(a.v); break;
       case 'win': confetti(P.x, P.y + 4, P.z, 50); Sfx.play('win'); showMsg(this.fill(a.text || 'You win!'), 5000); break;
       default: break;
@@ -3476,6 +3697,12 @@ const Scripts = {
   // something a Server script did on another player's screen
   remote(m) {
     const a = m && m.a; if (!a || typeof a.a !== 'string') return;
+    if (['panim', 'pstop', 'pfx', 'pfxoff'].includes(a.a)) {         // another player's animation / effects
+      const rp = R.remote.get(String(m.id)); if (!rp) return;
+      if (a.a === 'panim') ANIMS.play(rp, String(a.id || ''), Number(a.sp) || 1); else if (a.a === 'pstop') ANIMS.stop(rp);
+      else if (a.a === 'pfx') FX.forChar(rp, Number(a.fx) | 0, clamp(Number(a.num) || 0, 0, 600)); else FX.clearChar(rp);
+      return;
+    }
     if (a.a === 'fire') return this.fireRemote(Number(a.rem) | 0, { srv: true, net: true });
     const def = actDef(a.a); if (!def || (!WORLD_ACTS.has(a.a) && !m.all) || a.a === 'require' || a.a === 'wait' || a.a === 'ifpts') return;
     const x = Object.assign({ a: a.a }, cleanArgs(def[2], a));
@@ -3834,7 +4061,7 @@ function addRemote(p) {
     x: s.x || 0, y: s.y || 0, z: s.z || 0, ry: s.ry || 0, tx: s.x || 0, ty: s.y || 0, tz: s.z || 0, tr: s.ry || 0
   };
   ch.root.position.set(rp.x, rp.y, rp.z); R.scene.add(ch.root);
-  rp.tag = textTag(p.name); R.scene.add(rp.tag);
+  rp.tag = textTag(p.name); R.scene.add(rp.tag); FX.playersEffects(rp);
   R.remote.set(id, rp); updatePlist();
   return rp;
 }
@@ -3842,7 +4069,7 @@ function removeRemote(id) {
   const rp = R.remote.get(String(id)); if (!rp) return;
   R.scene.remove(rp.ch.root); disposeObject(rp.ch.root); rp.ch.dispose();
   R.scene.remove(rp.tag); disposeObject(rp.tag);
-  clearBubbles(rp);
+  clearBubbles(rp); FX.clearChar(rp);
   R.remote.delete(String(id)); updatePlist();
 }
 function onNetState(arr) {
@@ -3865,7 +4092,7 @@ function updateRemotes(dt) {
     if (em !== rp.emote) { rp.emote = em; rp.emoteT = 0; }
     if (rp.alive) {
       const bob = poseChar(rp.ch, rp, dt);
-      rp.ch.root.position.set(rp.x, rp.y + bob, rp.z); rp.ch.root.rotation.y = rp.ry;
+      const ar = rp.animRoot; rp.ch.root.position.set(rp.x, rp.y + bob, rp.z); rp.ch.root.rotation.set(ar ? ar[0] * D2R : 0, rp.ry + (ar ? ar[1] * D2R : 0), ar ? ar[2] * D2R : 0);
     }
   }
 }
@@ -4029,6 +4256,7 @@ function physics(dt) {
   const walk = P.walk != null ? P.walk : PHYS.WALK;
   P.vx = inp.x * walk * (P.speedMul || 1) + P.kx; P.vz = inp.z * walk * (P.speedMul || 1) + P.kz;
   if (inp.mag > 0.05) P.face += wrapPI(Math.atan2(inp.x, inp.z) - P.face) * (1 - Math.exp(-dt * 16));
+  if (R.shiftLock && !(P.push && P.push.track)) P.face = R.cam.yaw + Math.PI;     // shift lock: always face where the camera looks
 
   P.coyote -= dt;
   if (P.onGround) P.coyote = 0.09;
@@ -4108,9 +4336,15 @@ function poseChar(ch, st, dt) {
   if (ch.tool) ch.tool.rotation.x = tilt;
   const k = 1 - Math.exp(-dt * (st.actK ? 40 : 22)), q = ch.pose || (ch.pose = { lL: 0, lR: 0, aLx: 0, aRx: 0, aLz: 0, aRz: 0 });
   q.lL += (lL - q.lL) * k; q.lR += (lR - q.lR) * k; q.aLx += (aLx - q.aLx) * k; q.aRx += (aRx - q.aRx) * k; q.aLz += (aLz - q.aLz) * k; q.aRz += (aRz - q.aRz) * k;
-  ch.legL.g.rotation.x = q.lL; ch.legR.g.rotation.x = q.lR;
-  ch.armL.g.rotation.x = q.aLx; ch.armR.g.rotation.x = q.aRx;
-  ch.armL.g.rotation.z = q.aLz; ch.armR.g.rotation.z = q.aRz;
+  ch.legL.g.rotation.set(q.lL, 0, 0); ch.legR.g.rotation.set(q.lR, 0, 0);
+  ch.armL.g.rotation.set(q.aLx, 0, q.aLz); ch.armR.g.rotation.set(q.aRx, 0, q.aRz); ch.head.rotation.set(0, 0, 0);
+  st.animRoot = null;
+  if (st.anim) {                                                    // a published animation playing on top of everything
+    const an = st.anim; an.t += dt * an.sp;
+    if (an.t > an.a.len) { if (an.loop) an.t %= an.a.len; else { st.anim = null; return bob; } }
+    const root = applyPose(ch, sampleAnim(an.a, an.t));
+    st.animRoot = root; return bob + root[3];
+  }
   return bob;
 }
 function animate(dt) {
@@ -4119,8 +4353,8 @@ function animate(dt) {
   if (P.alive) {
     P.speed = Math.hypot(P.vx, P.vz); P.air = !P.onGround;
     if (P.emote && (P.emoteT > 3.6 || P.speed > 1 || P.air)) P.emote = null;
-    const bob = poseChar(ch, P, dt);
-    ch.root.position.set(P.x, P.y + bob, P.z); ch.root.rotation.y = P.face;
+    const bob = poseChar(ch, P, dt), ar = P.animRoot;
+    ch.root.position.set(P.x, P.y + bob, P.z); ch.root.rotation.set(ar ? ar[0] * D2R : 0, P.face + (ar ? ar[1] * D2R : 0), ar ? ar[2] * D2R : 0);
   }
   ch.root.visible = !R.fp;
   if (P.ff > 0 && R.ff) {
@@ -4139,14 +4373,17 @@ function updateCam(dt) {
     if (rot) C.yaw += rot * 2.4 * dt;
   }
   if (holds.zi) C.distT = Math.max(0.5, C.distT * Math.exp(-dt * 1.6));
-  if (holds.zo) C.distT = Math.min(80, C.distT * Math.exp(dt * 1.6));
+  if (holds.zo) C.distT = Math.min(R.zoomMax || 80, C.distT * Math.exp(dt * 1.6));
+  if (R.firstPerson) C.distT = 0.5; else if (R.zoomMax) C.distT = Math.min(R.zoomMax, C.distT);
   C.dist = lerp(C.dist, C.distT, 1 - Math.exp(-dt * 12));
+  // shift lock: look over the right shoulder
+  const so = R.shiftLock && C.dist > 1.5 ? 1.75 : 0, fx = C.fx + Math.cos(C.yaw) * so, fz = C.fz - Math.sin(C.yaw) * so;
   const cp = Math.cos(C.pitch), dx = Math.sin(C.yaw) * cp, dy = Math.sin(C.pitch), dz = Math.cos(C.yaw) * cp;
   let d = C.dist;
-  const hit = R.world.rayDist(C.fx, C.fy, C.fz, dx, dy, dz, d + 0.5);
+  const hit = R.world.rayDist(fx, C.fy, fz, dx, dy, dz, d + 0.5);
   if (hit < d + 0.5) d = Math.max(0.55, hit - 0.5);
-  R.camera.position.set(C.fx + dx * d, C.fy + dy * d, C.fz + dz * d);
-  R.camera.lookAt(C.fx, C.fy, C.fz);
+  R.camera.position.set(fx + dx * d, C.fy + dy * d, fz + dz * d);
+  R.camera.lookAt(fx, C.fy, fz);
   R.fp = d < 1.5;
 }
 function sendState(dt) {
@@ -4181,6 +4418,7 @@ function frame(ts) {
   updateRemotes(dt);
   Tools.update(dt);
   Scripts.update(dt);
+  FX.update(dt);
   updateCam(dt);
   updateTags(dt);
   sendState(dt);
@@ -4245,6 +4483,12 @@ function startRun(def) {
   Tools.setup(def);
   Scripts.setup(def);
   R.me.tag = textTag(S.user); scene.add(R.me.tag);
+  FX.setup(def); FX.playersEffects(R.me);
+  // StarterPlayer settings from CartStudio (walk speed, jump power, camera, shift lock)
+  const sp = def.place && def.place.player;
+  R.allowShiftLock = !sp || sp.shiftlock !== false; R.shiftLock = false; R.zoomMax = sp ? sp.zoom : 80; R.firstPerson = !!(sp && sp.cam === 'first');
+  if (sp) { if (sp.walk !== 16) R.P.walk = sp.walk; if (sp.jump !== 50) R.P.jump = sp.jump; }
+  $('#c-sl').hidden = !R.allowShiftLock || R.firstPerson; $('#c-sl').classList.remove('on'); $('#slcur').hidden = true;
   R.raf = requestAnimationFrame(frame);
   // online: game server (Render) + chat (Firebase). Both fail soft: the game just stays single-player.
   if (def.online !== false) {
@@ -4262,7 +4506,7 @@ function stopRun() {
   Scripts.teardown();
   for (const id of [...R.remote.keys()]) removeRemote(id);
   if (R.me.tag) disposeObject(R.me.tag);
-  clearBubbles(R.me);
+  clearBubbles(R.me); FX.clear(); setShiftLock(false);
   R.env.dispose();
   R.world.dispose();
   disposeObject(R.scene);
@@ -4311,10 +4555,24 @@ function beginRun(def, opts) {
 }
 
 /* ====================== input + menu wiring (runs once) ====================== */
+// shift lock (Shift key, or the lock button on phones): the camera sits over your right shoulder and you face where it looks
+function setShiftLock(on) {
+  const btn = $('#c-sl'), cur = $('#slcur');
+  if (!R) { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* ignore */ } return; }
+  on = !!on && R.allowShiftLock && !R.firstPerson;
+  R.shiftLock = on; if (btn) btn.classList.toggle('on', on); if (cur) cur.hidden = !on;
+  try {
+    if (on && !$('#game').classList.contains('touchmode') && $('#gl').requestPointerLock) { const p = $('#gl').requestPointerLock(); if (p && p.catch) p.catch(() => {}); }
+    else if (!on && document.pointerLockElement) document.exitPointerLock();
+  } catch (e) { /* pointer lock is optional */ }
+  if (on && !R.slHint) { R.slHint = true; showHint('Shift lock is on: you face where the camera looks. Press Shift again to turn it off.', 3500); }
+}
+const aimXY = e => { if (R && R.shiftLock) { const r = $('#gl').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; } return [e.clientX, e.clientY]; };
 function toggleMenu(force) {
   if (!R) return;
   const open = force != null ? force : !R.menuOpen;
   R.menuOpen = open;
+  if (open && R.shiftLock) setShiftLock(false);
   $('#menu').hidden = !open;
   showPanel('main');
   if (!open) $('#gl').focus();
@@ -4342,6 +4600,7 @@ function initGameUI() {
     if (e.code === 'Tab') { $('#plist').classList.toggle('hide'); e.preventDefault(); return; }
     const dg = /^Digit(\d)$/.exec(e.code); if (dg && R.bp && R.bp.length) { Tools.equip((+dg[1] + 9) % 10); e.preventDefault(); return; }
     if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+    if (!e.repeat && (e.code === 'ShiftLeft' || e.code === 'ShiftRight') && R.allowShiftLock && !(R.sc && R.sc.list.some(s => s.e === 'key' && s.ev.key === 'Shift'))) setShiftLock(!R.shiftLock);
     if (!e.repeat) Scripts.onKey(e.code);
     keys[e.code] = true; Sfx.init();
     $('#game').classList.remove('touchmode');
@@ -4357,8 +4616,8 @@ function initGameUI() {
     if (!R) return;
     Sfx.init();
     if (e.pointerType === 'touch') $('#game').classList.add('touchmode');
-    if (e.pointerType === 'mouse' && e.button === 0 && !Tools.current() && !R.menuOpen && Scripts.onClick(e.clientX, e.clientY)) { canvas.focus(); return; }
-    if (e.pointerType === 'mouse' && e.button === 0 && Tools.current() && !R.menuOpen) { if (isTyping()) $('#chatin').blur(); canvas.focus(); Tools.activate(Tools.aimFrom(e.clientX, e.clientY)); return; }
+    if (e.pointerType === 'mouse' && e.button === 0 && !Tools.current() && !R.menuOpen && Scripts.onClick(...aimXY(e))) { canvas.focus(); return; }
+    if (e.pointerType === 'mouse' && e.button === 0 && Tools.current() && !R.menuOpen) { if (isTyping()) $('#chatin').blur(); canvas.focus(); const c = aimXY(e); Tools.activate(Tools.aimFrom(c[0], c[1])); return; }
     if (e.button === 2 || e.button === 0 || e.pointerType === 'touch') {
       drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: e.timeStamp, touch: e.pointerType === 'touch' };
       try { canvas.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
@@ -4388,6 +4647,13 @@ function initGameUI() {
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
   $('#backpack').addEventListener('pointerdown', e => { const b = e.target.closest('.slot'); if (!b || !R) return; e.preventDefault(); e.stopPropagation(); Sfx.init(); Tools.equip(+b.dataset.slot); });
+  $('#c-sl').addEventListener('click', () => { if (R) setShiftLock(!R.shiftLock); });
+  document.addEventListener('pointerlockchange', () => { if (R && R.shiftLock && !document.pointerLockElement && !$('#game').classList.contains('touchmode')) setShiftLock(false); });
+  window.addEventListener('mousemove', e => {
+    if (!R || !R.shiftLock || R.menuOpen || !(e.movementX || e.movementY)) return;
+    const s = 0.0035 * (0.4 + S.settings.sens / 100 * 1.2);
+    R.cam.yaw -= e.movementX * s; R.cam.pitch = clamp(R.cam.pitch + e.movementY * s, -1.15, 1.4);
+  });
   bindHold('#c-in', 'zi'); bindHold('#c-out', 'zo'); bindHold('#c-rl', 'rl'); bindHold('#c-rr', 'rr');
 
   // touch controls
@@ -5177,6 +5443,8 @@ const ICONS = {
   storage: '<svg viewBox="0 0 24 24"><path d="M3 8l9-4 9 4v10l-9 4-9-4z" fill="#d7b98a" stroke="#7a5a28"/><path d="M3 8l9 4 9-4M12 12v10" fill="none" stroke="#7a5a28"/></svg>',
   gui: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" fill="#f2f6fb" stroke="#1d4f8c"/><rect x="2" y="4" width="20" height="4" fill="#5aa0e6"/><rect x="6" y="12" width="12" height="4" fill="#a3a2a5" stroke="#555"/></svg>',
   pack: '<svg viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="14" rx="3" fill="#c4281c" stroke="#7a1810"/><path d="M9 7V5h6v2" fill="none" stroke="#7a1810" stroke-width="2"/><rect x="8" y="12" width="8" height="4" fill="#e8655a"/></svg>',
+  effect: '<svg viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 3 1 4 2 4 0-3-1-6 1-9z" fill="#ff7a1a" stroke="#a33a00"/><path d="M12 13c1 2 3 3 3 5a3 3 0 0 1-6 0c0-1.5 1-2.5 3-5z" fill="#ffe066"/></svg>',
+  player: '<svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3.5" fill="#f5cd30" stroke="#555"/><path d="M5 21v-4a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v4z" fill="#0d69ac" stroke="#555"/></svg>',
   rs: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="#e3f2e3" stroke="#2a7a3a"/><path d="M7 10h7M7 14h10" stroke="#2a7a3a" stroke-width="1.6"/><path d="M15 7l3 3-3 3" fill="none" stroke="#2a7a3a" stroke-width="1.6"/></svg>',
   module: '<svg viewBox="0 0 24 24"><path d="M5 2h10l4 4v16H5z" fill="#fff" stroke="#555"/><rect x="8" y="9" width="8" height="8" fill="#9b6bd6" stroke="#5a3a8c"/></svg>',
   remote: '<svg viewBox="0 0 24 24"><path d="M13 2L5 14h6l-2 8 9-13h-6z" fill="#f5cd30" stroke="#8a6a00"/></svg>',
@@ -5221,7 +5489,8 @@ function normalizeDoc(doc) {
   if (!doc.light || typeof doc.light !== 'object') doc.light = { sky: doc.env === 'dusk' ? 'dusk' : 'day', bright: 1, fog: 2600 };
   if (!SKIES[doc.light.sky]) doc.light.sky = 'day';
   doc.env = doc.light.sky;
-  ['pack', 'gui', 'scripts', 'sounds', 'storage', 'remotes', 'tools'].forEach(k => { if (!Array.isArray(doc[k])) doc[k] = []; });
+  ['pack', 'gui', 'scripts', 'sounds', 'storage', 'remotes', 'tools', 'effects'].forEach(k => { if (!Array.isArray(doc[k])) doc[k] = []; });
+  doc.player = sanitizePlayer(doc.player);
   doc.scripts.forEach(x => { if (x.k !== 'module') x.k = 'script'; if (x.p !== 'rs') x.p = 'sss'; if (x.side !== 'client') x.side = 'server'; if (!(x.cd >= 0)) x.cd = 0; });
   return doc;
 }
@@ -5237,19 +5506,25 @@ function sanitizeTools(list) {
       parts: (Array.isArray(t.parts) ? t.parts : []).slice(0, 60).map(q => { const o = sanitizePart(q); delete o.b; delete o.tl; delete o.dc; return o; }) };
   });
 }
+// StarterPlayer: how players move and how the camera works
+function sanitizePlayer(p) {
+  p = p && typeof p === 'object' ? p : {};
+  return { shiftlock: p.shiftlock !== false, walk: cleanNum(p.walk, 16, 0, 100), jump: cleanNum(p.jump, 50, 0, 250), zoom: cleanNum(p.zoom, 80, 5, 200), cam: p.cam === 'first' ? 'first' : 'classic' };
+}
 function sanitizeDoc(txt) {                           // accepts text or an object; returns a safe place doc or null
   let o; try { o = typeof txt === 'string' ? JSON.parse(txt) : JSON.parse(JSON.stringify(txt)); } catch (e) { return null; }
   if (!o || !Array.isArray(o.parts) || !o.parts.length) return null;
   const parts = o.parts.slice(0, 600).map(sanitizePart), storage = (Array.isArray(o.storage) ? o.storage : []).slice(0, 200).map(sanitizePart);
   const srcSounds = (Array.isArray(o.sounds) ? o.sounds : []).slice(0, 20).filter(x => x && ASSET_ID.test(x.a)), srcGui = (Array.isArray(o.gui) ? o.gui : []).slice(0, 30);
-  const gui = sanitizeGui(srcGui), sounds = sanitizeSounds(srcSounds), scripts = sanitizeScripts(o.scripts), remotes = sanitizeRemotes(o.remotes), tools = sanitizeTools(o.tools);
+  const gui = sanitizeGui(srcGui), sounds = sanitizeSounds(srcSounds), scripts = sanitizeScripts(o.scripts), remotes = sanitizeRemotes(o.remotes), tools = sanitizeTools(o.tools), effects = sanitizeEffects(o.effects);
   const idMap = (src, out) => { const m = new Map(); src.forEach((x, i) => { if (x && Number.isInteger(x.id) && out[i]) m.set(x.id, out[i].id); }); return m; };
   remapRefs(scripts, { part: idMap(o.parts.slice(0, 600), parts), store: idMap((o.storage || []).slice(0, 200), storage), gui: idMap(srcGui, gui), sound: idMap(srcSounds, sounds),
-    remote: idMap((Array.isArray(o.remotes) ? o.remotes : []).slice(0, 30), remotes), mod: idMap((Array.isArray(o.scripts) ? o.scripts : []).slice(0, 60), scripts) });
+    remote: idMap((Array.isArray(o.remotes) ? o.remotes : []).slice(0, 30), remotes), mod: idMap((Array.isArray(o.scripts) ? o.scripts : []).slice(0, 60), scripts), effect: idMap((Array.isArray(o.effects) ? o.effects : []).slice(0, 30), effects) });
+  const pm = idMap(o.parts.slice(0, 600), parts); effects.forEach(e => { e.part = pm.get(e.part) || 0; if (e.at === 'part' && !e.part) e.at = 'none'; });
   const L = o.light && typeof o.light === 'object' ? o.light : {};
   const light = { sky: SKIES[L.sky] ? L.sky : (o.env === 'dusk' ? 'dusk' : 'day'), bright: cleanNum(L.bright, 1, 0.2, 2), fog: cleanNum(L.fog, 2600, 80, 2600) };
   const pack = [...new Set((Array.isArray(o.pack) ? o.pack : []).filter(t => toolById(t)))].slice(0, 10);
-  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', desc: cleanText(o.desc, 300), env: light.sky, gear: o.gear === true, light, pack, gui, scripts, remotes, tools, sounds, storage, parts };
+  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', desc: cleanText(o.desc, 300), env: light.sky, gear: o.gear === true, light, pack, gui, scripts, remotes, tools, effects, player: sanitizePlayer(o.player), sounds, storage, parts };
 }
 function placeRun(doc, base) {                       // a CartStudio place -> a runnable game definition
   const d = sanitizeDoc(doc) || normalizeDoc(JSON.parse(JSON.stringify(doc)));
@@ -5261,8 +5536,8 @@ function testDef(doc) {
 const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
 const cleanTitle = v => String(v || '').replace(/[^\w \-.!'&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
 const compactPart = p => { const o = { id: p.id, n: p.n, s: p.s, p: p.p.map(r2), z: p.z.map(r2), r: p.r, c: p.c, b: p.b || '', q: p.q, st: p.st }; if (p.b === 'tool') o.tl = p.tl; if (p.t > 0) o.t = p.t; if (p.dc) o.dc = p.dc; return o; };
-function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, gear: !!doc.gear, light: doc.light, pack: doc.pack, gui: doc.gui, scripts: doc.scripts, remotes: doc.remotes || [], tools: (doc.tools || []).map(t => Object.assign({}, t, { parts: t.parts.map(compactPart) })), sounds: doc.sounds, storage: (doc.storage || []).map(compactPart), parts: doc.parts.map(compactPart) }); }
-const assetIdsOf = doc => [].concat((doc.parts || []).concat(doc.storage || []).filter(p => p.dc).map(p => p.dc.img), (doc.sounds || []).map(s => s.a));
+function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, gear: !!doc.gear, light: doc.light, pack: doc.pack, gui: doc.gui, scripts: doc.scripts, remotes: doc.remotes || [], effects: doc.effects || [], player: doc.player, tools: (doc.tools || []).map(t => Object.assign({}, t, { parts: t.parts.map(compactPart) })), sounds: doc.sounds, storage: (doc.storage || []).map(compactPart), parts: doc.parts.map(compactPart) }); }
+const assetIdsOf = doc => [].concat((doc.parts || []).concat(doc.storage || []).filter(p => p.dc).map(p => p.dc.img), (doc.sounds || []).map(s => s.a), ...(doc.scripts || []).map(s => s.acts.filter(a => a.a === 'emote' && a.id).map(a => a.id)));
 function authHint(err) {
   err = String(err || '');
   if (/admin-restricted|operation-not-allowed|configuration-not-found/i.test(err)) return 'Turn on Anonymous sign-in: Firebase console > Build > Authentication > Sign-in method > Anonymous > Enable.';
@@ -5339,11 +5614,11 @@ class Studio {
       <div class="cs-menubar">${Object.keys(menus).map(m => `<div class="cs-mi" data-menu="${m}">${m}<div class="cs-dd" hidden>${menus[m].map(it => it === '-' ? '<hr>' : `<div class="cs-it" data-cs="${it[1]}"><span>${it[0]}</span><i>${it[2] || ''}</i></div>`).join('')}</div></div>`).join('')}</div>
       <div class="cs-toolbar">${item ? '' : tb('act:save', 'save', 'Save Place (Ctrl+S). The first time this opens the Publish box.') + '<span class="cs-sep"></span>'}${tb('act:undo', 'undo', 'Undo')}${tb('act:redo', 'redo', 'Redo')}<span class="cs-sep"></span>
         ${tb('tool:select', 'select', 'Select (1)', 'tool-select on')}${tb('tool:translate', 'translate', 'Move (2)', 'tool-translate')}${tb('tool:scale', 'scale', 'Scale (3)', 'tool-scale')}${tb('tool:rotate', 'rotate', 'Rotate (4)', 'tool-rotate')}<span class="cs-sep"></span>
-        ${tb('act:dup', 'dup', 'Duplicate (Ctrl+D)')}${tb('act:del', 'del', 'Delete')}${item ? tb('act:mirror', 'mirror', 'Mirror copy across the middle') : ''}<span class="cs-sp"></span>
+        ${tb('act:dup', 'dup', 'Duplicate (Ctrl+D)')}${tb('act:del', 'del', 'Delete')}${item ? '' : tb('act:rig', 'rig', 'Rig + Animator: put a noob rig in and make animations')}${item ? tb('act:mirror', 'mirror', 'Mirror copy across the middle') : ''}<span class="cs-sp"></span>
         ${item ? '<button class="cs-go" data-cs="act:publish" type="button">Publish ' + esc(K.label) + '</button>' : '<button class="cs-go" data-cs="act:test" type="button">' + ICONS.play + ' Play Solo</button>'}</div>
       <div class="cs-body">
         <div class="cs-panel cs-left"><div class="cs-ph">Toolbox</div>${item ? '' : `<div class="cs-tabs">${[['parts', 'Parts'], ['model', 'Models'], ['image', 'Images'], ['audio', 'Audio']].map(t => `<button class="cs-tab${t[0] === 'parts' ? ' on' : ''}" data-cs="tbtab:${t[0]}" type="button">${t[1]}</button>`).join('')}</div>`}<div id="cs-tb"></div><input type="file" id="cs-file" hidden></div>
-        <div class="cs-center"><canvas id="cs-gl" tabindex="0"></canvas>${item ? '' : '<div class="cs-guiov" id="cs-guiov"></div>'}<div class="cs-note" id="cs-note" ${item ? '' : 'hidden'}></div><div class="cs-script" id="cs-script" hidden></div></div>
+        <div class="cs-center"><canvas id="cs-gl" tabindex="0"></canvas>${item ? '' : '<div class="cs-guiov" id="cs-guiov"></div>'}<div class="cs-note" id="cs-note" ${item ? '' : 'hidden'}></div><div class="cs-script" id="cs-script" hidden></div><div class="cs-anim" id="cs-anim" hidden></div></div>
         <div class="cs-panel cs-right"><div class="cs-ph">${item ? 'Parts' : 'Explorer'}</div><div id="cs-explorer" class="cs-explorer"></div><div class="cs-ph">Properties</div><div id="cs-props" class="cs-props"></div></div>
       </div>
       ${item ? '' : '<div class="cs-panel cs-output"><div class="cs-ph">Output</div><div id="cs-log" class="cs-log"></div></div>'}
@@ -5415,6 +5690,8 @@ class Studio {
     this.orbit.update();
     if (this.helper.visible) this.helper.update();
     this.mhelp.forEach(h => h.update());
+    if (this.anim) this.animTick(dt);
+    if (this.fxs) for (const em of this.fxs) em.update(dt, this.camera, this.renderer.domElement.height);
     this.bad.forEach(h => h.update());
     this.renderer.render(this.scene, this.camera);
   }
@@ -5446,7 +5723,7 @@ class Studio {
     m.material = this.matFor(q);
     this.syncDecal(m, q);
   }
-  rebuildAll() { for (const id of [...this.meshes.keys()]) this.dropMesh(id); this.doc.parts.forEach(q => this.makeMesh(q)); for (const id of [...this.multi]) if (!this.part(id)) this.multi.delete(id); const os = this.osel; this.select(this.part() ? this.sel : null); if (os && (os.k === 'light' || os.k === 'pack' || os.k === 'ws' || this.objOf(os))) { this.osel = os; this.renderExplorer(); this.renderProps(); } this.refreshChecks(); this.renderExplorer(); if (this.scriptId) this.renderScript(); }
+  rebuildAll() { if (this.mode === 'place') setTimeout(() => this.alive && this.syncStudioFx(), 0); for (const id of [...this.meshes.keys()]) this.dropMesh(id); this.doc.parts.forEach(q => this.makeMesh(q)); for (const id of [...this.multi]) if (!this.part(id)) this.multi.delete(id); const os = this.osel; this.select(this.part() ? this.sel : null); if (os && (os.k === 'light' || os.k === 'pack' || os.k === 'ws' || os.k === 'player' || this.objOf(os))) { this.osel = os; this.renderExplorer(); this.renderProps(); } this.refreshChecks(); this.renderExplorer(); if (this.scriptId) this.renderScript(); }
   /* ---------------- selection + gizmo ---------------- */
   select(id, add) {
     this.osel = null;
@@ -5597,7 +5874,7 @@ class Studio {
     if (note) { note.hidden = false; note.className = 'cs-note' + (bad.length ? ' bad' : ''); note.textContent = bad.length ? `${bad.length} part${bad.length > 1 ? 's are' : ' is'} outside the blue lines (red). Move or shrink ${bad.length > 1 ? 'them' : 'it'} to publish.` : `Parts: ${this.doc.parts.length}/30. Everything is inside the blue lines.`; }
   }
   /* ---------------- history, save/load ---------------- */
-  snapState() { const d = this.doc; return JSON.stringify(this.mode === 'place' ? { parts: d.parts, light: d.light, pack: d.pack, gui: d.gui, scripts: d.scripts, sounds: d.sounds, storage: d.storage, remotes: d.remotes, tools: d.tools } : { parts: d.parts }); }
+  snapState() { const d = this.doc; return JSON.stringify(this.mode === 'place' ? { parts: d.parts, light: d.light, pack: d.pack, gui: d.gui, scripts: d.scripts, sounds: d.sounds, storage: d.storage, remotes: d.remotes, tools: d.tools, effects: d.effects, player: d.player } : { parts: d.parts }); }
   commit(initial) {
     const snap = this.snapState();
     if (!initial && this.hist[this.hi] === snap) return;
@@ -5626,6 +5903,7 @@ class Studio {
     }
     if (a === 'new') { const d = dialog({ title: 'New Place', html: '<p>Start a new place? Unsaved changes will be lost.</p>', buttons: [{ label: 'New Place', cls: 'btn-blue', value: true }, { label: 'Cancel', value: null }] }); if (await d.promise) this.load(newPlaceDoc()); return; }
     if (this.editTool != null && ['save', 'saveas', 'test', 'export', 'settings'].includes(a)) this.endToolEdit(true);
+    if (this.anim && ['save', 'saveas', 'test', 'new', 'open', 'import'].includes(a)) this.closeAnimator();
     if (a === 'save') return this.save(false);
     if (a === 'saveas') return this.save(true);
     if (a === 'settings') return this.settings();
@@ -5641,6 +5919,8 @@ class Studio {
     if (a === 'test') return this.test();
     if (a === 'newscript') return this.newObj('script', 'sss');
     if (a === 'newtool') return this.newTool();
+    if (a === 'rig') return this.anim ? this.closeAnimator() : this.openAnimator();
+    if (a === 'neweffect') return this.newEffect();
     if (a === 'savescript') return this.saveScriptToToolbox();
     if (a.indexOf('toolpart:') === 0) { const tid = +a.slice(9); this.addMenu = null; this.startToolEdit(tid); return this.insert('block'); }
     if (a === 'tooledit') { const x = this.objOf(this.osel); if (x && this.osel.k === 'tool') this.startToolEdit(x.id); return; }
@@ -5787,6 +6067,7 @@ class Studio {
     });
     root.addEventListener('click', e => { const se = e.target.closest('button[data-se]'); if (se) this.onScriptButton(se.dataset.se); });
     const gov = $('#cs-guiov'); if (gov) gov.addEventListener('pointerdown', e => this.guiPointer(e));
+    if (this.bindAnimator) this.bindAnimator();
     $('#cs-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) this.doUpload(this.upKind, f); });
     // click to select (only when the pointer did not move: otherwise the user was dragging a handle or the camera)
     let down = null;
@@ -5796,6 +6077,7 @@ class Studio {
       down = null;
       const r = this.canvas.getBoundingClientRect(), v = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       const rc = new THREE.Raycaster(); rc.setFromCamera(v, this.camera);
+      if (this.anim) return this.animPick(rc);                       // while animating, clicks pick the rig's joints
       const hit = rc.intersectObjects([...this.meshes.values()], false)[0];
       const add = e.shiftKey || e.ctrlKey || e.metaKey;
       if (!hit && add) return;
@@ -5805,13 +6087,18 @@ class Studio {
       if (!this.alive || R || this.typing() || !$('#studio') || $('#studio').hidden || document.querySelector('.dlg-back')) return;
       const c = e.ctrlKey || e.metaKey, k = e.code;
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(k) && !c) { this.k[k] = true; return; }
+      if (this.anim) {                                                // Animator shortcuts
+        if (k === 'Space') { e.preventDefault(); this.animButton('play'); } else if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); this.animButton('delkey'); }
+        else if (k === 'Escape') this.closeAnimator(); else if (k === 'KeyK' && !c) this.animButton('addkey');
+        return;
+      }
       if (c && k === 'KeyZ') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
       else if (c && k === 'KeyY') { e.preventDefault(); this.redo(); }
       else if (c && k === 'KeyD') { e.preventDefault(); this.dup(false); }
       else if (c && k === 'KeyS' && this.mode === 'place') { e.preventDefault(); this.save(false); }
       else if (c && k === 'KeyR') { e.preventDefault(); if (this.mode === 'place') this.rot90(); }
       else if (!e.altKey && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Numpad1', 'Numpad2', 'Numpad3', 'Numpad4'].includes(k)) { e.preventDefault(); this.setTool(['select', 'translate', 'scale', 'rotate'][+k.slice(-1) - 1]); }
-      else if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); if (this.scriptId) return; if (this.osel && this.osel.k !== 'light' && this.osel.k !== 'pack' && this.osel.k !== 'ws') this.delObj(); else this.del(); }
+      else if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); if (this.scriptId) return; if (this.osel && !['light', 'pack', 'ws', 'player'].includes(this.osel.k)) this.delObj(); else this.del(); }
       else if (k === 'KeyF' && !c) this.act('focus');
       else if (k === 'F5' && this.mode === 'place') { e.preventDefault(); this.test(); }
       else if (k === 'Escape') { if (this.scriptId) this.closeScript(); else this.select(null); }
@@ -5926,9 +6213,10 @@ class Studio {
     const d = this.doc, o = this.open, os = this.osel, isSel = (k, id) => os && os.k === k && os.id === id;
     const tw = key => `<span class="tw" data-cs="tw:${key}">${o[key] ? '&#9662;' : '&#9656;'}</span>`;
     const add = (a, tip) => `<button class="cs-add" data-cs="act:${a}" title="${tip}" type="button">+</button>`;
-    const addMenu = key => this.addMenu === key ? `<div class="cs-addmenu">${[['script', 'Script'], ['local', 'LocalScript'], ['module', 'ModuleScript'], ['remote', 'RemoteEvent']].map(([k, l]) => `<button type="button" data-cs="act:newobj:${k}:${key}"><span class="ico">${ICONS[k]}</span>${l}</button>`).join('')}</div>` : '';
+    const addMenu = key => this.addMenu === key ? `<div class="cs-addmenu">${[['script', 'Script'], ['local', 'LocalScript'], ['module', 'ModuleScript'], ['remote', 'RemoteEvent']].map(([k, l]) => `<button type="button" data-cs="act:newobj:${k}:${key}"><span class="ico">${ICONS[k]}</span>${l}</button>`).join('')}${key === 'rs' ? `<button type="button" data-cs="act:neweffect"><span class="ico">${ICONS.effect}</span>Effect</button>` : ''}</div>` : '';
     const scrow = x => orow('script', x, x.k === 'module' ? 'module' : x.side === 'client' ? 'local' : 'script', (x.on ? '' : ' <small>(off)</small>') + (x.k === 'module' ? ' <small>(module)</small>' : x.side === 'client' ? ' <small>(client)</small>' : ''));
-    const kids = key => addMenu(key) + d.scripts.filter(x => x.p === key).map(scrow).join('') + (d.remotes || []).filter(r => r.p === key).map(r => orow('remote', r, 'remote')).join('');
+    const kids = key => addMenu(key) + d.scripts.filter(x => x.p === key).map(scrow).join('') + (d.remotes || []).filter(r => r.p === key).map(r => orow('remote', r, 'remote')).join('') +
+      (key === 'rs' ? (d.effects || []).map(e => orow('effect', e, 'effect', ` <small>(${esc(FX_KINDS.find(k => k[0] === e.kind)[1])}${e.at === 'part' ? ', on a part' : e.at === 'players' ? ', on players' : ''})</small>`)).join('') : '');
     const svc = (key, label, icon, kids, extra) => `<div class="cs-row svc${isSel(key, 0) ? ' sel' : ''}" data-cs="obj:${key}:0">${kids === null ? '<span class="tw"></span>' : tw(key)}<span class="ico">${ICONS[icon]}</span>${label}${extra || ''}</div>${kids && o[key] ? kids : ''}`;
     const prow = q => `<div class="cs-row ch${q.id === this.sel || this.multi.has(q.id) ? ' sel' : ''}" data-cs="sel:${q.id}"><span class="ico">${ICONS[q.b === 'tool' ? 'tool' : q.b && SPECIALS[q.b] ? q.b : q.s] || ''}</span>${esc(q.n)}${q.dc ? ' <small>(decal)</small>' : ''}</div>`;
     const orow = (k, x, icon, extra) => `<div class="cs-row ch${isSel(k, x.id) ? ' sel' : ''}" data-cs="obj:${k}:${x.id}"><span class="ico">${ICONS[icon] || ''}</span>${esc(x.n)}${extra || ''}</div>`;
@@ -5937,6 +6225,7 @@ class Studio {
       svc('light', 'Lighting', 'light', null, ` <small>${esc(SKY_LABEL[d.light.sky])}</small>`) +
       svc('rs', 'ReplicatedStorage', 'rs', kids('rs'), add('addmenu:rs', 'Insert a Script, ModuleScript or RemoteEvent')) +
       svc('sss', 'ServerScriptService', 'sss', kids('sss'), add('addmenu:sss', 'Insert a Script, ModuleScript or RemoteEvent')) +
+      svc('player', 'StarterPlayer', 'player', null, ` <small>${d.player.shiftlock ? 'shift lock on' : 'shift lock off'}</small>`) +
       svc('storage', 'ServerStorage', 'storage', d.storage.map(s => orow('stored', s, s.s)).join('')) +
       svc('gui', 'StarterGui', 'gui', d.gui.map(g => orow('gui', g, g.k === 'button' ? 'button' : 'label')).join(''), add('newlabel', 'Insert a TextLabel')) +
       svc('pack', 'StarterPack', 'pack', d.pack.map(t => `<div class="cs-row ch" data-cs="obj:pack:0"><span class="ico">${ICONS.tool}</span>${esc((toolById(t) || {}).n || t)}</div>`).join('') +
@@ -5949,9 +6238,11 @@ class Studio {
   }
   selectObj(k, id) {
     this.multi.clear(); this.sel = null; this.helper.visible = false; this.tc.detach(); this.refreshMulti();
+    const fxWas = this.osel && this.osel.k === 'effect';
     this.osel = { k, id }; this.renderExplorer(); this.renderProps();
+    if (k === 'effect' || fxWas) this.syncStudioFx();
   }
-  objOf(os) { const list = { script: this.doc.scripts, remote: this.doc.remotes, tool: this.doc.tools, gui: this.doc.gui, sound: this.doc.sounds, stored: this.doc.storage }[os && os.k]; return list ? list.find(x => x.id === os.id) || null : null; }
+  objOf(os) { const list = { script: this.doc.scripts, remote: this.doc.remotes, tool: this.doc.tools, effect: this.doc.effects, gui: this.doc.gui, sound: this.doc.sounds, stored: this.doc.storage }[os && os.k]; return list ? list.find(x => x.id === os.id) || null : null; }
   renderObjProps() {
     const el = $('#cs-props'), os = this.osel, d = this.doc, x = this.objOf(os);
     const row = (label, html) => `<div class="cs-prow"><label>${label}</label>${html}</div>`;
@@ -5968,6 +6259,12 @@ class Studio {
         '<div class="cs-empty">Night has stars and a moon. Short fog makes spooky games!</div>';
     } else if (os.k === 'pack') {
       h = `<div class="cs-pt">StarterPack</div><div class="cs-empty">Every player starts with these tools.</div>` + TOOLS.map(t => `<label class="cs-prow cs-ck"><input type="checkbox" data-o="pack:${t.id}"${d.pack.includes(t.id) ? ' checked' : ''}> ${esc(t.n)}</label>`).join('');
+    } else if (os.k === 'player') {
+      const p = d.player;
+      h = `<div class="cs-pt">StarterPlayer</div>` + row('Shift lock allowed', chk('shiftlock', p.shiftlock)) + row('Walk speed', `<input type="number" data-o="walk" min="0" max="100" value="${p.walk}">`) +
+        row('Jump power', `<input type="number" data-o="jump" min="0" max="250" value="${p.jump}">`) + row('Max camera zoom', `<input type="number" data-o="zoom" min="5" max="200" value="${p.zoom}">`) +
+        row('Camera', sel('cam', [['classic', 'Classic (zoom in and out)'], ['first', 'First person only']], p.cam)) +
+        '<div class="cs-empty">How every player starts. <b>Shift lock</b>: players press Shift (or the lock button on phones) so their character faces where the camera looks, great for shooting and sword games.</div>';
     } else if (!x) h = '<div class="cs-empty">Select something to see its properties.</div>';
     else if (os.k === 'script') {
       const ev = evDef(x.e), mod = x.k === 'module';
@@ -5983,6 +6280,13 @@ class Studio {
         row('Cooldown (s)', `<input type="number" data-o="cd" min="0" max="60" step="0.05" value="${x.cd}">`) + row('Animation', sel('anim', TOOL_ANIMS, x.anim)) + row('Description', txt('desc', x.desc, 120)) +
         `<div class="cs-empty">${plural(x.parts.length, 'part')}. ${editing ? '<b>Editing:</b> the tool is in the Workspace. Build it standing up with the <b>Handle</b> at the bottom (that is where the hand holds it), then press Done.' : 'Press <b>Edit Parts</b> to build how it looks.'} When a player clicks while holding it, its scripts run (${plural(scr.length, 'script')}).</div>` +
         `<div class="cs-prow"><label></label>${editing ? '<button class="btn btn-sm btn-green" data-cs="act:tooldone" type="button">Done Editing</button>' : '<button class="btn btn-sm btn-blue" data-cs="act:tooledit" type="button">Edit Parts</button>'} <button class="btn btn-sm" data-cs="act:toolscript" type="button">+ Script</button></div>` + del;
+    } else if (os.k === 'effect') {
+      h = `<div class="cs-pt">Effect</div>` + row('Name', txt('n', x.n)) + row('Type', sel('kind', FX_KINDS, x.kind)) + row('Color', `<input type="color" data-o="c" value="${x.c}">`) +
+        row('Size', `<input type="number" data-o="size" min="0.1" max="10" step="0.1" value="${x.size}">`) + row('Amount (per second)', `<input type="number" data-o="rate" min="1" max="120" value="${x.rate}">`) +
+        row('Lifetime (s)', `<input type="number" data-o="life" min="0.1" max="6" step="0.1" value="${x.life}">`) + row('Enabled', chk('on', x.on)) +
+        row('Attach', sel('at', [['none', 'Nothing (scripts attach it)'], ['part', 'A part'], ['players', 'Every player']], x.at)) +
+        (x.at === 'part' ? row('Part', sel('part', [[0, '(pick a part)']].concat(d.parts.map(p => [p.id, p.n])), x.part)) : '') +
+        '<div class="cs-empty">Scripts can attach it too: <b>Shoot a projectile</b>, <b>Make a hitbox</b> and <b>Make an explosion</b> have an <b>Attach effect</b> box, and <b>Add an effect to the player</b> puts it on the player.</div>' + del;
     } else if (os.k === 'remote') {
       const users = d.scripts.filter(s => (s.e === 'remote' && s.ev.rem === x.id) || s.acts.some(a => a.a === 'fire' && a.rem === x.id)).length;
       h = `<div class="cs-pt">RemoteEvent</div>` + row('Name', txt('n', x.n)) + row('Parent', sel('p', [['rs', 'ReplicatedStorage'], ['sss', 'ServerScriptService']], x.p)) +
@@ -6008,7 +6312,19 @@ class Studio {
   }
   setObj(key, val) {
     const os = this.osel, d = this.doc; if (!os) return;
-    if (os.k === 'light') {
+    if (os.k === 'player') {
+      const p = d.player;
+      if (key === 'shiftlock') p.shiftlock = !!val; else if (key === 'cam') p.cam = val === 'first' ? 'first' : 'classic';
+      else if (['walk', 'jump', 'zoom'].includes(key)) p[key] = Object.assign({}, sanitizePlayer(Object.assign({}, p, { [key]: +val })))[key];
+    } else if (os.k === 'effect') {
+      const x = this.objOf(os); if (!x) return;
+      if (key === 'n') x.n = cleanName(val, x.n); else if (key === 'kind') { const was = FX_DEF[x.kind] === x.c; x.kind = FX_KINDS.some(k => k[0] === val) ? val : 'fire'; if (was) x.c = FX_DEF[x.kind]; }
+      else if (key === 'c') x.c = cleanHex(val, x.c); else if (key === 'size') x.size = clamp(+val || 1, 0.1, 10); else if (key === 'rate') x.rate = clamp(Math.round(+val || 30), 1, 120);
+      else if (key === 'life') x.life = clamp(+val || 1, 0.1, 6); else if (key === 'on') x.on = !!val;
+      else if (key === 'at') { x.at = ['part', 'players'].includes(val) ? val : 'none'; if (x.at === 'part' && !x.part) { const q = this.part() || d.parts.find(p => p.n !== 'Baseplate'); x.part = q ? q.id : 0; } }
+      else if (key === 'part') x.part = parseInt(val, 10) || 0;
+      this.syncStudioFx();
+    } else if (os.k === 'light') {
       if (key === 'sky') d.light.sky = SKIES[val] ? val : 'day'; else if (key === 'bright') d.light.bright = Math.round(clamp(+val || 1, 0.2, 2) * 10) / 10; else if (key === 'fog') d.light.fog = Math.round(clamp(+val || 2600, 80, 2600));
       d.env = d.light.sky; this.applyLighting();
     } else if (os.k === 'pack') {
@@ -6035,6 +6351,24 @@ class Studio {
       else if (key === 'vol') x.vol = clamp(+val || 0, 0, 1);
     }
     this.renderExplorer(); this.renderProps(); this.commit();
+  }
+  /* ---------------- effects ---------------- */
+  newEffect() {
+    const d = this.doc; this.addMenu = null; if (d.effects.length >= 30) return dialog({ title: BRAND, html: '<p>A place can have up to 30 effects.</p>' });
+    const id = nextOf(d.effects); d.effects.push({ id, n: 'Fire' + (id > 1 ? id : ''), kind: 'fire', c: FX_DEF.fire, size: 1, rate: 30, life: 1, at: 'none', part: 0, on: true });
+    this.open.rs = true; this.selectObj('effect', id); this.commit(); this.syncStudioFx();
+    this.log('Inserted an Effect into ReplicatedStorage. Set Attach to put it on a part or on every player, or attach it from a script.');
+  }
+  clearStudioFx() { for (const em of this.fxs || []) em.dispose(); this.fxs = []; }
+  syncStudioFx() {                                                  // show effects that sit on parts (and the selected one) in the editor
+    if (this.mode !== 'place' || !this.scene) return;
+    this.clearStudioFx();
+    for (const e of this.doc.effects || []) {
+      if (e.on === false) continue;
+      const sel = this.osel && this.osel.k === 'effect' && this.osel.id === e.id;
+      if (e.at === 'part') { const q = this.doc.parts.find(p => p.id === e.part); if (q) this.fxs.push(new Emitter(this.scene, e, () => { const m = this.meshes.get(q.id); return m ? new THREE.Vector3(m.position.x, m.position.y + (e.kind === 'fire' || e.kind === 'smoke' ? q.z[1] / 2 : 0), m.position.z) : null; })); }
+      else if (sel) this.fxs.push(new Emitter(this.scene, e, () => this.orbit.target.clone().add(new THREE.Vector3(0, 2, 0))));
+    }
   }
   /* ---------------- custom tools (StarterPack) ---------------- */
   newTool(quiet) {
@@ -6140,7 +6474,8 @@ class Studio {
   delObj() {
     const os = this.osel, d = this.doc; if (!os) return;
     if (os.k === 'tool') { if (this.editTool === os.id) this.endToolEdit(false); d.scripts = d.scripts.filter(x => !(x.p === 'pack' && x.ev.tl === 'c' + os.id)); }
-    const key = { script: 'scripts', remote: 'remotes', tool: 'tools', gui: 'gui', sound: 'sounds', stored: 'storage' }[os.k]; if (!key) return;
+    if (os.k === 'effect') setTimeout(() => this.syncStudioFx(), 0);
+    const key = { script: 'scripts', remote: 'remotes', tool: 'tools', effect: 'effects', gui: 'gui', sound: 'sounds', stored: 'storage' }[os.k]; if (!key) return;
     d[key] = d[key].filter(x => x.id !== os.id); if (this.scriptId === os.id && os.k === 'script') this.closeScript();
     this.osel = null; this.renderExplorer(); this.renderProps(); this.commit();
   }
@@ -6186,6 +6521,8 @@ class Studio {
       case 'gui': return opts(d.gui, o => o.n + (o.k === 'button' ? ' (button)' : ''));
       case 'sound': return opts(d.sounds, o => o.n);
       case 'remote': return opts(d.remotes, o => o.n + (o.p === 'rs' ? '' : ' (ServerScriptService)'));
+      case 'effect': return `<select data-se="arg:${path}"><option value="0">None</option>${(d.effects || []).map(o => `<option value="${o.id}"${o.id === val ? ' selected' : ''}>${esc(o.n)} (${esc(o.kind)})</option>`).join('')}</select>`;
+      case 'animid': return `<input type="text" list="cs-anims" maxlength="30" placeholder="a_..." data-se="arg:${path}" value="${esc(val || '')}"><datalist id="cs-anims">${Assets.list('anim').map(m => `<option value="${m.id}">${esc(m.n)}${m.mine ? '' : ' by ' + esc(m.c)}</option>`).join('')}</datalist>`;
       case 'mod': return opts(d.scripts.filter(o => o.id !== this.scriptId && (o.k === 'module' || o.p === 'rs')), o => o.n + (o.k === 'module' ? ' (ModuleScript)' : ' (Script in ReplicatedStorage)'));
       case 'key': return `<select data-se="arg:${path}">${KEYS.map(k => `<option${k === val ? ' selected' : ''}>${k}</option>`).join('')}</select>`;
       case 'tool': case 'ptool': {
@@ -6225,7 +6562,7 @@ class Studio {
       const path = k.slice(4).split('.'), obj = path[0] === 'ev' ? s.ev : s.acts[+path[1]], key = path[path.length - 1];
       const defs = path[0] === 'ev' ? evDef(s.e)[2] : actDef(obj.a)[2], def = defs.find(x => x[0] === key); if (!obj || !def) return;
       const type = def[1];
-      obj[key] = type === 'num' ? cleanNum(el.value, def[3] || 0, -100000, 100000) : ['part', 'store', 'gui', 'sound', 'remote', 'mod'].includes(type) ? (parseInt(el.value, 10) || 0) : type === 'ptool' || type === 'tool' ? cleanArgs([[key, type, '', def[3]]], { [key]: el.value })[key] : type === 'key' ? (KEYS.includes(el.value) ? el.value : 'E') : type === 'text' ? cleanText(el.value, 200) : type === 'color' ? cleanHex(el.value, def[3]) : el.value;
+      obj[key] = type === 'num' ? cleanNum(el.value, def[3] || 0, -100000, 100000) : ['part', 'store', 'gui', 'sound', 'remote', 'mod', 'effect'].includes(type) ? (parseInt(el.value, 10) || 0) : type === 'animid' ? (ASSET_ID.test(el.value.trim()) ? el.value.trim() : '') : type === 'ptool' || type === 'tool' ? cleanArgs([[key, type, '', def[3]]], { [key]: el.value })[key] : type === 'key' ? (KEYS.includes(el.value) ? el.value : 'E') : type === 'text' ? cleanText(el.value, 200) : type === 'color' ? cleanHex(el.value, def[3]) : el.value;
     }
     this.commit(); this.renderScript(); this.renderExplorer(); if (this.osel && this.osel.k === 'script') this.renderProps();
   }
@@ -6243,7 +6580,7 @@ class Studio {
 
   exit(done) { const cb = this.o.onExit; this.destroy(); if (cb) cb(done); }
   destroy() {
-    if (!this.alive) return; this.alive = false; cancelAnimationFrame(this.raf);
+    if (!this.alive) return; if (this.anim) this.closeAnimator(); this.clearStudioFx(); this.alive = false; cancelAnimationFrame(this.raf);
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku); window.removeEventListener('blur', this._bl); window.removeEventListener('resize', this.resize);
     if (this.ro) this.ro.disconnect();
     AudioPreview.stop();
@@ -6272,6 +6609,182 @@ function openItemStudio(kind, onExit) {
   catch (err) { console.error(err); STUDIO = null; $('#studio').hidden = true; dialog({ title: BRAND, html: '<p>The item editor could not start in this browser.</p><p class="muted small">' + esc(err.message) + '</p>' }); if (onExit) onExit(); }
   return STUDIO;
 }
+
+/* ====================== CARTSTUDIO ANIMATOR ======================
+   The Rig button (toolbar, next to Duplicate / Delete) puts a noob rig in the Workspace and opens the Animator:
+   pick a joint, turn it (rotate handles or the X / Y / Z sliders), make keyframes on the timeline, Play, then Publish.
+   Published animations get an ID; "Play an animation" in any script can play it. */
+ICONS.rig = '<svg viewBox="0 0 24 24"><rect x="8.5" y="1.5" width="7" height="6" rx="1.6" fill="#f5cd30" stroke="#555"/><rect x="7" y="8" width="10" height="7.5" fill="#0d69ac" stroke="#555"/><rect x="3.4" y="8" width="3.3" height="7.5" fill="#f5cd30" stroke="#555"/><rect x="17.3" y="8" width="3.3" height="7.5" fill="#f5cd30" stroke="#555"/><rect x="7" y="15.8" width="4.8" height="6.7" fill="#4b974b" stroke="#555"/><rect x="12.2" y="15.8" width="4.8" height="6.7" fill="#4b974b" stroke="#555"/></svg>';
+function renderAnimThumb(a) {                                     // a little picture of the pose halfway through
+  const r = getRenderer(), scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x9a9a9a, 0.75), new THREE.AmbientLight(0xffffff, 0.15));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.5); sun.position.set(-4, 9, 8); scene.add(sun);
+  const ch = buildCharacter({ colors: DEFAULT_COLORS, eq: {} }); scene.add(ch.root);
+  const pose = sampleAnim(a, a.len / 2), root = applyPose(ch, pose);
+  ch.root.position.y = root[3]; ch.root.rotation.set(root[0] * D2R, 0.35 + root[1] * D2R, root[2] * D2R);
+  const cam = new THREE.PerspectiveCamera(36, 1, 0.1, 100); cam.position.set(3, 4.6, 10.5); cam.lookAt(0, 2.8, 0);
+  r.setPixelRatio(1); r.setSize(96, 96, false); r.setClearColor(0xdbe9f6, 1); r.render(scene, cam);
+  const url = r.domElement.toDataURL('image/jpeg', 0.85); disposeObject(scene); ch.dispose(); return url;
+}
+Object.assign(Studio.prototype, {
+  openAnimator(data, name, id) {
+    if (this.mode !== 'place' || this.anim) return;
+    if (this.editTool != null) this.endToolEdit(true);
+    this.select(null); this.closeScript();
+    const rig = buildCharacter({ colors: DEFAULT_COLORS, eq: {} }), t = this.orbit.target, base = new THREE.Vector3(Math.round(t.x), 0, Math.round(t.z));
+    rig.root.position.copy(base); this.scene.add(rig.root);
+    const draft = !data && store.get('animDraft', null);
+    const a = this.anim = { rig, base, data: JSON.parse(JSON.stringify(data || (draft && draft.data) || { len: 1, loop: true, ease: 'smooth', keys: [{ t: 0, j: {} }] })), name: name || (draft && draft.name) || 'My Animation', joint: 'armR', time: 0, playing: false, id: id || null, clip: null };
+    a.data.keys = a.data.keys.length ? a.data.keys : [{ t: 0, j: {} }];
+    const atc = this.atc = new THREE.TransformControls(this.camera, this.canvas);
+    atc.setMode('rotate'); atc.setSpace('local'); atc.setRotationSnap(5 * D2R); atc.setSize(0.8); this.scene.add(atc);
+    atc.addEventListener('dragging-changed', e => { this.orbit.enabled = !e.value; this.dragging = e.value; if (!e.value) this.animSave(); });
+    atc.addEventListener('objectChange', () => this.animFromGizmo());
+    this.orbit.target.set(base.x, 3, base.z); this.camera.position.set(base.x + 5, 5.5, base.z + 11);
+    $('#cs-anim').hidden = false; this.renderAnimPanel(); this.animPose(); this.animGizmo();
+    this.log('Animator open. Pick a joint, turn it, and add keyframes on the timeline. Space plays, Publish gives you an ID.');
+  },
+  closeAnimator() {
+    const a = this.anim; if (!a) return;
+    this.animSave(); this.anim = null;
+    this.atc.detach(); this.scene.remove(this.atc); try { this.atc.dispose(); } catch (e) { /* ignore */ } this.atc = null;
+    this.scene.remove(a.rig.root); disposeObject(a.rig.root); a.rig.dispose();
+    const p = $('#cs-anim'); p.hidden = true; p.innerHTML = ''; this.orbit.enabled = true;
+  },
+  animSave() { const a = this.anim; if (a) store.set('animDraft', { data: a.data, name: a.name }); },
+  jointObj(j) { const r = this.anim.rig; return j === 'root' ? r.root : j === 'head' ? r.head : r[j].g; },
+  animGizmo() { const a = this.anim; if (!a || !this.atc) return; if (a.playing) this.atc.detach(); else this.atc.attach(this.jointObj(a.joint)); },
+  keyAt(time, make) {
+    const d = this.anim.data; let k = d.keys.find(x => Math.abs(x.t - time) < 0.005);
+    if (!k && make) { const s = sampleAnim(sanitizeAnim(d) || d, time); k = { t: Math.round(time * 100) / 100, j: s }; d.keys.push(k); d.keys.sort((p, q) => p.t - q.t); }
+    return k || null;
+  },
+  animPose() {
+    const a = this.anim; if (!a) return;
+    const clean = sanitizeAnim(a.data); if (!clean) return;
+    const pose = sampleAnim(clean, a.time), root = applyPose(a.rig, pose);
+    a.rig.root.position.set(a.base.x, a.base.y + root[3], a.base.z); a.rig.root.rotation.set(root[0] * D2R, root[1] * D2R, root[2] * D2R);
+    a.pose = pose;
+  },
+  animFromGizmo() {                                                // the rotate handles moved a joint: save it in this keyframe
+    const a = this.anim; if (!a) return;
+    const o = this.jointObj(a.joint), k = this.keyAt(a.time, true), d = v => Math.round(v / D2R * 10) / 10;
+    const prev = k.j[a.joint] || (a.joint === 'root' ? [0, 0, 0, 0] : [0, 0, 0]);
+    k.j[a.joint] = [d(o.rotation.x), d(o.rotation.y), d(o.rotation.z)].concat(a.joint === 'root' ? [prev[3] || 0] : []);
+    this.renderAnimPanel(true);
+  },
+  setJoint(axis, v) {
+    const a = this.anim, k = this.keyAt(a.time, true), cur = (k.j[a.joint] || (a.joint === 'root' ? [0, 0, 0, 0] : [0, 0, 0])).slice();
+    while (cur.length < (a.joint === 'root' ? 4 : 3)) cur.push(0);
+    cur[axis] = clamp(Number(v) || 0, axis === 3 ? -20 : -360, axis === 3 ? 20 : 360); k.j[a.joint] = cur;
+    this.animPose(); this.renderAnimPanel(true, axis); this.animSave();
+  },
+  setTime(t) { const a = this.anim; a.time = clamp(Math.round(t * 100) / 100, 0, a.data.len); this.animPose(); this.renderAnimPanel(true); },
+  renderAnimPanel(light, keepAxis) {
+    const a = this.anim, el = $('#cs-anim'); if (!a || !el) return;
+    const d = a.data, cur = (a.pose && a.pose[a.joint]) || [0, 0, 0, 0], key = this.keyAt(a.time, false);
+    const bar = `<div class="an-bar" data-an="bar">${[...Array(Math.floor(d.len * 10) + 1).keys()].map(i => `<i class="tick${i % 5 ? '' : ' big'}" style="left:${i / 10 / d.len * 100}%">${i % 5 ? '' : (i / 10).toFixed(1)}</i>`).join('')}
+      ${d.keys.map((k, i) => `<b class="key${key === k ? ' sel' : ''}" data-key="${i}" style="left:${k.t / d.len * 100}%" title="Keyframe at ${k.t.toFixed(2)}s"></b>`).join('')}<u class="scrub" style="left:${a.time / d.len * 100}%"></u></div>`;
+    const rot = ['X', 'Y', 'Z'].map((n, i) => `<label class="an-sl"><span>${n}</span><input type="range" min="-180" max="180" step="1" data-an="rot:${i}" value="${Math.round(cur[i] || 0)}"><input type="number" min="-360" max="360" step="1" data-an="rotn:${i}" value="${Math.round((cur[i] || 0) * 10) / 10}"></label>`).join('') +
+      (a.joint === 'root' ? `<label class="an-sl"><span>Up</span><input type="range" min="-5" max="5" step="0.1" data-an="rot:3" value="${cur[3] || 0}"><input type="number" min="-20" max="20" step="0.1" data-an="rotn:3" value="${cur[3] || 0}"></label>` : '');
+    if (light && el.firstChild) {                                  // just refresh the parts that change while dragging
+      if (keepAxis == null) el.querySelector('.an-rot .an-sls').innerHTML = rot;      // don't rebuild a slider while it is being dragged
+      else el.querySelectorAll('.an-sl input').forEach(i => { if (i !== document.activeElement) { const ax = +i.dataset.an.split(':')[1]; i.value = i.type === 'range' ? Math.round(cur[ax] || 0) : Math.round((cur[ax] || 0) * 10) / 10; } });
+      el.querySelector('.an-tl .an-barw').innerHTML = bar;
+      el.querySelector('.an-time').textContent = a.time.toFixed(2) + 's' + (key ? ' (keyframe)' : '');
+      el.querySelectorAll('[data-an^="joint:"]').forEach(b => b.classList.toggle('on', b.dataset.an === 'joint:' + a.joint));
+      const pb = el.querySelector('[data-an="play"]'); if (pb) pb.innerHTML = a.playing ? '&#9632; Stop' : '&#9654; Play';
+      return;
+    }
+    el.innerHTML = `<div class="an-head">${ICONS.rig}<b>Animator</b><input type="text" data-an="name" maxlength="40" value="${esc(a.name)}" title="Animation name">
+        <label>Length <input type="number" data-an="len" min="0.1" max="30" step="0.1" value="${d.len}">s</label><label class="chk"><input type="checkbox" data-an="loop"${d.loop ? ' checked' : ''}> Loop</label>
+        <select data-an="ease"><option value="smooth"${d.ease !== 'linear' ? ' selected' : ''}>Smooth</option><option value="linear"${d.ease === 'linear' ? ' selected' : ''}>Linear</option></select>
+        <span class="cs-sp"></span><button class="btn btn-sm" data-an="play" type="button">${a.playing ? '&#9632; Stop' : '&#9654; Play'}</button><button class="btn btn-sm" data-an="new" type="button">New</button><button class="btn btn-sm" data-an="open" type="button">Open...</button>
+        <button class="btn btn-sm btn-green" data-an="publish" type="button">Publish</button><button class="btn btn-sm" data-an="close" type="button">Close</button></div>
+      <div class="an-body"><div class="an-joints">${ANIM_JOINTS.map(([id, n]) => `<button type="button" data-an="joint:${id}" class="${a.joint === id ? 'on' : ''}">${n}</button>`).join('')}</div>
+        <div class="an-rot"><div class="an-sls">${rot}</div><button class="btn btn-sm" data-an="reset" type="button">Reset joint</button></div>
+        <div class="an-tl"><div class="an-barw">${bar}</div><div class="an-tlb"><b class="an-time">${a.time.toFixed(2)}s${key ? ' (keyframe)' : ''}</b>
+          <button class="btn btn-sm btn-blue" data-an="addkey" type="button">+ Keyframe</button><button class="btn btn-sm" data-an="delkey" type="button">Delete keyframe</button><button class="btn btn-sm" data-an="copy" type="button">Copy pose</button><button class="btn btn-sm" data-an="paste" type="button">Paste pose</button>
+          <span class="muted small">Click the timeline to move in time. Turning a joint makes a keyframe there.</span></div></div></div>`;
+  },
+  animInput(el) {
+    const a = this.anim, k = el.dataset.an; if (!a) return;
+    if (k === 'name') a.name = String(el.value).replace(/[^\w \-.!'&()]/g, '').slice(0, 40) || 'My Animation';
+    else if (k === 'len') { a.data.len = clamp(Math.round((+el.value || 1) * 10) / 10, 0.1, 30); a.data.keys = a.data.keys.filter(x => x.t <= a.data.len + 1e-6); if (!a.data.keys.length) a.data.keys = [{ t: 0, j: {} }]; a.time = Math.min(a.time, a.data.len); this.animPose(); this.renderAnimPanel(true); }
+    else if (k === 'loop') a.data.loop = el.checked;
+    else if (k === 'ease') { a.data.ease = el.value === 'linear' ? 'linear' : 'smooth'; this.animPose(); }
+    else if (k.indexOf('rot') === 0) return this.setJoint(+k.split(':')[1], el.value);
+    this.animSave();
+  },
+  async animButton(k) {
+    const a = this.anim; if (!a) return;
+    if (k.indexOf('joint:') === 0) { a.joint = k.slice(6); this.animGizmo(); return this.renderAnimPanel(true); }
+    switch (k) {
+      case 'close': return this.closeAnimator();
+      case 'play': a.playing = !a.playing; if (a.playing && a.time >= a.data.len) a.time = 0; this.animGizmo(); return this.renderAnimPanel(true);
+      case 'addkey': this.keyAt(a.time, true); break;
+      case 'delkey': { const key = this.keyAt(a.time, false); if (key && a.data.keys.length > 1) a.data.keys.splice(a.data.keys.indexOf(key), 1); else if (key) key.j = {}; break; }
+      case 'reset': { const key = this.keyAt(a.time, true); key.j[a.joint] = a.joint === 'root' ? [0, 0, 0, 0] : [0, 0, 0]; break; }
+      case 'copy': a.clip = JSON.parse(JSON.stringify(a.pose || {})); this.log('Pose copied.'); return;
+      case 'paste': if (a.clip) { const key = this.keyAt(a.time, true); key.j = JSON.parse(JSON.stringify(a.clip)); } break;
+      case 'new': { const v = await dialog({ title: 'New Animation', html: '<p>Start a new animation? Publish this one first if you want to keep it.</p>', buttons: [{ label: 'New', cls: 'btn-blue', value: true }, { label: 'Cancel', value: null }] }).promise; if (!v || !this.anim) return; a.data = { len: 1, loop: true, ease: 'smooth', keys: [{ t: 0, j: {} }] }; a.name = 'My Animation'; a.time = 0; a.id = null; this.animPose(); this.renderAnimPanel(); this.animSave(); return; }
+      case 'open': return this.animOpen();
+      case 'publish': return this.animPublish();
+      default: return;
+    }
+    this.animPose(); this.renderAnimPanel(true); this.animSave();
+  },
+  async animOpen() {
+    const list = Assets.list('anim', 'mine');
+    if (!list.length) return dialog({ title: 'Open Animation', html: '<p>You have not published any animations yet.</p>' });
+    const v = await dialog({ title: 'Open Animation', html: '<p>Pick one of your animations to edit. Publishing it again makes a new ID.</p>', buttons: list.slice(0, 10).map(m => ({ label: m.n, cls: 'btn-blue', value: m.id })).concat([{ label: 'Cancel', value: null }]) }).promise;
+    if (!v || !this.anim) return;
+    const an = await ANIMS.load(v); if (!an) return dialog({ title: BRAND, html: '<p>That animation could not be loaded.</p>' });
+    const a = this.anim; a.data = JSON.parse(JSON.stringify(an)); a.name = (Assets.metas.get(v) || {}).n || 'Animation'; a.id = v; a.time = 0; this.animPose(); this.renderAnimPanel(); this.animSave();
+  },
+  async animPublish() {
+    const a = this.anim, clean = sanitizeAnim(a.data); if (!clean) return;
+    if (clean.keys.length < 2) return dialog({ title: 'Publish Animation', html: '<p>Add at least 2 keyframes first: move the time on the timeline, then turn a joint.</p>' });
+    const r = await dialog({ title: 'Publish Animation', html: `<div class="fld"><label for="an-n">Name</label><input type="text" id="an-n" maxlength="40" value="${esc(a.name)}"></div><label class="chk"><input type="checkbox" id="an-sh"${Cloud.enabled ? ' checked' : ' disabled'}> <span>Share it so anyone can use it in their games</span></label>`,
+      buttons: [{ label: 'Publish', cls: 'btn-green', value: true }, { label: 'Cancel', value: null }], collect: b => ({ n: $('#an-n', b).value, sh: $('#an-sh', b).checked }) }).promise;
+    if (!r || !r.v || !this.anim) return;
+    let th = ''; try { th = renderAnimThumb(clean); } catch (e) { /* no picture */ }
+    const res = await Assets.add('anim', r.x.n, { d: JSON.stringify(clean), th }, r.x.sh);
+    a.name = res.meta.n; a.id = res.id; ANIMS.cache.set(res.id, clean); this.renderAnimPanel(true);
+    this.log('Published animation "' + res.meta.n + '": ' + res.id);
+    const d = dialog({ title: 'Animation published!', html: `<p><b>${esc(res.meta.n)}</b> is in your Animations${res.shareErr ? '' : r.x.sh ? ' and shared' : ''}.</p><p>Animation ID:</p><input type="text" id="an-id" readonly value="${res.id}" class="an-idbox"><p class="small muted">Use it in a script: <b>Play an animation</b> &gt; <b>Or an Animation ID</b>.${res.shareErr ? ' (Sharing failed: ' + esc(res.shareErr) + ')' : ''}</p>`,
+      buttons: [{ label: 'Copy ID', cls: 'btn-blue', value: 'copy' }, { label: 'OK', value: null }] });
+    setTimeout(() => { const i = $('#an-id'); if (i) i.select(); }, 30);
+    if (await d.promise === 'copy') { try { await navigator.clipboard.writeText(res.id); } catch (e) { /* the box is selected for Ctrl+C */ } }
+  },
+  animTick(dt) {
+    const a = this.anim; if (!a || !a.playing) return;
+    a.time += dt; if (a.time > a.data.len) { if (a.data.loop) a.time %= a.data.len; else { a.time = a.data.len; a.playing = false; this.animGizmo(); } }
+    this.animPose(); this.renderAnimPanel(true);
+  },
+  bindAnimator() {
+    const p = $('#cs-anim'); if (!p) return;
+    p.addEventListener('input', e => { const el = e.target.closest('[data-an]'); if (el && el.tagName !== 'BUTTON') this.animInput(el); });
+    p.addEventListener('change', e => { const el = e.target.closest('[data-an]'); if (el && el.tagName !== 'BUTTON') this.animInput(el); });
+    p.addEventListener('click', e => { const b = e.target.closest('button[data-an]'); if (b) this.animButton(b.dataset.an); });
+    p.addEventListener('pointerdown', e => {                        // scrub the timeline / pick a keyframe
+      const bar = e.target.closest('.an-bar'); if (!bar || !this.anim) return;
+      e.preventDefault();
+      const key = e.target.closest('.key');
+      if (key) return this.setTime(this.anim.data.keys[+key.dataset.key].t);
+      const go = ev => { const r = p.querySelector('.an-bar').getBoundingClientRect(); this.setTime((ev.clientX - r.left) / r.width * this.anim.data.len); };
+      go(e); const up = () => { window.removeEventListener('pointermove', go); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', go); window.addEventListener('pointerup', up);
+    });
+  },
+  // clicking the rig picks a joint
+  animPick(rc) {
+    const r = this.anim.rig, hit = rc.intersectObjects(r.meshes, true)[0]; if (!hit) return;
+    let o = hit.object; const map = new Map([[r.torso, 'root'], [r.head, 'head'], [r.armL.m, 'armL'], [r.armR.m, 'armR'], [r.legL.m, 'legL'], [r.legR.m, 'legR']]);
+    while (o && !map.has(o)) o = o.parent;
+    if (o) { this.anim.joint = map.get(o); this.animGizmo(); this.renderAnimPanel(true); }
+  }
+});
 
 /* ====================== SITE UI ====================== */
 const THUMBS = {};
