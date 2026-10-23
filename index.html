@@ -513,6 +513,16 @@ ul.tick{ margin:0; padding-left:18px; } ul.tick li{ margin:3px 0; }
 .cs-note{ position:absolute; left:8px; top:8px; right:8px; padding:6px 10px; background:rgba(255,255,255,.92); border:1px solid #2f7bff; border-radius:4px; color:#0a3a8a; font-weight:bold; pointer-events:none; }
 .cs-note[hidden]{ display:none; }
 .cs-note.bad{ border-color:#d12; color:#a00; background:rgba(255,236,236,.95); }
+.cs-note.tool{ pointer-events:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-weight:normal; z-index:3; }
+.cs-note.tool .btn{ margin-left:auto; }
+.cs-guiov{ position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:2; }
+.cs-gui{ pointer-events:auto; cursor:move; user-select:none; font-family:var(--font-hud); font-weight:bold; }
+.cs-gui.sel{ outline:2px solid #2f8bff; outline-offset:2px; }
+.cs-gui.ghost{ opacity:.45; }
+.cs-grs{ position:absolute; right:-7px; bottom:-7px; width:12px; height:12px; background:#2f8bff; border:2px solid #fff; border-radius:2px; cursor:nwse-resize; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+.cs-sub .cs-row{ padding-left:44px; }
+.cs-ticon{ text-align:center; padding:4px 0; }
+.cs-ticon img{ width:72px; height:72px; background:#dbe9f6; border:1px solid #8a97ab; border-radius:4px; }
 .cs-explorer{ flex:1; min-height:80px; overflow:auto; background:#fff; border-bottom:1px solid #98a5b8; }
 .cs-row{ display:flex; align-items:center; gap:6px; padding:2px 8px; cursor:default; white-space:nowrap; }
 .cs-row .ico svg{ width:15px; height:15px; display:block; }
@@ -649,6 +659,7 @@ label.chk input{ margin-top:2px; width:16px; height:16px; flex:none; accent-colo
 .gpos-right{ top:50%; right:calc(var(--sar) + 10px); transform:translateY(-50%); align-items:flex-end; max-width:30%; }
 .ggui{ padding:6px 14px; font-family:var(--font-hud); font-weight:bold; border:2px solid #1b2a35; border-radius:2px; text-align:center; overflow-wrap:anywhere; box-shadow:0 2px 5px rgba(0,0,0,.35); }
 .ggui[hidden]{ display:none; }
+.ggui.gfree{ position:absolute; transform:translate(-50%,-50%); max-width:90%; display:flex; align-items:center; justify-content:center; box-sizing:border-box; overflow:hidden; }
 .gbutton{ pointer-events:auto; cursor:pointer; border-radius:5px; box-shadow:0 2px 0 rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.4) inset; }
 .gbutton:hover{ filter:brightness(1.1); }
 .gbutton:active{ transform:translateY(1px); }
@@ -710,6 +721,11 @@ a.pcard:hover{ text-decoration:none; color:inherit; border-color:#bdd0e3; backgr
 .fbody{ flex:1; min-width:0; padding:10px 12px; }
 .ftext{ margin-top:6px; line-height:1.5; overflow-wrap:anywhere; }
 @media (max-width:560px){ .fauth{ width:84px; } }
+.cs-gui.gfree{ overflow:visible; }
+/* 3D avatar pictures (they replace the quick drawing once rendered) */
+.av3{ display:flex; width:100%; height:100%; align-items:flex-end; justify-content:center; }
+.av3 .av-img{ width:100%; height:100%; object-fit:cover; display:block; }
+.cs-note.tool[hidden]{ display:none; }
 
 </style>
 </head>
@@ -978,7 +994,7 @@ const Wallet = {
 /* ====================== SVG avatar (front view) ====================== */
 let avSeq = 0;
 const PART_RECT = {
-  head: [52, 0, 56, 42], torso: [40, 42, 80, 80],
+  head: [47, -16, 66, 56], torso: [40, 42, 80, 80],
   armR: [0, 42, 40, 80], armL: [120, 42, 40, 80],
   legR: [40, 122, 40, 80], legL: [80, 122, 40, 80]
 };
@@ -994,14 +1010,28 @@ function avatarSVG(c, o = {}) {
     const r = PART_RECT[o.sel];
     sel = `<rect class="sel" x="${r[0] - 1}" y="${r[1] - 1}" width="${r[2] + 2}" height="${r[3] + 2}" rx="3"/>`;
   }
-  return `<svg class="av" viewBox="-3 -3 166 213" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Avatar">` +
+ return `<svg class="av" viewBox="-3 -19 166 229" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Avatar">` +
     `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".32"/>` +
     `<stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".24"/></linearGradient></defs>` +
     `<ellipse cx="80" cy="205" rx="58" ry="5" fill="rgba(0,0,0,.22)"/>` +
-    part('legR', 2) + part('legL', 2) + part('torso', 2) + part('armR', 2) + part('armL', 2) + part('head', 11) +
-    `<ellipse cx="69" cy="17" rx="3.4" ry="5.8" fill="#1a1a1a"/><ellipse cx="91" cy="17" rx="3.4" ry="5.8" fill="#1a1a1a"/>` +
-    `<path d="M62 27 Q80 42 98 27" fill="none" stroke="#1a1a1a" stroke-width="3.4" stroke-linecap="round"/>` + sel + `</svg>`;
+    part('legR', 2) + part('legL', 2) + part('torso', 2) + part('armR', 2) + part('armL', 2) + part('head', 10) +
+    `<ellipse cx="68" cy="6" rx="4" ry="7" fill="#1a1a1a"/><ellipse cx="92" cy="6" rx="4" ry="7" fill="#1a1a1a"/>` +
+    `<path d="M60 20 Q80 37 100 20" fill="none" stroke="#1a1a1a" stroke-width="3.8" stroke-linecap="round"/>` + sel + `</svg>`;
 }
+// small avatars everywhere on the site: start as a quick drawing, then swap in a real 3D picture (clothes, hats and all)
+function avatar3D(look) {
+  const L = look && look.colors ? { colors: Object.assign({}, DEFAULT_COLORS, look.colors), eq: look.eq || {} } : { colors: Object.assign({}, DEFAULT_COLORS, look || {}), eq: {} };
+  return `<span class="av3" data-av3="${esc(JSON.stringify(L))}">${avatarSVG(L.colors)}</span>`;
+}
+let hydT = 0;
+function hydrateAvatars() {
+  if (typeof HAVE_THREE === 'undefined' || !HAVE_THREE) return;
+  document.querySelectorAll('.av3[data-av3]:not([data-done])').forEach(el => {
+    el.dataset.done = '1'; let L; try { L = JSON.parse(el.dataset.av3); } catch (e) { return; }
+    avatarThumb(L, url => { if (el.isConnected) el.innerHTML = `<img class="av av-img" src="${url}" alt="">`; }, true);
+  });
+}
+if (window.MutationObserver) new MutationObserver(() => { clearTimeout(hydT); hydT = setTimeout(hydrateAvatars, 60); }).observe(document.documentElement, { childList: true, subtree: true });
 
 /* ====================== 3D ENGINE  (three.js r128) ====================== */
 const HAVE_THREE = (typeof THREE !== 'undefined');
@@ -1773,12 +1803,13 @@ function renderLookImage(look, o) {                              // o: { w, h, c
   disposeObject(scene); ch.dispose();
   return url;
 }
-function avatarThumb(look, cb) {
+function avatarThumb(look, cb, small) {
   look = normLook(look);
-  const key = 'av' + JSON.stringify(look);
+  const key = (small ? 'avs' : 'av') + JSON.stringify(look);
   if (THUMB_CACHE.has(key)) return cb(THUMB_CACHE.get(key));
   Promise.all(Object.values(look.eq || {}).map(id => Items.load(id))).then(() => RQ.push(() => {
-    const url = renderLookImage(look, { w: 320, h: 400, cam: [3.2, 4.6, 14], look: [0, 3.0, 0], fov: 32 });
+    const url = small ? renderLookImage(look, { w: 160, h: 160, cam: [2.6, 4.3, 9.4], look: [0, 2.75, 0], fov: 36, bg: 0xe4eef8 })
+      : renderLookImage(look, { w: 320, h: 400, cam: [3.2, 4.6, 14], look: [0, 3.0, 0], fov: 32 });
     THUMB_CACHE.set(key, url); cb(url);
   }));
 }
@@ -1839,8 +1870,16 @@ const TOOLS = [
 ];
 const ALL_TOOL_IDS = TOOLS.map(t => t.id);
 const TOOL_IMG = {};
-const toolById = id => TOOLS.find(t => t.id === id) || null;
-const toolIndex = id => TOOLS.findIndex(t => t.id === id);
+// tools made in CartStudio (StarterPack > Tool). They only exist inside their own game. Ids look like "c3".
+let CUSTOM_TOOLS = [];
+const MAX_CUSTOM_TOOLS = 6;                                        // the network sends the held tool as 4 bits: 1-9 built-in, 10-15 custom
+function setCustomTools(list) {
+  CUSTOM_TOOLS = (Array.isArray(list) ? list : []).slice(0, MAX_CUSTOM_TOOLS).map(t => ({ id: 'c' + t.id, n: t.n, cat: 'custom', custom: true, stat: '', desc: t.desc || 'Click to use it.',
+    parts: t.parts || [], cd: t.cd, anim: t.anim || 'slash' }));
+}
+const toolById = id => TOOLS.find(t => t.id === id) || CUSTOM_TOOLS.find(t => t.id === id) || null;
+const toolIndex = id => { const i = TOOLS.findIndex(t => t.id === id); if (i >= 0) return i; const j = CUSTOM_TOOLS.findIndex(t => t.id === id); return j >= 0 ? TOOLS.length + j : -1; };
+const toolByIndex = i => (i < TOOLS.length ? TOOLS[i] : CUSTOM_TOOLS[i - TOOLS.length]) || null;
 const catName = c => (TOOL_CATS.find(x => x[0] === c) || ['', ''])[1];
 const PROJ = {                                                     // speed (studs/s), gravity, radius, life, damage
   pellet: { sp: 110, g: 60, r: 0.45, life: 3, dmg: 15 },
@@ -1850,7 +1889,18 @@ const PROJ = {                                                     // speed (stu
 const COOLDOWN = { sword: 0.35, slingshot: 0.45, paintball: 0.16, rocket: 2.5, trowel: 4, cola: 6, popper: 0.9 };
 const WALL_LIFE = 25, BOOM_R = 9;
 
-function toolModel(t) { const g = new THREE.Group(); for (const p of t.parts) g.add(partMesh(p)); return g; }
+function toolModel(t) {
+  const g = new THREE.Group();
+  if (!t.custom) { for (const p of t.parts) g.add(partMesh(p)); return g; }
+  // custom tools are built standing up in CartStudio with the Handle at the bottom: turn them to point forward from the hand
+  const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; g.add(inner);
+  for (const p of t.parts) {
+    const m = new THREE.Mesh(shapeGeo(p.s), accMat(p.c, p.s, p.t > 0 ? 1 - p.t : undefined));
+    m.position.set(p.p[0], p.p[1], p.p[2]); m.rotation.set(p.r[0] * D2R, p.r[1] * D2R, p.r[2] * D2R); m.scale.set(p.z[0], p.z[1], p.z[2]);
+    m.castShadow = !(p.t >= 0.5); m.userData.shared = true; if (p.t >= 1) m.visible = false; inner.add(m);
+  }
+  return g;
+}
 function renderToolImage(t) {
   const r = getRenderer(), scene = new THREE.Scene(), BG = 0xdbe9f6;
   scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 0.8), new THREE.AmbientLight(0xffffff, 0.2));
@@ -1881,10 +1931,13 @@ const DUMMY_LOOK = { colors: { head: '#a3a2a5', torso: '#a3a2a5', armL: '#a3a2a5
 const Tools = {
   /* ---------- per-run setup ---------- */
   setup(def) {
-    Object.assign(R, { bp: [], eq: -1, cd: {}, proj: [], fxl: [], walls: [], dummies: [], timers: [], mouse: null, lastSlash: null });
+    Object.assign(R, { bp: [], eq: -1, cd: {}, proj: [], fxl: [], walls: [], dummies: [], timers: [], mouse: null, lastSlash: null, hbs: [], shots: [], aim: null, aimT: -9 });
+    setCustomTools(def.place && def.place.tools);
+    if (CUSTOM_TOOLS.length) { CUSTOM_TOOLS.forEach(t => { try { TOOL_IMG[t.id] = renderToolImage(t); } catch (e) { /* icon is optional */ } }); renderer.setClearColor(def.env.fog, 1); applyQuality(); }
     Object.assign(R.P, { speedMul: 1, gravMul: 1, kx: 0, kz: 0, hold: false, actK: null, actT: 0, actD: 1 });
     const add = id => { if (toolById(id) && !R.bp.includes(id) && R.bp.length < 10) R.bp.push(id); };
     (def.tools || []).forEach(add);
+    ((def.place && def.place.tools) || []).slice(0, MAX_CUSTOM_TOOLS).forEach(t => { if (t.start !== false) add('c' + t.id); });
     if (def.gear) (S.gear || []).forEach(add);
     if (def.stat === 'KOs') { R.P.stage = 0; updatePlist(); }      // knockouts start at zero
     (R.world.dummies || []).forEach(d => this.addDummy(d));
@@ -1895,6 +1948,9 @@ const Tools = {
   teardown() {
     if (!R || !R.bp) return;
     for (const p of R.proj) { R.scene.remove(p.m); }
+    for (const h of R.hbs || []) if (h.m) { R.scene.remove(h.m); disposeObject(h.m); }
+    for (const p of R.shots || []) R.scene.remove(p.m);
+    R.hbs = []; R.shots = [];
     for (const f of R.fxl) { if (f.m && f.kind !== 'grow') { R.scene.remove(f.m); if (f.own) f.m.material.dispose(); } }
     for (const d of R.dummies) { R.scene.remove(d.ch.root); disposeObject(d.ch.root); d.ch.dispose(); if (d.tag) { R.scene.remove(d.tag); disposeObject(d.tag); } }
     R.proj = []; R.fxl = []; R.dummies = []; R.bp = [];
@@ -1956,8 +2012,10 @@ const Tools = {
     const lunge = t.id === 'sword' && R.lastSlash != null && R.time - R.lastSlash < 0.4;
     if (!lunge && (R.cd[t.id] || 0) > 0) return;
     if (aim && t.id !== 'cola' && t.id !== 'sword') this.faceToward(aim);   // classic swords swing the way you face
-    R.cd[t.id] = COOLDOWN[t.id] || 0.3;
-    Scripts.fire('tooluse');
+    R.cd[t.id] = t.custom ? clamp(t.cd != null ? t.cd : 0.5, 0, 60) : (COOLDOWN[t.id] || 0.3);
+    if (aim) { R.aim = aim.clone(); R.aimT = R.time; }
+    if (t.custom && t.anim !== 'none') this.act(t.anim, ({ slash: 0.28, lunge: 0.55, drink: 1.3, shoot: 0.25, build: 0.35 })[t.anim] || 0.3);
+    Scripts.onUse(t.id);
     switch (t.id) {
       case 'sword': this.swing(lunge); break;
       case 'slingshot': this.fire('pellet', aim); Sfx.play('sling'); break;
@@ -2150,11 +2208,89 @@ const Tools = {
     if (includeMe && R.P.alive) out.push({ kind: 'me', x: R.P.x, y: R.P.y, z: R.P.z });
     return out;
   },
+  /* ---------- script attacks: hitboxes, projectiles, explosions ---------- */
+  aimPoint(dist) { const P = R.P; return R.aim && R.time - R.aimT < 1.5 ? R.aim.clone() : new THREE.Vector3(P.x + Math.sin(P.face) * (dist || 60), P.y + 2.5, P.z + Math.cos(P.face) * (dist || 60)); },
+  hbCenter(x, y, z, face, fwd, sy) { return new THREE.Vector3(x + Math.sin(face) * fwd, y + Math.max(2.5, sy / 2), z + Math.cos(face) * fwd); },
+  hitbox(a, mine, owner, at) {
+    const P = R.P, sz = [clamp(+a.x || 1, 0.3, 80), clamp(+a.y || 1, 0.3, 80), clamp(+a.z || 1, 0.3, 80)], fwd = clamp(a.fwd != null ? +a.fwd : 3, -60, 60);
+    const life = clamp(+a.num || 0.3, 0.05, 30), follow = a.follow !== 'false', show = a.show !== 'no';
+    if (mine && !P.alive) return;
+    const src = owner || P, face = owner ? owner.ry : P.face;
+    const hb = { sz, fwd, life, t: 0, follow, owner: owner || null, mine, dmg: Math.max(0, +a.dmg || 0), hit: new Set(), face, pos: at || this.hbCenter(src.x, src.y, src.z, face, fwd, sz[1]), m: null };
+    if (show) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sz[0], sz[1], sz[2]), new THREE.MeshBasicMaterial({ color: 0xff3b2f, transparent: true, opacity: 0.28, depthWrite: false }));
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: 0xff6a5c, transparent: true, opacity: 0.9 }));
+      m.add(e); m.userData.ownMats = true; e.userData.ownMats = true; m.position.copy(hb.pos); m.rotation.y = face; R.scene.add(m); hb.m = m;
+    }
+    R.hbs.push(hb);
+    if (mine && show) Net.send({ t: 'fx', k: 'hbox', p: [hb.pos.x, hb.pos.y, hb.pos.z].map(v => +v.toFixed(2)), v: sz.map(v => +v.toFixed(2)), s: Math.round(life * 100) + Math.round(fwd + 60) * 10000, ang: +face.toFixed(3), a: follow ? 'follow' : 'stay' });
+  },
+  inBox(hb, x, y, z) {                                              // is a character standing at x,y,z inside the (turned) hitbox?
+    const dx = x - hb.pos.x, dz = z - hb.pos.z, c = Math.cos(-hb.face), s = Math.sin(-hb.face);
+    const lx = dx * c + dz * s, lz = -dx * s + dz * c;
+    return Math.abs(lx) < hb.sz[0] / 2 + 0.9 && Math.abs(lz) < hb.sz[2] / 2 + 0.9 && y + 5.2 > hb.pos.y - hb.sz[1] / 2 && y < hb.pos.y + hb.sz[1] / 2;
+  },
+  updateHitboxes(dt) {
+    for (let i = R.hbs.length - 1; i >= 0; i--) {
+      const hb = R.hbs[i]; hb.t += dt;
+      if (hb.follow) { const o = hb.owner || R.P, face = hb.owner ? hb.owner.ry : R.P.face; if (hb.owner && !R.remote.has(hb.owner.id)) hb.t = hb.life; hb.face = face; hb.pos = this.hbCenter(o.x, o.y, o.z, face, hb.fwd, hb.sz[1]); }
+      if (hb.m) { hb.m.position.copy(hb.pos); hb.m.rotation.y = hb.face; hb.m.material.opacity = 0.28 * Math.min(1, (hb.life - hb.t) / 0.15 + 0.2); }
+      if (hb.mine && R.P.alive) for (const tg of this.targets()) {
+        if (hb.hit.has(tg.ref) || !this.inBox(hb, tg.x, tg.y, tg.z)) continue;
+        hb.hit.add(tg.ref);
+        const dx = tg.x - R.P.x, dz = tg.z - R.P.z, d = Math.max(0.5, Math.hypot(dx, dz));
+        if (hb.dmg > 0) this.damage(tg, Math.round(hb.dmg), [dx / d * 18, 10, dz / d * 18], 'h');
+        Scripts.fire('hbhit');
+      }
+      if (hb.t >= hb.life) { if (hb.m) { R.scene.remove(hb.m); disposeObject(hb.m); } R.hbs.splice(i, 1); }
+    }
+  },
+  shoot(a) {
+    const P = R.P; if (!P.alive) return;
+    const h = this.handPos(), aim = this.aimPoint(80), sp = clamp(+a.sp || 120, 5, 600), dir = aim.sub(h).normalize(), v = dir.multiplyScalar(sp);
+    const g = a.drop === 'yes' ? 60 : 0, size = clamp(+a.size || 1, 0.2, 7), col = parseInt(String(a.c || '#ff6a00').slice(1), 16) || 0xff6a00;
+    if (g) v.y += 0.5 * g * Math.min(80, 150) / sp;
+    this.addShot([h.x, h.y, h.z], [v.x, v.y, v.z], col, size, g, true, Math.max(0, +a.dmg || 0));
+    Net.send({ t: 'fx', k: 'shot', o: [h.x, h.y, h.z].map(x => +x.toFixed(2)), v: [v.x, v.y, v.z].map(x => +x.toFixed(2)), s: col, ang: size, a: g ? 'drop' : 'flat' });
+  },
+  addShot(o, v, col, size, g, mine, dmg, owner) {
+    const m = new THREE.Mesh(shapeGeo('ball'), accMat('#' + (col >>> 0).toString(16).padStart(6, '0').slice(-6), 'ball')); m.userData.shared = true;
+    m.scale.setScalar(size); m.position.set(o[0], o[1], o[2]); R.scene.add(m);
+    R.shots.push({ m, v: new THREE.Vector3(v[0], v[1], v[2]), g, mine, dmg, owner: owner || 'me', life: 4, age: 0, col, r: size / 2 });
+  },
+  updateShots(dt) {
+    for (let i = R.shots.length - 1; i >= 0; i--) {
+      const s = R.shots[i], pos = s.m.position, n = Math.max(1, Math.ceil(s.v.length() * dt / 0.7)), sdt = dt / n;
+      let done = false;
+      for (let k = 0; k < n && !done; k++) {
+        s.v.y -= s.g * sdt; pos.addScaledVector(s.v, sdt);
+        if (this.partAt(pos)) { done = true; break; }
+        if (s.age > 0.03) {
+          const tg = this.targetAt(pos, s.mine ? 'me' : s.owner);
+          if (tg && !(tg.kind === 'remote' && tg.id === s.owner)) { if (s.mine) { const kb = s.v.clone().normalize(); if (s.dmg > 0) this.damage(tg, Math.round(s.dmg), [kb.x * 14, 8, kb.z * 14], 'h'); Scripts.fire('hbhit'); } done = true; }
+        }
+      }
+      s.age += dt; s.life -= dt;
+      if (done || s.life <= 0) { if (done) this.burst(pos.clone(), [s.col], 8, 10); R.scene.remove(s.m); R.shots.splice(i, 1); }
+    }
+  },
+  scriptBoom(a) {
+    const P = R.P; if (!P.alive) return;
+    const p = a.at === 'player' ? new THREE.Vector3(P.x, P.y + 2.5, P.z) : this.aimPoint(30), rad = clamp(+a.rad || 9, 1, 60), dmg = Math.max(0, +a.dmg || 0);
+    this.explode(p, false);
+    Net.send({ t: 'fx', k: 'boom', p: [p.x, p.y, p.z].map(v => +v.toFixed(2)) });
+    for (const tg of this.targets()) {
+      const d = Math.hypot(tg.x - p.x, tg.y + 2.5 - p.y, tg.z - p.z); if (d > rad) continue;
+      const f = 1 - d / rad, kx = (tg.x - p.x) / Math.max(d, 0.5), kz = (tg.z - p.z) / Math.max(d, 0.5);
+      if (dmg > 0) this.damage(tg, Math.max(1, Math.round(dmg * f)), [kx * 60 * f, 30 + 30 * f, kz * 60 * f], 'h');
+      Scripts.fire('hbhit');
+    }
+  },
   damage(tg, d, kb, w) {
     if (tg.kind === 'me') return;
     Sfx.play('hit');
     // other players: the server checks the hit and owns their health (it tells everyone the result)
-    if (tg.kind === 'remote') { Net.send({ t: 'hit', to: tg.id, d, kb: kb.map(v => +v.toFixed(1)), w: w === 'm' ? 'm' : 'r' }); return; }
+    if (tg.kind === 'remote') { Net.send({ t: 'hit', to: tg.id, d, kb: kb.map(v => +v.toFixed(1)), w: w === 'm' || w === 'h' ? w : 'r' }); return; }
     const du = tg.ref; if (!du.alive) return;
     du.hp -= d; du.vx += kb[0] * 0.6; du.vz += kb[2] * 0.6; du.vy = Math.max(du.vy, kb[1] * 0.6); du.tagDirty = true;
     if (du.hp <= 0) this.killDummy(du, true);
@@ -2215,7 +2351,8 @@ const Tools = {
     const ti = (rp.f >> 4) & 15;
     if (ti !== rp.toolI || (ti > 0 && !rp.ch.tool)) {
       rp.toolI = ti;
-      if (ti > 0 && TOOLS[ti - 1]) this.attach(rp.ch, TOOLS[ti - 1]); else this.detach(rp.ch);
+      const tt = ti > 0 ? toolByIndex(ti - 1) : null;
+      if (tt) this.attach(rp.ch, tt); else this.detach(rp.ch);
     }
     rp.hold = ti > 0;
   },
@@ -2231,6 +2368,8 @@ const Tools = {
       case 'boom': if (p) { for (let i = R.proj.length - 1; i >= 0; i--) { const pr = R.proj[i]; if (pr.owner === String(id) && pr.kind === 'rocket') { R.scene.remove(pr.m); R.proj.splice(i, 1); break; } } this.explode(p, false); } break;
       case 'wall': if (p) this.buildWall([p.x, p.y, p.z], m.ang ? 1 : 0, m.s | 0); break;
       case 'conf': if (p) { confetti(p.x, p.y, p.z, 30); if (near) Sfx.play('pop'); } break;
+      case 'hbox': if (p && Array.isArray(m.v)) this.hitbox({ x: m.v[0], y: m.v[1], z: m.v[2], num: ((m.s || 30) % 10000) / 100, follow: m.a === 'follow' ? 'true' : 'false', fwd: Math.floor((m.s || 0) / 10000) - 60, dmg: 0 }, false, rp, p); break;
+      case 'shot': if (Array.isArray(m.o) && Array.isArray(m.v)) this.addShot(m.o, m.v, m.s || 0xff6a00, clamp(+m.ang || 1, 0.2, 7), m.a === 'drop' ? 60 : 0, false, 0, String(id)); break;
       default: break;
     }
   },
@@ -2242,7 +2381,7 @@ const Tools = {
     for (let i = R.timers.length - 1; i >= 0; i--) { const t = R.timers[i]; t.t -= dt; if (t.t <= 0) { R.timers.splice(i, 1); t.fn(); } }
     if (P.alive && P.health < 100) { const o = Math.ceil(P.health); P.health = Math.min(100, P.health + dt * 1.2); if (Math.ceil(P.health) !== o) updateHealth(); }
     P.hold = !!this.current();
-    this.updateProj(dt);
+    this.updateProj(dt); this.updateHitboxes(dt); this.updateShots(dt);
     for (let i = R.fxl.length - 1; i >= 0; i--) {
       const f = R.fxl[i]; f.t += dt;
       if (f.t < 0) continue;
@@ -3028,7 +3167,9 @@ const SCRIPT_EVENTS = [
   ['chat', 'When the player chats', [['text', 'text', 'Message contains', 'hello']]],
   ['click', 'When a GUI button is clicked', [['gui', 'gui', 'Button']]],
   ['remote', 'When a RemoteEvent fires', [['rem', 'remote', 'RemoteEvent']]],
-  ['tooluse', 'When the player uses a tool', []],
+  ['tooluse', 'When the player uses a tool', [['tl', 'ptool', 'Tool', '']]],
+  ['clickpart', 'When a part is clicked', [['part', 'part', 'Part']]],
+  ['hbhit', 'When my hitbox or shot hits someone', []],
   ['spawn', 'When the player respawns', []],
   ['die', 'When the player is knocked out', []],
   ['points', 'When the player reaches some points', [['num', 'num', 'Points', 10]]]
@@ -3057,6 +3198,15 @@ const SCRIPT_ACTIONS = [
   ['stop', 'Stop a sound', [['snd', 'sound', 'Sound']]],
   ['gui', 'Change GUI text', [['gui', 'gui', 'GUI'], ['text', 'text', 'Text', 'Points: {points}']]],
   ['guivis', 'Show or hide a GUI', [['gui', 'gui', 'GUI'], ['v', 'sel', 'Make it', ['show', 'hide']]]],
+  ['velocity', 'Push the player (velocity)', [['x', 'num', 'Move X', 0], ['y', 'num', 'Move Y', 0], ['z', 'num', 'Move Z', 60], ['num', 'num', 'Time (seconds)', 0.25], ['rel', 'sel', 'Directions', ['facing', 'world']]]],
+  ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show it', ['yes', 'no']]]],
+  ['shoot', 'Shoot a projectile', [['dmg', 'num', 'Damage', 15], ['sp', 'num', 'Speed', 120], ['size', 'num', 'Size', 1], ['c', 'color', 'Color', '#ff6a00'], ['drop', 'sel', 'Drops down', ['no', 'yes']]]],
+  ['explode', 'Make an explosion', [['dmg', 'num', 'Damage', 40], ['rad', 'num', 'Radius', 9], ['at', 'sel', 'Where', ['aim', 'player']]]],
+  ['damage', 'Damage the player', [['num', 'num', 'Damage', 10]]],
+  ['setpts', 'Set points to', [['num', 'num', 'Points', 0]]],
+  ['chance', 'Only go on with a chance of', [['num', 'num', 'Percent', 50]]],
+  ['emote', 'Play an animation', [['v', 'sel', 'Animation', ['slash', 'lunge', 'shoot', 'drink', 'build', 'wave', 'dance', 'cheer']]]],
+  ['sfx', 'Play a sound effect', [['v', 'sel', 'Sound', ['win', 'boom', 'hit', 'hurt', 'oof', 'jump', 'bounce', 'checkpoint', 'pop', 'slash', 'lunge', 'sling', 'rocket', 'build', 'splat', 'drink', 'burp', 'equip', 'click']]]],
   ['fire', 'Fire a RemoteEvent', [['rem', 'remote', 'RemoteEvent']]],
   ['require', 'Run a ModuleScript', [['mod', 'mod', 'Module']]],
   ['win', 'Celebrate (confetti!)', [['text', 'text', 'Message', 'You win, {name}!']]],
@@ -3075,10 +3225,11 @@ function cleanArgs(defs, src) {
   const o = {};
   for (const [k, type, , def] of defs) {
     const v = src ? src[k] : undefined;
-    if (type === 'num') o[k] = cleanNum(v, def || 0, -100000, 100000);
+    if (type === 'num') o[k] = cleanNum(v, def != null ? def : 0, -100000, 100000);
     else if (type === 'text') o[k] = cleanText(v != null ? v : def, 200);
     else if (type === 'color') o[k] = cleanHex(v, def || '#c4281c');
-    else if (type === 'tool') o[k] = toolById(v) ? v : 'sword';
+    else if (type === 'tool') o[k] = (TOOLS.some(t => t.id === v) || /^c\d{1,2}$/.test(v)) ? v : 'sword';
+    else if (type === 'ptool') o[k] = (TOOLS.some(t => t.id === v) || /^c\d{1,2}$/.test(v)) ? v : '';
     else if (type === 'sel') o[k] = def.includes(v) ? v : def[0];
     else if (type === 'key') o[k] = KEYS.includes(v) ? v : (def || 'E');
     else o[k] = Number.isInteger(v) && v > 0 && v < 1e6 ? v : 0;                // part / gui / store / sound / remote / module ids
@@ -3089,7 +3240,7 @@ function sanitizeScripts(list) {
   return (Array.isArray(list) ? list : []).slice(0, 60).map((s, i) => {
     s = s && typeof s === 'object' ? s : {};
     const e = evDef(s.e) ? s.e : 'start', k = s.k === 'module' ? 'module' : 'script';
-    return { id: i + 1, n: cleanName(s.n, k === 'module' ? 'ModuleScript' : 'Script'), on: s.on !== false, k, p: s.p === 'rs' ? 'rs' : 'sss', side: s.side === 'client' ? 'client' : 'server',
+    return { id: i + 1, n: cleanName(s.n, k === 'module' ? 'ModuleScript' : 'Script'), on: s.on !== false, k, p: s.p === 'rs' ? 'rs' : s.p === 'pack' && k === 'script' ? 'pack' : 'sss', side: s.side === 'client' ? 'client' : 'server',
       cd: cleanNum(s.cd, 0, 0, 600), e, ev: cleanArgs(evDef(e)[2], s.ev),
       acts: (Array.isArray(s.acts) ? s.acts : []).slice(0, 30).filter(a => a && actDef(a.a)).map(a => Object.assign({ a: a.a }, cleanArgs(actDef(a.a)[2], a))) };
   });
@@ -3101,7 +3252,9 @@ function sanitizeGui(list) {
   return (Array.isArray(list) ? list : []).slice(0, 30).map((g, i) => {
     g = g && typeof g === 'object' ? g : {};
     return { id: i + 1, n: String(g.n || 'TextLabel').replace(/[^\w \-.]/g, '').slice(0, 24) || 'TextLabel', k: g.k === 'button' ? 'button' : 'label', text: cleanText(g.text != null ? g.text : 'Label', 200),
-      pos: GUI_POS.some(p => p[0] === g.pos) ? g.pos : 'top', size: cleanNum(g.size, 18, 10, 48), fg: cleanHex(g.fg, '#000000'), bg: cleanHex(g.bg, '#a3a2a5'), vis: g.vis !== false };
+      pos: GUI_POS.some(p => p[0] === g.pos) ? g.pos : 'top', size: cleanNum(g.size, 18, 10, 48), fg: cleanHex(g.fg, '#000000'), bg: cleanHex(g.bg, '#a3a2a5'), vis: g.vis !== false,
+      // dragged in CartStudio: x / y = centre in % of the screen, w / h = box size in pixels (0 = fit the text)
+      x: g.x == null ? null : cleanNum(g.x, 50, 0, 100), y: g.y == null ? null : cleanNum(g.y, 50, 0, 100), w: cleanNum(g.w, 0, 0, 1200), h: cleanNum(g.h, 0, 0, 800) };
   });
 }
 function sanitizeSounds(list) {
@@ -3112,9 +3265,10 @@ function remapRefs(scripts, maps) {
   const fix = (args, defs) => { for (const [k, type] of defs) { const m = maps[type]; if (m) args[k] = m.has(args[k]) ? m.get(args[k]) : 0; } };
   for (const s of scripts) { fix(s.ev, evDef(s.e)[2]); for (const a of s.acts) fix(a, actDef(a.a)[2]); }
 }
-const runsAlone = s => s.k === 'script' && s.p === 'sss' && s.on !== false;      // scripts that start by themselves
+const runsAlone = s => s.k === 'script' && (s.p === 'sss' || s.p === 'pack') && s.on !== false;      // pack = inside a custom tool      // scripts that start by themselves
 function scriptUsesPoints(doc) { return (doc.scripts || []).some(s => s.on !== false && ((runsAlone(s) && s.e === 'points') || (s.acts || []).some(a => a.a === 'points' || a.a === 'ifpts'))); }
 // a read-only, Lua-flavoured view of a script (shown in the editor so builders can learn what it means)
+function toolLabel(id, doc) { if (/^c\d+$/.test(id || '')) { const t = (doc.tools || []).find(x => 'c' + x.id === id); return t ? t.n : 'Tool'; } return (TOOLS.find(t => t.id === id) || { n: 'any tool' }).n; }
 function scriptPreview(s, doc) {
   const nm = (arr, id, fb) => { const x = (arr || []).find(o => o.id === id); return x ? x.n.replace(/\s+/g, '') : fb; };
   const q = t => JSON.stringify(String(t || ''));
@@ -3124,17 +3278,24 @@ function scriptPreview(s, doc) {
   const head = { start: 'game.Players.PlayerAdded:Connect(function(player)', touch: `workspace.${nm(doc.parts, s.ev.part, 'Part')}.Touched:Connect(function(hit)`, timer: `while wait(${s.ev.num}) do`,
     key: `UserInputService.InputBegan:Connect(function(input)  -- Enum.KeyCode.${s.ev.key}`, chat: `player.Chatted:Connect(function(message)  -- contains ${q(s.ev.text)}`,
     click: `StarterGui.${nm(doc.gui, s.ev.gui, 'Button')}.MouseButton1Click:Connect(function()`, remote: `${rem(s.ev.rem)}.${client ? 'OnClientEvent' : 'OnServerEvent'}:Connect(function(player)`,
-    tooluse: 'tool.Activated:Connect(function()', spawn: 'player.CharacterAdded:Connect(function(character)', die: 'humanoid.Died:Connect(function()', points: `leaderstats.Points.Changed:Connect(function(value)  -- reaches ${s.ev.num}` }[s.e];
+    tooluse: `${s.ev.tl ? 'StarterPack.' + toolLabel(s.ev.tl, doc).replace(/\s+/g, '') : 'tool'}.Activated:Connect(function()`,
+    clickpart: `${'workspace.' + nm(doc.parts, s.ev.part, 'Part')}.ClickDetector.MouseClick:Connect(function(player)`, hbhit: 'hitbox.Hit:Connect(function(target)', spawn: 'player.CharacterAdded:Connect(function(character)', die: 'humanoid.Died:Connect(function()', points: `leaderstats.Points.Changed:Connect(function(value)  -- reaches ${s.ev.num}` }[s.e];
   const P = id => `workspace.${nm(doc.parts, id, 'Part')}`;
   const line = a => ({
     msg: `showMessage(${q(a.text)})`, hint: `showHint(${q(a.text)})`, announce: `TextChatService:DisplaySystemMessage(${q(a.text)})`, points: `leaderstats.Points.Value += ${a.num}`,
-    ifpts: `if leaderstats.Points.Value < ${a.num} then return end`, tool: `giveTool(${q((toolById(a.tool) || {}).n)})`,
+    ifpts: `if leaderstats.Points.Value < ${a.num} then return end`, tool: `giveTool(${q(toolLabel(a.tool, doc))})`,
     tp: `character:MoveTo(${P(a.part)}.Position)`, heal: `humanoid.Health += ${a.num}`, kill: 'humanoid.Health = 0', speed: `humanoid.WalkSpeed = ${a.num}`, jump: `humanoid.JumpPower = ${a.num}`,
     gravity: `workspace.Gravity = ${a.num}`, fov: `workspace.CurrentCamera.FieldOfView = ${a.num}`,
     hide: `${P(a.part)}.Transparency = 1  -- for ${a.num || 'ever'}${a.num ? 's' : ''}`, show: `${P(a.part)}.Transparency = 0`, color: `${P(a.part)}.Color = ${q(a.c)}`, trans: `${P(a.part)}.Transparency = ${a.num}`,
     move: `TweenService:Create(${P(a.part)}, TweenInfo.new(${a.num}), {Position = ${P(a.part)}.Position + Vector3.new(${a.x}, ${a.y}, ${a.z})}):Play()`,
     clone: `ServerStorage.${nm(doc.storage, a.store, 'Part')}:Clone().Parent = workspace`, sound: `workspace.${nm(doc.sounds, a.snd, 'Sound')}:Play()`, stop: `workspace.${nm(doc.sounds, a.snd, 'Sound')}:Stop()`,
     gui: `StarterGui.${nm(doc.gui, a.gui, 'Label')}.Text = ${q(a.text)}`, guivis: `StarterGui.${nm(doc.gui, a.gui, 'Label')}.Visible = ${a.v === 'show'}`,
+    velocity: `rootPart.AssemblyLinearVelocity = Vector3.new(${a.x}, ${a.y}, ${a.z})  -- ${a.rel === 'world' ? 'world directions' : 'X = right, Z = forward'}, for ${a.num}s`,
+    hitbox: `createHitbox({Size = Vector3.new(${a.x}, ${a.y}, ${a.z}), Damage = ${a.dmg}, Time = ${a.num}, Follow = ${a.follow}})`,
+    shoot: `shootProjectile({Damage = ${a.dmg}, Speed = ${a.sp}, Size = ${a.size}, Color = ${q(a.c)}})`,
+    explode: `local boom = Instance.new("Explosion")  boom.BlastRadius = ${a.rad}  -- damage ${a.dmg}, at ${a.at === 'aim' ? 'where you aim' : 'the player'}`,
+    damage: `humanoid:TakeDamage(${a.num})`, setpts: `leaderstats.Points.Value = ${a.num}`, chance: `if math.random(1, 100) > ${a.num} then return end`,
+    emote: `humanoid:LoadAnimation(animations.${a.v}):Play()`, sfx: `SoundService.${a.v}:Play()`,
     fire: `${rem(a.rem)}:${client ? 'FireServer()' : 'FireAllClients()'}`, require: (() => { const m = (doc.scripts || []).find(o => o.id === a.mod); return m ? `require(${svc(m.p)}.${m.n.replace(/\s+/g, '')})(player)` : 'require(nil)  -- pick a module'; })(),
     win: `celebrate(${q(a.text)})`, wait: `wait(${a.num})`
   })[a.a] || '-- ?';
@@ -3145,6 +3306,13 @@ function scriptPreview(s, doc) {
   return `-- ${s.n} (${kind})${s.on ? '' : '  (disabled)'}${s.p === 'rs' ? '\n-- in ReplicatedStorage: only runs when "Run a ModuleScript" uses it' : ''}\n${s.cd > 0 ? 'local debounce = false\n' : ''}${head}\n${deb.concat(body).join('\n')}${s.cd > 0 ? `\n    task.delay(${s.cd}, function() debounce = false end)` : ''}\nend${s.e === 'timer' ? '' : ')'}`;
 }
 
+// shared by the game and CartStudio's on-screen GUI editor
+const GUI_PRESET_XY = { top: [50, 9], center: [50, 50], bottom: [50, 82], left: [10, 50], right: [90, 50] };
+function guiStyle(el, g) {
+  el.style.background = g.bg; el.style.color = g.fg; el.style.fontSize = g.size + 'px';
+  if (g.x != null) { el.style.left = g.x + '%'; el.style.top = g.y + '%'; }
+  el.style.width = g.w ? g.w + 'px' : ''; el.style.height = g.h ? g.h + 'px' : '';
+}
 const Scripts = {
   setup(def) {
     const d = def.place;
@@ -3181,6 +3349,21 @@ const Scripts = {
   },
   onChat(text) { const t = String(text).toLowerCase(); this.fire('chat', s => !s.ev.text || t.includes(String(s.ev.text).toLowerCase())); },
   onDie() { this.fire('die'); },
+  onUse(toolId) { this.fire('tooluse', s => !s.ev.tl || s.ev.tl === toolId); },
+  onClick(clientX, clientY) {                                       // ClickDetector: did the click land on a part a script listens to?
+    const sc = R && R.sc; if (!sc) return false;
+    const list = sc.list.filter(s => s.e === 'clickpart'); if (!list.length) return false;
+    const cv = $('#gl'), r = cv.getBoundingClientRect(), rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1), R.camera);
+    const meshes = []; for (const s of list) { const p = this.part(s.ev.part); if (p && p.mesh && !p.hidden) meshes.push(p.mesh); }
+    const hit = rc.intersectObjects(meshes, true)[0]; if (!hit || hit.distance > 120) return false;
+    let o = hit.object; while (o && !meshes.includes(o)) o = o.parent;
+    const blocked = R.world.rayDist(rc.ray.origin.x, rc.ray.origin.y, rc.ray.origin.z, rc.ray.direction.x, rc.ray.direction.y, rc.ray.direction.z, hit.distance) < hit.distance - 1.5;
+    if (!o || blocked) return false;
+    let any = false; for (const s of list) { const p = this.part(s.ev.part); if (p && p.mesh === o) { this.run(s); any = true; } }
+    if (any) Sfx.play('click');
+    return any;
+  },
   onKey(code) {
     const k = /^Key[A-Z]$/.test(code) ? code.slice(3) : code === 'Space' ? 'Space' : /^Shift/.test(code) ? 'Shift' : null;
     if (k) this.fire('key', s => s.ev.key === k);
@@ -3210,6 +3393,7 @@ const Scripts = {
         const a = job.acts[job.i++];
         if (a.a === 'wait') job.wait = Math.max(0, Math.min(600, a.num || 0));
         else if (a.a === 'ifpts') { if (P.stage < a.num) job.i = job.acts.length; }
+        else if (a.a === 'chance') { if (Math.random() * 100 >= a.num) job.i = job.acts.length; }
         else if (a.a === 'require') {                                 // splice the module's actions in right here
           const m = (sc.doc.scripts || []).find(x => x.id === a.mod && (x.k === 'module' || x.p === 'rs' || x.k === 'script'));
           if (m && m.on !== false && job.req < 20 && job.acts.length + m.acts.length < 600) { job.req++; job.acts.splice(job.i, 0, ...m.acts); }
@@ -3256,6 +3440,14 @@ const Scripts = {
       case 'gui': { const el = R.sc.gui.get(a.gui); if (el) { el.dataset.tpl = a.text; el.textContent = this.fill(a.text); } break; }
       case 'guivis': { const el = R.sc.gui.get(a.gui); if (el) el.hidden = a.v === 'hide'; break; }
       case 'fire': this.fireRemote(a.rem, ctx); break;
+      case 'velocity': if (P.alive) P.push = { x: clamp(a.x, -500, 500), y: clamp(a.y, -500, 500), z: clamp(a.z, -500, 500), t: clamp(a.num, 0, 10), rel: a.rel !== 'world', face: P.face }; break;
+      case 'hitbox': Tools.hitbox(a, true); break;
+      case 'shoot': Tools.shoot(a); break;
+      case 'explode': Tools.scriptBoom(a); break;
+      case 'damage': if (P.alive && a.num > 0) Tools.applyDamage(a.num, null, null); break;
+      case 'setpts': P.stage = Math.max(0, Math.round(a.num)); updatePlist(); this.refreshGui(); break;
+      case 'emote': if (P.alive) { if (['wave', 'dance', 'cheer'].includes(a.v)) { P.emote = a.v; P.emoteT = 0; } else Tools.act(a.v, ({ slash: 0.28, lunge: 0.55, drink: 1.3, shoot: 0.25, build: 0.35 })[a.v] || 0.3); } break;
+      case 'sfx': Sfx.play(a.v); break;
       case 'win': confetti(P.x, P.y + 4, P.z, 50); Sfx.play('win'); showMsg(this.fill(a.text || 'You win!'), 5000); break;
       default: break;
     }
@@ -3333,7 +3525,7 @@ const Scripts = {
     for (const g of list || []) {
       const el = document.createElement(g.k === 'button' ? 'button' : 'div');
       el.className = 'ggui' + (g.k === 'button' ? ' gbutton' : '');
-      el.style.background = g.bg; el.style.color = g.fg; el.style.fontSize = g.size + 'px';
+      guiStyle(el, g);
       el.dataset.tpl = g.text; el.textContent = this.fill(g.text); el.hidden = g.vis === false;
       if (g.k === 'button') {
         el.type = 'button';
@@ -3341,7 +3533,7 @@ const Scripts = {
         el.addEventListener('click', e => { e.stopPropagation(); Sfx.play('click'); this.fire('click', s => s.ev.gui === g.id); });
       }
       if (R && R.sc) R.sc.gui.set(g.id, el);
-      holders[g.pos].appendChild(el);
+      if (g.x != null) { el.classList.add('gfree'); box.appendChild(el); } else holders[g.pos].appendChild(el);
     }
   },
   renderKeys() {                                                    // phones and tablets get buttons for the keys scripts listen to
@@ -3552,7 +3744,7 @@ function addForcefield(ch) {
   return { g, s, wf };
 }
 function spawnPlayer() {
-  const P = R.P, sp = pickSpawn();
+  const P = R.P, sp = pickSpawn(); P.push = null;
   if (R.ch) { R.scene.remove(R.ch.root); disposeObject(R.ch.root); R.ch.dispose(); }
   const jit = R.remote.size ? 1.6 : 0;                               // don't stack on top of other players
   P.x = sp[0] + (Math.random() - 0.5) * jit * 2; P.y = sp[1] + 0.02; P.z = sp[2] + (Math.random() - 0.5) * jit * 2;
@@ -3680,6 +3872,7 @@ function netHandlers() {
       (Array.isArray(m.hp) ? m.hp : []).forEach(a => { const rp = R.remote.get(String(a[0])); if (rp) rp.hp = clamp(Number(a[1]) || 0, 0, 100); });
       sys(`Connected! ${m.players.length ? plural(m.players.length, 'other player') + ' here.' : 'You are the first one here.'}`);
       if (!(Net.v >= 4)) sys('Heads up: the game server is an old version, so other players will not see your tool effects or server scripts. Redeploy it on Render (see the README).');
+      else if (Net.v < 5) sys('Heads up: the game server is one version behind, so script hitboxes do at most 60 damage. Redeploy it on Render (see the README).');
       if (Array.isArray(m.log)) Scripts.applyLog(m.log);
       updatePlist();
     },
@@ -3827,6 +4020,13 @@ function physics(dt) {
   if (P.onGround) P.coyote = 0.09;
   if (!busy && (keys.Space || jumpHeld) && P.coyote > 0) { P.vy = P.jump != null ? P.jump : PHYS.JUMP; P.coyote = 0; P.onGround = false; Sfx.play('jump'); }
   P.vy = Math.max(P.vy - PHYS.G * (P.gravMul || 1) * (P.gravS == null ? 1 : P.gravS) * dt, -280);
+  if (P.push && P.push.t > 0) {                                     // "Push the player (velocity)" from a script
+    const u = P.push, s = Math.sin(u.face), c = Math.cos(u.face);
+    const vx = u.rel ? u.z * s - u.x * c : u.x, vz = u.rel ? u.z * c + u.x * s : u.z;   // facing: Z = forward, X = right
+    P.vx = vx + inp.x * walk * 0.3; P.vz = vz + inp.z * walk * 0.3;
+    if (u.y) { P.vy = u.y; P.onGround = false; P.ground = null; }
+    u.t -= dt; if (u.t <= 0) P.push = null;
+  }
 
   const was = P.onGround;
   P.onGround = false; P.ground = null;
@@ -4138,6 +4338,7 @@ function initGameUI() {
     if (!R) return;
     Sfx.init();
     if (e.pointerType === 'touch') $('#game').classList.add('touchmode');
+    if (e.pointerType === 'mouse' && e.button === 0 && !Tools.current() && !R.menuOpen && Scripts.onClick(e.clientX, e.clientY)) { canvas.focus(); return; }
     if (e.pointerType === 'mouse' && e.button === 0 && Tools.current() && !R.menuOpen) { if (isTyping()) $('#chatin').blur(); canvas.focus(); Tools.activate(Tools.aimFrom(e.clientX, e.clientY)); return; }
     if (e.button === 2 || e.button === 0 || e.pointerType === 'touch') {
       drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: e.timeStamp, touch: e.pointerType === 'touch' };
@@ -4156,6 +4357,7 @@ function initGameUI() {
   const endDrag = e => {
     if (!drag || e.pointerId !== drag.id) return;
     if (e.type === 'pointerup' && drag.touch && R && Tools.current() && e.timeStamp - drag.t < 400 && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 12) Tools.activate(Tools.aimFrom(e.clientX, e.clientY));   // tap = use tool
+    else if (e.type === 'pointerup' && drag.touch && R && !Tools.current() && e.timeStamp - drag.t < 400 && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 12) Scripts.onClick(e.clientX, e.clientY);   // tap a part
     drag = null;
   };
   canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
@@ -4308,11 +4510,11 @@ const People = {
 };
 function personCard(p, extra) {
   const on = People.online(p);
-  return `<a class="pcard" href="#/user/${p.uid}"><div class="pav2">${avatarSVG(p.look.colors)}<i class="dot${on ? ' on' : ''}"></i></div><b>${esc(p.n)}</b><span class="small ${on ? 'good' : 'muted'}">${on ? 'Online' : (p.seen ? 'Online ' + esc(timeAgo(p.seen)) : 'Offline')}</span>${extra || ''}</a>`;
+  return `<a class="pcard" href="#/user/${p.uid}"><div class="pav2">${avatar3D(p.look)}<i class="dot${on ? ' on' : ''}"></i></div><b>${esc(p.n)}</b><span class="small ${on ? 'good' : 'muted'}">${on ? 'Online' : (p.seen ? 'Online ' + esc(timeAgo(p.seen)) : 'Offline')}</span>${extra || ''}</a>`;
 }
 let peopleQ = '';
 function viewPeople() {
-  if (!Cloud.enabled) return `<div class="pagehead"><h1>People</h1></div><div class="box"><h2>People on Cartblox</h2><div class="in"><div class="pgrid">${personCard({ uid: 'me', n: S.user, look: { colors: S.colors }, seen: Date.now() })}${FRIENDS.map(f => `<div class="pcard"><div class="pav2">${avatarSVG(f.c)}<i class="dot${f.on ? ' on' : ''}"></i></div><b>${esc(f.name)}</b><span class="small muted">${esc(f.st)}</span></div>`).join('')}</div>
+  if (!Cloud.enabled) return `<div class="pagehead"><h1>People</h1></div><div class="box"><h2>People on Cartblox</h2><div class="in"><div class="pgrid">${personCard({ uid: 'me', n: S.user, look: { colors: S.colors }, seen: Date.now() })}${FRIENDS.map(f => `<div class="pcard"><div class="pav2">${avatar3D(f.c)}<i class="dot${f.on ? ' on' : ''}"></i></div><b>${esc(f.name)}</b><span class="small muted">${esc(f.st)}</span></div>`).join('')}</div>
     <p class="small muted" style="margin-top:10px">This is a preview. On your own website, everyone who visits Cartblox shows up here, and you can add friends.</p></div></div>`;
   return `<div class="pagehead"><h1>People</h1><form id="ppl-form" class="ppl-search"><input type="text" id="ppl-q" placeholder="Search people" value="${esc(peopleQ)}"><button class="btn btn-sm" type="submit">Search</button></form></div>
     <div id="ppl-box"><div class="box"><div class="in empty">Loading people...</div></div></div>`;
@@ -4357,13 +4559,13 @@ async function fillUser() {
     ${items.length ? `<div class="box"><h2>Creations</h2><div class="in igrid">${items.map(icard).join('')}</div></div>` : ''}
   </section></div>`;
   fillItemThumbs();
-  $$('[data-avatar-look]').forEach(el => { try { const look = JSON.parse(el.dataset.avatarLook); if (look.eq && Object.keys(look.eq).length) avatarThumb(look, url => { if (el.isConnected) el.innerHTML = `<img class="avimg" src="${url}" alt="">`; }); } catch (e) { /* ignore */ } });
+  $$('[data-avatar-look]').forEach(el => { try { const look = JSON.parse(el.dataset.avatarLook); avatarThumb(look, url => { if (el.isConnected) el.innerHTML = `<img class="avimg" src="${url}" alt="">`; }); } catch (e) { /* ignore */ } });
 }
 function friendsBoxHTML() {
   if (!Cloud.enabled || !People.uid) return `<div class="box"><h2>Friends (${FRIENDS.length})</h2><div class="in friends">${FRIENDS.map(friendHTML).join('')}</div></div>`;
   const fr = People.friends().map(u => People.cache.get(u)).filter(Boolean).sort((a, b) => People.online(b) - People.online(a));
   if (!fr.length && People.friends().length) { People.friends().forEach(u => People.get(u).then(() => schedRender())); }
-  return `<div class="box"><h2>Friends (${People.friends().length}) <a href="#/people">Find people</a></h2><div class="in friends">${fr.length ? fr.slice(0, 9).map(p => `<a class="friend" href="#/user/${p.uid}"><div class="fav">${avatarSVG(p.look.colors)}<i class="dot${People.online(p) ? ' on' : ''}"></i></div><span class="fn">${esc(p.n)}</span><div class="st">${People.online(p) ? 'Online' : 'Offline'}</div></a>`).join('') : '<span class="muted small" style="grid-column:1/-1">No friends yet. Visit <a href="#/people">People</a> to send friend requests.</span>'}</div></div>`;
+  return `<div class="box"><h2>Friends (${People.friends().length}) <a href="#/people">Find people</a></h2><div class="in friends">${fr.length ? fr.slice(0, 9).map(p => `<a class="friend" href="#/user/${p.uid}"><div class="fav">${avatar3D(p.look)}<i class="dot${People.online(p) ? ' on' : ''}"></i></div><span class="fn">${esc(p.n)}</span><div class="st">${People.online(p) ? 'Online' : 'Offline'}</div></a>`).join('') : '<span class="muted small" style="grid-column:1/-1">No friends yet. Visit <a href="#/people">People</a> to send friend requests.</span>'}</div></div>`;
 }
 
 /* ====================== FORUM ====================== */
@@ -4468,9 +4670,9 @@ async function fillThread() {
   if (!th) { box.innerHTML = viewSoon('Thread not found', 'That thread does not exist, or it could not be loaded.'); return; }
   const posts = th.posts;
   const profs = await Promise.all([...new Set(posts.map(p => p.uid).filter(u => u && u !== 'me'))].map(u => People.get(u).catch(() => null)));
-  const look = uid => { if (uid === 'me' || uid === People.uid) return S.colors; const p = profs.find(x => x && x.uid === uid); return p ? p.look.colors : DEFAULT_COLORS; };
+  const look = uid => { if (uid === 'me' || uid === People.uid) return myLook(); const p = profs.find(x => x && x.uid === uid); return p ? p.look : DEFAULT_COLORS; };
   box.innerHTML = `<div class="pagehead"><div><h1>${esc(th.meta.t)}</h1><div class="muted"><a href="#/forum">Forum</a> &raquo; <a href="#/forum/${cat}">${esc(c[1])}</a></div></div><a class="btn" href="#/forum/${cat}">Back</a></div>
-    <div class="box">${posts.map((p, i) => `<div class="fpost"><div class="fauth"><div class="fav2">${avatarSVG(look(p.uid))}</div>${p.uid && p.uid !== 'me' ? `<a href="#/user/${esc(p.uid)}"><b>${esc(p.n)}</b></a>` : `<b>${esc(p.n)}</b>`}${i === 0 ? '<span class="tag">Starter</span>' : ''}</div><div class="fbody"><div class="small muted">${esc(new Date(p.ts || Date.now()).toLocaleString())}</div><div class="ftext">${postText(p.text)}</div></div></div>`).join('')}</div>
+    <div class="box">${posts.map((p, i) => `<div class="fpost"><div class="fauth"><div class="fav2">${avatar3D(look(p.uid))}</div>${p.uid && p.uid !== 'me' ? `<a href="#/user/${esc(p.uid)}"><b>${esc(p.n)}</b></a>` : `<b>${esc(p.n)}</b>`}${i === 0 ? '<span class="tag">Starter</span>' : ''}</div><div class="fbody"><div class="small muted">${esc(new Date(p.ts || Date.now()).toLocaleString())}</div><div class="ftext">${postText(p.text)}</div></div></div>`).join('')}</div>
     <div class="box"><h2>Reply</h2><div class="in"><textarea id="reply-text" maxlength="1000" placeholder="Write a reply"></textarea><div class="row" style="margin-top:6px;justify-content:space-between"><span class="small muted" id="reply-msg">Be kind. No personal info.</span><button class="btn btn-blue" data-act="forum-reply" data-cat="${cat}" data-tid="${esc(tid)}" data-cnt="${th.meta.cnt}" type="button">Post Reply</button></div></div></div>`;
 }
 async function forumNew(cat) {
@@ -4914,8 +5116,8 @@ const ICONS = {
 const MENUS_PLACE = {
   File: [['New Place', 'act:new'], ['Open Place...', 'act:open'], ['Save Place', 'act:save', 'Ctrl+S'], ['Game Settings...', 'act:settings'], ['Save a Copy...', 'act:saveas'], '-', ['Export to Text...', 'act:export'], ['Import from Text...', 'act:import'], '-', ['Exit CartStudio', 'act:exit']],
   Edit: [['Undo', 'act:undo', 'Ctrl+Z'], ['Redo', 'act:redo', 'Ctrl+Y'], '-', ['Duplicate', 'act:dup', 'Ctrl+D'], ['Delete', 'act:del', 'Del'], ['Rotate 90 degrees', 'act:rot90', 'Ctrl+R'], '-', ['Save Selection as Model...', 'act:savemodel'], ['Move to ServerStorage', 'act:tostorage']],
-  View: [['Toolbox', 'pan:left'], ['Explorer and Properties', 'pan:right'], ['Output', 'pan:output'], '-', ['Focus on Selection', 'act:focus', 'F']],
-  Insert: [['Block', 'ins:block'], ['Ball', 'ins:ball'], ['Cylinder', 'ins:cylinder'], ['Wedge', 'ins:wedge'], ['Cone', 'ins:cone'], ['Pyramid', 'ins:pyramid'], ['Torus', 'ins:torus'], '-', ['Spawn Location', 'ins:@spawn'], ['Checkpoint', 'ins:@check'], ['Kill Brick', 'ins:@kill'], ['Bounce Pad', 'ins:@bounce'], '-', ['Script', 'act:newobj:script:sss'], ['LocalScript', 'act:newobj:local:sss'], ['ModuleScript', 'act:newobj:module:rs'], ['RemoteEvent', 'act:newobj:remote:rs'], '-', ['TextLabel (GUI)', 'act:newlabel'], ['TextButton (GUI)', 'act:newbutton']],
+  View: [['Toolbox', 'pan:left'], ['Explorer and Properties', 'pan:right'], ['Output', 'pan:output'], ['GUI on screen', 'act:togglegui'], '-', ['Focus on Selection', 'act:focus', 'F']],
+  Insert: [['Block', 'ins:block'], ['Ball', 'ins:ball'], ['Cylinder', 'ins:cylinder'], ['Wedge', 'ins:wedge'], ['Cone', 'ins:cone'], ['Pyramid', 'ins:pyramid'], ['Torus', 'ins:torus'], '-', ['Spawn Location', 'ins:@spawn'], ['Checkpoint', 'ins:@check'], ['Kill Brick', 'ins:@kill'], ['Bounce Pad', 'ins:@bounce'], '-', ['Script', 'act:newobj:script:sss'], ['LocalScript', 'act:newobj:local:sss'], ['ModuleScript', 'act:newobj:module:rs'], ['RemoteEvent', 'act:newobj:remote:rs'], ['Tool (StarterPack)', 'act:newtool'], '-', ['TextLabel (GUI)', 'act:newlabel'], ['TextButton (GUI)', 'act:newbutton']],
   Format: [['Lighting...', 'act:lighting'], ['Sky: Day', 'env:day'], ['Sky: Sunset', 'env:dusk'], ['Sky: Night', 'env:night'], ['Sky: Overcast', 'env:overcast'], '-', ['Snap to Grid on/off', 'act:snap']],
   Tools: [['Select', 'tool:select', '1'], ['Move', 'tool:translate', '2'], ['Scale', 'tool:scale', '3'], ['Rotate', 'tool:rotate', '4']],
   Test: [['Play Solo', 'act:test', 'F5']],
@@ -4944,24 +5146,35 @@ function normalizeDoc(doc) {
   if (!doc.light || typeof doc.light !== 'object') doc.light = { sky: doc.env === 'dusk' ? 'dusk' : 'day', bright: 1, fog: 2600 };
   if (!SKIES[doc.light.sky]) doc.light.sky = 'day';
   doc.env = doc.light.sky;
-  ['pack', 'gui', 'scripts', 'sounds', 'storage', 'remotes'].forEach(k => { if (!Array.isArray(doc[k])) doc[k] = []; });
+  ['pack', 'gui', 'scripts', 'sounds', 'storage', 'remotes', 'tools'].forEach(k => { if (!Array.isArray(doc[k])) doc[k] = []; });
   doc.scripts.forEach(x => { if (x.k !== 'module') x.k = 'script'; if (x.p !== 'rs') x.p = 'sss'; if (x.side !== 'client') x.side = 'server'; if (!(x.cd >= 0)) x.cd = 0; });
   return doc;
 }
 const nextOf = list => 1 + list.reduce((m, x) => Math.max(m, x.id || 0), 0);
+// tools made in StarterPack. Parts are stored relative to the Handle (built standing up, Handle at the bottom).
+const TOOL_ANIMS = [['slash', 'Swing (slash)'], ['lunge', 'Lunge'], ['shoot', 'Point (shoot)'], ['drink', 'Drink'], ['build', 'Build'], ['none', 'None']];
+function sanitizeTools(list) {
+  const used = new Set();
+  return (Array.isArray(list) ? list : []).slice(0, MAX_CUSTOM_TOOLS).map(t => {
+    t = t && typeof t === 'object' ? t : {};
+    let id = Number.isInteger(t.id) && t.id > 0 && t.id < 100 && !used.has(t.id) ? t.id : 0; if (!id) { id = 1; while (used.has(id)) id++; } used.add(id);
+    return { id, n: cleanName(t.n, 'Tool'), desc: cleanText(t.desc, 120), cd: cleanNum(t.cd, 0.5, 0, 60), anim: TOOL_ANIMS.some(a => a[0] === t.anim) ? t.anim : 'slash', start: t.start !== false,
+      parts: (Array.isArray(t.parts) ? t.parts : []).slice(0, 60).map(q => { const o = sanitizePart(q); delete o.b; delete o.tl; delete o.dc; return o; }) };
+  });
+}
 function sanitizeDoc(txt) {                           // accepts text or an object; returns a safe place doc or null
   let o; try { o = typeof txt === 'string' ? JSON.parse(txt) : JSON.parse(JSON.stringify(txt)); } catch (e) { return null; }
   if (!o || !Array.isArray(o.parts) || !o.parts.length) return null;
   const parts = o.parts.slice(0, 600).map(sanitizePart), storage = (Array.isArray(o.storage) ? o.storage : []).slice(0, 200).map(sanitizePart);
   const srcSounds = (Array.isArray(o.sounds) ? o.sounds : []).slice(0, 20).filter(x => x && ASSET_ID.test(x.a)), srcGui = (Array.isArray(o.gui) ? o.gui : []).slice(0, 30);
-  const gui = sanitizeGui(srcGui), sounds = sanitizeSounds(srcSounds), scripts = sanitizeScripts(o.scripts), remotes = sanitizeRemotes(o.remotes);
+  const gui = sanitizeGui(srcGui), sounds = sanitizeSounds(srcSounds), scripts = sanitizeScripts(o.scripts), remotes = sanitizeRemotes(o.remotes), tools = sanitizeTools(o.tools);
   const idMap = (src, out) => { const m = new Map(); src.forEach((x, i) => { if (x && Number.isInteger(x.id) && out[i]) m.set(x.id, out[i].id); }); return m; };
   remapRefs(scripts, { part: idMap(o.parts.slice(0, 600), parts), store: idMap((o.storage || []).slice(0, 200), storage), gui: idMap(srcGui, gui), sound: idMap(srcSounds, sounds),
     remote: idMap((Array.isArray(o.remotes) ? o.remotes : []).slice(0, 30), remotes), mod: idMap((Array.isArray(o.scripts) ? o.scripts : []).slice(0, 60), scripts) });
   const L = o.light && typeof o.light === 'object' ? o.light : {};
   const light = { sky: SKIES[L.sky] ? L.sky : (o.env === 'dusk' ? 'dusk' : 'day'), bright: cleanNum(L.bright, 1, 0.2, 2), fog: cleanNum(L.fog, 2600, 80, 2600) };
   const pack = [...new Set((Array.isArray(o.pack) ? o.pack : []).filter(t => toolById(t)))].slice(0, 10);
-  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', desc: cleanText(o.desc, 300), env: light.sky, gear: o.gear === true, light, pack, gui, scripts, remotes, sounds, storage, parts };
+  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', desc: cleanText(o.desc, 300), env: light.sky, gear: o.gear === true, light, pack, gui, scripts, remotes, tools, sounds, storage, parts };
 }
 function placeRun(doc, base) {                       // a CartStudio place -> a runnable game definition
   const d = sanitizeDoc(doc) || normalizeDoc(JSON.parse(JSON.stringify(doc)));
@@ -4972,8 +5185,8 @@ function testDef(doc) {
 }
 const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
 const cleanTitle = v => String(v || '').replace(/[^\w \-.!'&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
-const compactPart = p => { const o = { id: p.id, n: p.n, s: p.s, p: p.p.map(r2), z: p.z.map(r2), r: p.r, c: p.c, b: p.b, q: p.q, st: p.st }; if (p.b === 'tool') o.tl = p.tl; if (p.t > 0) o.t = p.t; if (p.dc) o.dc = p.dc; return o; };
-function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, gear: !!doc.gear, light: doc.light, pack: doc.pack, gui: doc.gui, scripts: doc.scripts, remotes: doc.remotes || [], sounds: doc.sounds, storage: (doc.storage || []).map(compactPart), parts: doc.parts.map(compactPart) }); }
+const compactPart = p => { const o = { id: p.id, n: p.n, s: p.s, p: p.p.map(r2), z: p.z.map(r2), r: p.r, c: p.c, b: p.b || '', q: p.q, st: p.st }; if (p.b === 'tool') o.tl = p.tl; if (p.t > 0) o.t = p.t; if (p.dc) o.dc = p.dc; return o; };
+function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, gear: !!doc.gear, light: doc.light, pack: doc.pack, gui: doc.gui, scripts: doc.scripts, remotes: doc.remotes || [], tools: (doc.tools || []).map(t => Object.assign({}, t, { parts: t.parts.map(compactPart) })), sounds: doc.sounds, storage: (doc.storage || []).map(compactPart), parts: doc.parts.map(compactPart) }); }
 const assetIdsOf = doc => [].concat((doc.parts || []).concat(doc.storage || []).filter(p => p.dc).map(p => p.dc.img), (doc.sounds || []).map(s => s.a));
 function authHint(err) {
   err = String(err || '');
@@ -5028,13 +5241,13 @@ class Studio {
     this.o = o; this.mode = o.mode; this.kind = o.kind || null; this.doc = o.doc;
     if (this.mode === 'place') normalizeDoc(this.doc);
     this.meshes = new Map(); this.sel = null; this.multi = new Set(); this.mhelp = []; this.osel = null; this.scriptId = null; this.tbTab = 'parts';
-    this.open = { ws: true, light: true, sss: true, storage: true, gui: true, pack: true };
+    this.open = { ws: true, light: true, sss: true, storage: true, gui: true, pack: true }; this.editTool = null; this.showGui = true;
     this.tool = 'select'; this.hist = []; this.hi = -1;
     this.alive = true; this.paused = false; this.snapOn = true; this.snapStep = this.mode === 'item' ? 0.1 : 1; this.k = {}; this.bad = [];
     this.nextId = 1 + this.doc.parts.concat(this.doc.storage || []).reduce((m, p) => Math.max(m, p.id || 0), 0);
     this._ac = () => { if (this.alive && this.tbTab !== 'parts') this.renderToolbox(); }; Assets.onChange(this._ac);
     this.buildUI(); this.init3D(); this.rebuildAll(); this.commit(true); this.bindEvents();
-    this.log(this.mode === 'item' ? 'Item creator ready. Keep every part inside the blue lines.' : 'CartStudio (Beta) is ready. Insert parts from the Toolbox or the Insert menu.');
+    this.log(this.mode === 'item' ? 'Item creator ready. Keep every part inside the blue lines.' : 'CartStudio is ready. Insert parts from the Toolbox or the Insert menu.');
     this.applyLighting();
     this.loop();
   }
@@ -5055,7 +5268,7 @@ class Studio {
         ${item ? '<button class="cs-go" data-cs="act:publish" type="button">Publish ' + esc(K.label) + '</button>' : '<button class="cs-go" data-cs="act:test" type="button">' + ICONS.play + ' Play Solo</button>'}</div>
       <div class="cs-body">
         <div class="cs-panel cs-left"><div class="cs-ph">Toolbox</div>${item ? '' : `<div class="cs-tabs">${[['parts', 'Parts'], ['model', 'Models'], ['image', 'Images'], ['audio', 'Audio']].map(t => `<button class="cs-tab${t[0] === 'parts' ? ' on' : ''}" data-cs="tbtab:${t[0]}" type="button">${t[1]}</button>`).join('')}</div>`}<div id="cs-tb"></div><input type="file" id="cs-file" hidden></div>
-        <div class="cs-center"><canvas id="cs-gl" tabindex="0"></canvas><div class="cs-note" id="cs-note" ${item ? '' : 'hidden'}></div><div class="cs-script" id="cs-script" hidden></div></div>
+        <div class="cs-center"><canvas id="cs-gl" tabindex="0"></canvas>${item ? '' : '<div class="cs-guiov" id="cs-guiov"></div>'}<div class="cs-note" id="cs-note" ${item ? '' : 'hidden'}></div><div class="cs-script" id="cs-script" hidden></div></div>
         <div class="cs-panel cs-right"><div class="cs-ph">${item ? 'Parts' : 'Explorer'}</div><div id="cs-explorer" class="cs-explorer"></div><div class="cs-ph">Properties</div><div id="cs-props" class="cs-props"></div></div>
       </div>
       ${item ? '' : '<div class="cs-panel cs-output"><div class="cs-ph">Output</div><div id="cs-log" class="cs-log"></div></div>'}
@@ -5065,7 +5278,7 @@ class Studio {
     this.setTitle();
   }
   setTitle() {
-    const t = this.mode === 'item' ? `${KINDS[this.kind].label} Creator - CartStudio (Beta)` : `CartStudio (Beta) - ${this.doc.name}${this.doc.pub ? ' (published)' : ''}`;
+    const t = this.mode === 'item' ? `${KINDS[this.kind].label} Creator - CartStudio` : `CartStudio - ${this.doc.name}${this.doc.pub ? ' (published)' : ''}`;
     $('#cs-title').textContent = t; document.title = this.mode === 'item' ? `${KINDS[this.kind].label} Creator - CartStudio` : 'CartStudio';
   }
   log(msg) { const el = $('#cs-log'); if (el) { const d = document.createElement('div'); d.textContent = new Date().toLocaleTimeString() + '  ' + msg; el.appendChild(d); while (el.children.length > 80) el.removeChild(el.firstChild); el.scrollTop = el.scrollHeight; } const s = $('#cs-status'); if (s) s.textContent = msg; }
@@ -5108,8 +5321,9 @@ class Studio {
   }
   applySnap() {
     const tc = this.tc, item = this.mode === 'item';
-    tc.setTranslationSnap(this.snapOn ? this.snapStep : null); tc.setRotationSnap(this.snapOn ? (item ? Math.PI / 12 : Math.PI / 2) : null);
-    tc.showX = tc.showZ = !(this.mode === 'place' && this.tool === 'rotate'); tc.showY = true;
+    const free = item || this.editTool != null;
+    tc.setTranslationSnap(this.snapOn ? (this.editTool != null ? 0.1 : this.snapStep) : null); tc.setRotationSnap(this.snapOn ? (free ? Math.PI / 12 : Math.PI / 2) : null);
+    tc.showX = tc.showZ = !(!free && this.tool === 'rotate'); tc.showY = true;
   }
   loop() {
     if (!this.alive) return;
@@ -5191,7 +5405,7 @@ class Studio {
       const d = m.position.clone().sub(this.dragStart.p0);
       for (const [id, p] of this.dragStart.others) { const o = this.part(id); if (o) { o.p = [p[0] + d.x, p[1] + d.y, p[2] + d.z]; this.syncMesh(o); } }
     }
-    if (this.tool === 'rotate') q.r = this.mode === 'place' ? [0, ((Math.round(m.rotation.y / D2R) % 360) + 360) % 360, 0] : [Math.round(m.rotation.x / D2R), Math.round(m.rotation.y / D2R), Math.round(m.rotation.z / D2R)];
+    if (this.tool === 'rotate') q.r = this.mode === 'place' && !q.tool ? [0, ((Math.round(m.rotation.y / D2R) % 360) + 360) % 360, 0] : [Math.round(m.rotation.x / D2R), Math.round(m.rotation.y / D2R), Math.round(m.rotation.z / D2R)];
     if (this.tool === 'scale') {
       const s = m.scale;
       if (m.userData.zkey != null && this.dragStart) { q.z = this.dragStart.z.map((v, i) => Math.max(0.1, v * [s.x, s.y, s.z][i])); this.syncMesh(q); }
@@ -5201,9 +5415,9 @@ class Studio {
   }
   onDragEnd() {
     const q = this.part(); if (!q) return;
-    const st = this.mode === 'item' ? 0.1 : 0.5, rd = v => Math.round(v / st) * st;
+    const st = this.mode === 'item' || q.tool ? 0.1 : 0.5, rd = v => Math.round(v / st) * st;
     if (this.tool === 'scale') q.z = q.z.map(v => Math.max(st, r2(rd(v))));
-    q.p = q.p.map(v => r2(this.snapOn ? Math.round(v / this.snapStep) * this.snapStep : v));
+    const ps = q.tool ? 0.1 : this.snapStep; q.p = q.p.map(v => r2(this.snapOn ? Math.round(v / ps) * ps : v));
     for (const id of this.multi) { const o = this.part(id); if (o) { o.p = o.p.map(v => r2(this.snapOn ? Math.round(v / this.snapStep) * this.snapStep : v)); this.syncMesh(o); } }
     this.syncMesh(q); this.helper.setFromObject(this.meshes.get(q.id)); this.fillProps(); this.refreshChecks(); this.commit();
   }
@@ -5219,6 +5433,10 @@ class Studio {
     const s = sp ? sp.s : shape;
     const q = { id: this.nextId++, n: sp ? sp.n : SHAPE_LABEL[shape], s, p, z, r: [0, 0, 0], c: sp ? sp.c : DEF_COLOR[shape], b: sp ? sp.b : '', q: 1, st: 1 };
     if (sp && sp.tl) q.tl = sp.tl;
+    if (this.editTool != null && !sp) {                              // building a tool: small parts, right above the Handle
+      const h = this.doc.parts.find(x => x.tool === this.editTool && x.n === 'Handle') || this.doc.parts.find(x => x.tool === this.editTool);
+      q.z = [0.6, 0.6, 0.6]; q.tool = this.editTool; q.st = 0; if (h) q.p = [h.p[0], r2(h.p[1] + h.z[1] / 2 + 0.6), h.p[2]];
+    }
     this.doc.parts.push(q); this.makeMesh(q); this.select(q.id); this.commit(); this.refreshChecks();
     if (this.tool === 'select') this.setTool('translate');
     this.log('Inserted ' + q.n);
@@ -5251,13 +5469,14 @@ class Studio {
     else if (key === 't') { const v = clamp(Number(val) || 0, 0, 1); if (v > 0) q.t = Math.round(v * 100) / 100; else delete q.t; }
     else if (key === 'dcf') { if (q.dc && DECAL_FACES.some(f => f[0] === val)) q.dc = { img: q.dc.img, f: val }; }
     else if (key === 'st') q.st = val ? 1 : 0;
-    else { const t = key[0], i = +key[1], v = Number(val); if (!Number.isFinite(v)) return this.fillProps(); if (t === 'p') q.p[i] = v; else if (t === 'z') q.z[i] = Math.max(0.1, Math.min(2048, v)); else if (t === 'r') q.r[i] = this.mode === 'place' && i !== 1 ? 0 : v; }
+    else { const t = key[0], i = +key[1], v = Number(val); if (!Number.isFinite(v)) return this.fillProps(); if (t === 'p') q.p[i] = v; else if (t === 'z') q.z[i] = Math.max(0.1, Math.min(2048, v)); else if (t === 'r') q.r[i] = this.mode === 'place' && i !== 1 && !q.tool ? 0 : v; }
     this.syncMesh(q); const m = this.meshes.get(q.id); if (m) this.helper.setFromObject(m);
     this.fillProps(); this.renderExplorer(); this.refreshChecks(); this.commit();
   }
   /* ---------------- panels ---------------- */
   renderExplorer() {
     const el = $('#cs-explorer'); if (!el) return;
+    this.renderGuiOv();
     if (this.mode === 'place') return this.renderTree(el);
     el.innerHTML = (this.mode === 'place' ? `<div class="cs-row top">Workspace</div>` : '') + this.doc.parts.map(q => `<div class="cs-row${q.id === this.sel ? ' sel' : ''}" data-cs="sel:${q.id}"><span class="ico">${ICONS[q.b === 'tool' ? 'tool' : q.b && SPECIALS[q.b] ? q.b : q.s] || ''}</span>${esc(q.n)}</div>`).join('') || '<div class="cs-row muted">No parts yet</div>';
   }
@@ -5272,7 +5491,7 @@ class Studio {
       <div class="cs-prow"><label>Shape</label><select data-p="s">${SHAPES.map(s => `<option value="${s}">${SHAPE_LABEL[s]}</option>`).join('')}</select></div>
       <div class="cs-prow v3"><label>Position</label>${num('p0', 0.1)}${num('p1', 0.1)}${num('p2', 0.1)}</div>
       <div class="cs-prow v3"><label>Size</label>${num('z0', 0.1)}${num('z1', 0.1)}${num('z2', 0.1)}</div>
-      <div class="cs-prow v3"><label>Rotation</label>${place ? '<input type="number" disabled value="0"><input type="number" data-p="r1" step="90"><input type="number" disabled value="0">' : num('r0', 15) + num('r1', 15) + num('r2', 15)}</div>
+      <div class="cs-prow v3"><label>Rotation</label>${place && !q.tool ? '<input type="number" disabled value="0"><input type="number" data-p="r1" step="90"><input type="number" disabled value="0">' : num('r0', 15) + num('r1', 15) + num('r2', 15)}</div>
       <div class="cs-prow"><label>Color</label><div class="cs-sw">${PALETTE.map(c => `<i data-col="${c[1]}" title="${esc(c[0])}" style="background:${c[1]}"></i>`).join('')}</div></div>
       <div class="cs-prow"><label>Custom</label><input type="color" data-p="c"></div>
       <div class="cs-prow"><label>Transparency</label><input type="number" data-p="t" min="0" max="1" step="0.1"></div>
@@ -5303,17 +5522,17 @@ class Studio {
     if (note) { note.hidden = false; note.className = 'cs-note' + (bad.length ? ' bad' : ''); note.textContent = bad.length ? `${bad.length} part${bad.length > 1 ? 's are' : ' is'} outside the blue lines (red). Move or shrink ${bad.length > 1 ? 'them' : 'it'} to publish.` : `Parts: ${this.doc.parts.length}/30. Everything is inside the blue lines.`; }
   }
   /* ---------------- history, save/load ---------------- */
-  snapState() { const d = this.doc; return JSON.stringify(this.mode === 'place' ? { parts: d.parts, light: d.light, pack: d.pack, gui: d.gui, scripts: d.scripts, sounds: d.sounds, storage: d.storage } : { parts: d.parts }); }
+  snapState() { const d = this.doc; return JSON.stringify(this.mode === 'place' ? { parts: d.parts, light: d.light, pack: d.pack, gui: d.gui, scripts: d.scripts, sounds: d.sounds, storage: d.storage, remotes: d.remotes, tools: d.tools } : { parts: d.parts }); }
   commit(initial) {
     const snap = this.snapState();
     if (!initial && this.hist[this.hi] === snap) return;
     this.hist = this.hist.slice(0, this.hi + 1); this.hist.push(snap); if (this.hist.length > 80) this.hist.shift(); this.hi = this.hist.length - 1;
     if (this.mode === 'place') store.set('studioAuto', this.doc); else store.set('itemAuto_' + this.kind, this.doc.parts);
   }
-  restore() { Object.assign(this.doc, JSON.parse(this.hist[this.hi])); this.rebuildAll(); if (this.mode === 'place') this.applyLighting(); }
+  restore() { Object.assign(this.doc, JSON.parse(this.hist[this.hi])); if (this.editTool != null && !this.doc.parts.some(q => q.tool === this.editTool)) this.endToolEdit(); this.rebuildAll(); if (this.mode === 'place') this.applyLighting(); }
   undo() { if (this.hi > 0) { this.hi--; this.restore(); } }
   redo() { if (this.hi < this.hist.length - 1) { this.hi++; this.restore(); } }
-  load(doc) { this.doc = this.mode === 'place' ? normalizeDoc(doc) : doc; this.nextId = 1 + doc.parts.concat(doc.storage || []).reduce((m, p) => Math.max(m, p.id || 0), 0); this.sel = null; this.multi.clear(); this.osel = null; this.scriptId = null; $('#cs-script').hidden = true; this.hist = []; this.hi = -1; this.rebuildAll(); this.commit(true); this.setTitle(); this.applyLighting(); }
+  load(doc) { this.doc = this.mode === 'place' ? normalizeDoc(doc) : doc; this.nextId = 1 + doc.parts.concat(doc.storage || []).reduce((m, p) => Math.max(m, p.id || 0), 0); this.sel = null; this.multi.clear(); this.osel = null; this.scriptId = null; $('#cs-script').hidden = true; this.hist = []; this.hi = -1; this.editTool = null; this.resumeToolEdit(); this.rebuildAll(); this.commit(true); this.setTitle(); this.applyLighting(); }
   async act(a) {
     const item = this.mode === 'item';
     switch (a) {
@@ -5322,7 +5541,7 @@ class Studio {
       case 'focus': { const m = this.meshes.get(this.sel); if (m) { const b = new THREE.Box3().setFromObject(m), c = new THREE.Vector3(), s = new THREE.Vector3(); b.getCenter(c); b.getSize(s); const d = Math.max(3, s.length() * 2); this.orbit.target.copy(c); this.camera.position.copy(c).add(new THREE.Vector3(d * 0.7, d * 0.5, d * 0.8)); } return; }
       case 'snap': this.snapOn = !this.snapOn; this.applySnap(); return this.log('Snap to grid: ' + (this.snapOn ? 'on' : 'off'));
       case 'help': return dialog({ title: 'Controls and Shortcuts', html: '<p><b>Camera:</b> hold the right mouse button and drag to look around, use the wheel to zoom, middle-drag to pan' + (item ? '.' : ', and W A S D / Q E to fly.') + '</p><p><b>Tools:</b> <b>1</b> Select, <b>2</b> Move, <b>3</b> Scale, <b>4</b> Rotate. Drag the colored handles, or type exact numbers in Properties.</p><p><b>Selecting:</b> click a part. Shift+click adds or removes parts, so you can move several at once or save them as a model.</p><p><b>Shortcuts:</b> Ctrl+Z undo, Ctrl+Y redo, Ctrl+D duplicate, Delete removes, F focuses the selection, Ctrl+S saves, F5 plays.</p>' });
-      case 'about': return dialog({ title: 'About CartStudio', html: '<p><b>CartStudio (Beta)</b></p><p>Build places for Cartblox. Scripts are made from safe "When ... do ..." blocks, and every script shows a Lua-style code view so you can learn how real scripts look. This is an early version, so some small bugs are still around.</p>' });
+      case 'about': return dialog({ title: 'About CartStudio', html: '<p><b>CartStudio 1.0</b></p><p>Build places for Cartblox. Scripts are made from safe "When ... do ..." blocks, and every script shows a Lua-style code view so you can learn how real scripts look. Make your own tools in StarterPack, put GUI on the screen, and use Server or Client scripts.</p>' });
       default: break;
     }
     if (item) {
@@ -5331,6 +5550,7 @@ class Studio {
       return;
     }
     if (a === 'new') { const d = dialog({ title: 'New Place', html: '<p>Start a new place? Unsaved changes will be lost.</p>', buttons: [{ label: 'New Place', cls: 'btn-blue', value: true }, { label: 'Cancel', value: null }] }); if (await d.promise) this.load(newPlaceDoc()); return; }
+    if (this.editTool != null && ['save', 'saveas', 'test', 'export', 'settings'].includes(a)) this.endToolEdit(true);
     if (a === 'save') return this.save(false);
     if (a === 'saveas') return this.save(true);
     if (a === 'settings') return this.settings();
@@ -5345,6 +5565,11 @@ class Studio {
     }
     if (a === 'test') return this.test();
     if (a === 'newscript') return this.newObj('script', 'sss');
+    if (a === 'newtool') return this.newTool();
+    if (a === 'tooledit') { const x = this.objOf(this.osel); if (x && this.osel.k === 'tool') this.startToolEdit(x.id); return; }
+    if (a === 'tooldone') return this.endToolEdit(true);
+    if (a === 'toolscript') return this.toolScript();
+    if (a === 'togglegui') { this.showGui = !this.showGui; this.renderGuiOv(); return this.log('GUI on screen: ' + (this.showGui ? 'shown' : 'hidden')); }
     if (a.indexOf('newobj:') === 0) { const [, k, p] = a.split(':'); this.addMenu = null; return this.newObj(k, p === 'rs' ? 'rs' : 'sss'); }
     if (a.indexOf('addmenu:') === 0) { const key = a.slice(8); this.addMenu = this.addMenu === key ? null : key; this.open[key] = true; return this.renderExplorer(); }
     if (a === 'newlabel' || a === 'newbutton') return this.newGui(a === 'newbutton' ? 'button' : 'label');
@@ -5478,6 +5703,7 @@ class Studio {
       const i = e.target.closest('[data-p]'); if (!i) return; this.setProp(i.dataset.p, i.type === 'checkbox' ? i.checked : i.value);
     });
     root.addEventListener('click', e => { const se = e.target.closest('button[data-se]'); if (se) this.onScriptButton(se.dataset.se); });
+    const gov = $('#cs-guiov'); if (gov) gov.addEventListener('pointerdown', e => this.guiPointer(e));
     $('#cs-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) this.doUpload(this.upKind, f); });
     // click to select (only when the pointer did not move: otherwise the user was dragging a handle or the camera)
     let down = null;
@@ -5578,13 +5804,15 @@ class Studio {
       svc('sss', 'ServerScriptService', 'sss', kids('sss'), add('addmenu:sss', 'Insert a Script, ModuleScript or RemoteEvent')) +
       svc('storage', 'ServerStorage', 'storage', d.storage.map(s => orow('stored', s, s.s)).join('')) +
       svc('gui', 'StarterGui', 'gui', d.gui.map(g => orow('gui', g, g.k === 'button' ? 'button' : 'label')).join(''), add('newlabel', 'Insert a TextLabel')) +
-      svc('pack', 'StarterPack', 'pack', d.pack.map(t => `<div class="cs-row ch" data-cs="obj:pack:0"><span class="ico">${ICONS.tool}</span>${esc((toolById(t) || {}).n || t)}</div>`).join(''));
+      svc('pack', 'StarterPack', 'pack', d.pack.map(t => `<div class="cs-row ch" data-cs="obj:pack:0"><span class="ico">${ICONS.tool}</span>${esc((toolById(t) || {}).n || t)}</div>`).join('') +
+        (d.tools || []).map(t => orow('tool', t, 'tool', ` <small>(${plural(t.parts.length, 'part')}${this.editTool === t.id ? ', editing' : ''})</small>`) +
+          d.scripts.filter(x => x.p === 'pack' && x.ev.tl === 'c' + t.id).map(x => `<div class="cs-sub">${scrow(x)}</div>`).join('')).join(''), add('newtool', 'Make a new Tool'));
   }
   selectObj(k, id) {
     this.multi.clear(); this.sel = null; this.helper.visible = false; this.tc.detach(); this.refreshMulti();
     this.osel = { k, id }; this.renderExplorer(); this.renderProps();
   }
-  objOf(os) { const list = { script: this.doc.scripts, remote: this.doc.remotes, gui: this.doc.gui, sound: this.doc.sounds, stored: this.doc.storage }[os && os.k]; return list ? list.find(x => x.id === os.id) || null : null; }
+  objOf(os) { const list = { script: this.doc.scripts, remote: this.doc.remotes, tool: this.doc.tools, gui: this.doc.gui, sound: this.doc.sounds, stored: this.doc.storage }[os && os.k]; return list ? list.find(x => x.id === os.id) || null : null; }
   renderObjProps() {
     const el = $('#cs-props'), os = this.osel, d = this.doc, x = this.objOf(os);
     const row = (label, html) => `<div class="cs-prow"><label>${label}</label>${html}</div>`;
@@ -5610,16 +5838,22 @@ class Studio {
         `<div class="cs-empty">${mod ? `Runs ${plural(x.acts.length, 'action')} when another script uses <b>Run a ModuleScript</b>. Great for code you use in many scripts.` : `<b>${esc(ev[1])}</b>, do ${plural(x.acts.length, 'action')}.` +
           (x.p === 'rs' ? '<br>Scripts in ReplicatedStorage only run when "Run a ModuleScript" picks them.' : x.side === 'client' ? '<br><b>Client:</b> what it does only happens on that player\'s screen.' : '<br><b>Server:</b> part changes, sounds and announcements are seen by everyone.')}</div>` +
         `<div class="cs-prow"><label></label><button class="btn btn-sm btn-blue" data-cs="act:editscript" type="button">Edit Script</button></div>` + del;
+    } else if (os.k === 'tool') {
+      const editing = this.editTool === x.id, scr = d.scripts.filter(s => s.p === 'pack' && s.ev.tl === 'c' + x.id);
+      h = `<div class="cs-pt">Tool</div>` + (TOOL_IMG['c' + x.id] ? `<div class="cs-ticon"><img src="${TOOL_IMG['c' + x.id]}" alt=""></div>` : '') + row('Name', txt('n', x.n)) + row('Players start with it', chk('start', x.start)) +
+        row('Cooldown (s)', `<input type="number" data-o="cd" min="0" max="60" step="0.05" value="${x.cd}">`) + row('Animation', sel('anim', TOOL_ANIMS, x.anim)) + row('Description', txt('desc', x.desc, 120)) +
+        `<div class="cs-empty">${plural(x.parts.length, 'part')}. ${editing ? '<b>Editing:</b> the tool is in the Workspace. Build it standing up with the <b>Handle</b> at the bottom (that is where the hand holds it), then press Done.' : 'Press <b>Edit Parts</b> to build how it looks.'} When a player clicks while holding it, its scripts run (${plural(scr.length, 'script')}).</div>` +
+        `<div class="cs-prow"><label></label>${editing ? '<button class="btn btn-sm btn-green" data-cs="act:tooldone" type="button">Done Editing</button>' : '<button class="btn btn-sm btn-blue" data-cs="act:tooledit" type="button">Edit Parts</button>'} <button class="btn btn-sm" data-cs="act:toolscript" type="button">+ When used script</button></div>` + del;
     } else if (os.k === 'remote') {
       const users = d.scripts.filter(s => (s.e === 'remote' && s.ev.rem === x.id) || s.acts.some(a => a.a === 'fire' && a.rem === x.id)).length;
       h = `<div class="cs-pt">RemoteEvent</div>` + row('Name', txt('n', x.n)) + row('Parent', sel('p', [['rs', 'ReplicatedStorage'], ['sss', 'ServerScriptService']], x.p)) +
         `<div class="cs-empty">A message scripts can send each other. One script uses <b>Fire a RemoteEvent</b>, and scripts with <b>When a RemoteEvent fires</b> run. A <b>Server</b> script firing it also runs every player's <b>Client</b> scripts. Used by ${plural(users, 'script')}.</div>` + del;
     } else if (os.k === 'gui') {
       h = `<div class="cs-pt">${x.k === 'button' ? 'TextButton' : 'TextLabel'}</div>` + row('Name', txt('n', x.n)) + row('Type', sel('k', [['label', 'TextLabel'], ['button', 'TextButton']], x.k)) +
-        row('Text', txt('text', x.text, 200)) + row('Position', sel('pos', GUI_POS, x.pos)) + row('Text size', `<input type="number" data-o="size" min="10" max="48" value="${x.size}">`) +
+        row('Text', txt('text', x.text, 200)) + row('Position', sel('pos', (x.x != null ? [['custom', 'Custom (dragged)']] : []).concat(GUI_POS), x.x != null ? 'custom' : x.pos)) + row('Width (0 = fit)', `<input type="number" data-o="w" min="0" max="1200" value="${x.w || 0}">`) + row('Height (0 = fit)', `<input type="number" data-o="h" min="0" max="800" value="${x.h || 0}">`) + row('Text size', `<input type="number" data-o="size" min="10" max="48" value="${x.size}">`) +
         row('Text color', `<input type="color" data-o="fg" value="${x.fg}">`) + row('Background', `<input type="color" data-o="bg" value="${x.bg}">`) + row('Visible', chk('vis', x.vis)) +
         `<div class="cs-gprev" style="background:${x.bg};color:${x.fg};font-size:${Math.min(22, x.size)}px">${esc(x.text)}</div>` +
-        (x.k === 'button' ? '<div class="cs-empty">Make a Script with "When a GUI button is clicked" to make it do something.</div>' : '<div class="cs-empty">Use {points} or {name} in the text.</div>') + del;
+        (x.k === 'button' ? '<div class="cs-empty">Make a Script with "When a GUI button is clicked" to make it do something.</div>' : '<div class="cs-empty">Use {points} or {name} in the text.</div>') + '<div class="cs-empty">Drag it on the screen to move it; drag the corner to resize it.</div>' + del;
     } else if (os.k === 'sound') {
       const auds = Assets.list('audio'), am = Assets.metas.get(x.a);
       h = `<div class="cs-pt">Sound</div>` + row('Name', txt('n', x.n)) + row('Audio', sel('a', (am ? [] : [[x.a, '(missing)']]).concat(auds.map(m => [m.id, m.n])), x.a)) +
@@ -5647,16 +5881,99 @@ class Studio {
       else if (key === 'on' || key === 'vis' || key === 'loop' || key === 'auto') x[key] = !!val;
       else if (key === 'p') { x.p = os.k === 'remote' ? (val === 'sss' ? 'sss' : 'rs') : (val === 'rs' ? 'rs' : 'sss'); this.open[x.p] = true; }
       else if (key === 'side') x.side = val === 'client' ? 'client' : 'server';
-      else if (key === 'cd') x.cd = Math.round(clamp(+val || 0, 0, 600) * 10) / 10;
+      else if (key === 'start') x.start = !!val;
+      else if (key === 'anim') x.anim = TOOL_ANIMS.some(a => a[0] === val) ? val : 'slash';
+      else if (key === 'desc') x.desc = cleanText(val, 120);
+      else if (key === 'cd' && os.k === 'tool') x.cd = Math.round(clamp(+val || 0, 0, 60) * 100) / 100;
+      else if (key === 'w' || key === 'h') x[key] = Math.round(clamp(+val || 0, 0, key === 'w' ? 1200 : 800));
+      else if (key === 'cd' && os.k !== 'tool') x.cd = Math.round(clamp(+val || 0, 0, 600) * 10) / 10;
       else if (key === 'k') { x.k = val === 'button' ? 'button' : 'label'; if (/^Text(Label|Button)\d*$/.test(x.n)) x.n = x.k === 'button' ? 'TextButton' : 'TextLabel'; }
       else if (key === 'text') x.text = cleanText(val, 200);
-      else if (key === 'pos') x.pos = GUI_POS.some(p => p[0] === val) ? val : 'top';
+      else if (key === 'pos') { if (val === 'custom') return; x.pos = GUI_POS.some(p => p[0] === val) ? val : 'top'; x.x = x.y = null; }
       else if (key === 'size') x.size = clamp(Math.round(+val || 18), 10, 48);
       else if (key === 'fg' || key === 'bg') x[key] = cleanHex(val, x[key]);
       else if (key === 'a') { if (ASSET_ID.test(val)) x.a = val; }
       else if (key === 'vol') x.vol = clamp(+val || 0, 0, 1);
     }
     this.renderExplorer(); this.renderProps(); this.commit();
+  }
+  /* ---------------- custom tools (StarterPack) ---------------- */
+  newTool() {
+    const d = this.doc; if (d.tools.length >= MAX_CUSTOM_TOOLS) return dialog({ title: BRAND, html: `<p>A game can have up to ${MAX_CUSTOM_TOOLS} of its own tools.</p>` });
+    const id = nextOf(d.tools), P = (n, p, z, c, s) => ({ id: 0, n, s: s || 'block', p, z, r: [0, 0, 0], c, b: '', q: 1, st: 0 });
+    d.tools.push({ id, n: 'Tool' + id, desc: '', cd: 0.5, anim: 'slash', start: true, parts: [P('Handle', [0, 0, 0], [0.35, 1.2, 0.35], '#694028', 'cylinder'), P('Guard', [0, 0.72, 0], [1.1, 0.24, 0.35], '#a3a2a5'), P('Blade', [0, 2.4, 0], [0.22, 3.1, 0.5], '#e5e4df')] });
+    d.scripts.push({ id: nextOf(d.scripts), n: 'Tool' + id + 'Script', on: true, k: 'script', p: 'pack', side: 'server', cd: 0, e: 'tooluse', ev: { tl: 'c' + id },
+      acts: [{ a: 'hitbox', x: 5, y: 5, z: 6, dmg: 20, num: 0.3, follow: 'true', fwd: 3, show: 'yes' }, { a: 'sfx', v: 'slash' }] });
+    this.toolIcon(id); this.open.pack = true; this.selectObj('tool', id); this.commit();
+    this.log('Made Tool' + id + ' in StarterPack. It swings and makes a hitbox; press Edit Parts to change how it looks, or edit its script.');
+  }
+  toolIcon(id) { const t = this.doc.tools.find(x => x.id === id); if (!t) return; try { setCustomTools(this.doc.tools); TOOL_IMG['c' + id] = renderToolImage(toolById('c' + id)); } catch (e) { /* no icon */ } }
+  startToolEdit(id) {
+    if (this.editTool != null) this.endToolEdit(true);
+    const t = this.doc.tools.find(x => x.id === id); if (!t) return;
+    const at = this.orbit.target, base = [Math.round(at.x), 4, Math.round(at.z)], ids = [];
+    for (const rel of t.parts) { const q = Object.assign(JSON.parse(JSON.stringify(rel)), { id: this.nextId++, tool: id, p: [r2(rel.p[0] + base[0]), r2(rel.p[1] + base[1]), r2(rel.p[2] + base[2])] }); this.doc.parts.push(q); this.makeMesh(q); ids.push(q.id); }
+    this.editTool = id; this.applySnap(); this.showToolNote();
+    const h = this.doc.parts.find(q => q.tool === id && q.n === 'Handle'); this.select(h ? h.id : ids[0]); ids.forEach(i => { if (i !== this.sel) this.multi.add(i); }); this.refreshMulti();
+    this.orbit.target.set(base[0], base[1] + 1.5, base[2]); this.camera.position.set(base[0] + 6, base[1] + 4, base[2] + 8);
+    this.commit(); this.renderExplorer(); this.log('Editing ' + t.n + '. Insert parts to add them to the tool. Press Done when finished.');
+  }
+  endToolEdit(save) {
+    const id = this.editTool; if (id == null) return; this.editTool = null;
+    const t = this.doc.tools.find(x => x.id === id), mine = this.doc.parts.filter(q => q.tool === id);
+    if (t && save !== false && mine.length) {
+      const h = mine.find(q => q.n === 'Handle') || mine[0];
+      t.parts = mine.slice(0, 60).map(q => ({ id: 0, n: q.n, s: q.s, p: [r2(q.p[0] - h.p[0]), r2(q.p[1] - h.p[1]), r2(q.p[2] - h.p[2])], z: q.z.slice(), r: q.r.slice(), c: q.c, b: '', q: 1, st: q.st, ...(q.t > 0 ? { t: q.t } : {}) }));
+    }
+    mine.forEach(q => this.dropMesh(q.id)); this.doc.parts = this.doc.parts.filter(q => q.tool !== id);
+    this.select(null); this.applySnap(); const n = $('#cs-note'); if (n) { n.hidden = true; n.className = 'cs-note'; n.innerHTML = ''; }
+    if (t) { this.toolIcon(id); this.selectObj('tool', id); this.log('Saved ' + t.n + ' (' + plural(t.parts.length, 'part') + ').'); }
+    this.commit(); this.renderExplorer();
+  }
+  resumeToolEdit() { const q = this.doc.parts.find(x => x.tool != null); if (q && this.doc.tools.some(t => t.id === q.tool)) { this.editTool = q.tool; this.showToolNote(); } else this.doc.parts = this.doc.parts.filter(x => x.tool == null); }
+  showToolNote() {
+    const n = $('#cs-note'), t = this.doc.tools.find(x => x.id === this.editTool); if (!n || !t) return;
+    n.hidden = false; n.className = 'cs-note tool'; n.innerHTML = `Editing <b>${esc(t.n)}</b>: build it standing up, with the <b>Handle</b> at the bottom. Inserted parts join the tool. <button class="btn btn-sm btn-green" data-cs="act:tooldone" type="button">Done</button>`;
+  }
+  toolScript() {
+    const x = this.objOf(this.osel); if (!x || this.osel.k !== 'tool') return;
+    const d = this.doc; if (d.scripts.length >= 60) return dialog({ title: BRAND, html: '<p>A place can have up to 60 scripts and modules.</p>' });
+    const id = nextOf(d.scripts);
+    d.scripts.push({ id, n: x.n + 'Script' + (d.scripts.some(s => s.n === x.n + 'Script') ? id : ''), on: true, k: 'script', p: 'pack', side: 'server', cd: 0, e: 'tooluse', ev: { tl: 'c' + x.id }, acts: [{ a: 'shoot', dmg: 15, sp: 120, size: 1, c: '#ff6a00', drop: 'no' }] });
+    this.commit(); this.renderExplorer(); this.openScript(id);
+  }
+  /* ---------------- GUI on the editor screen ---------------- */
+  renderGuiOv() {
+    const ov = $('#cs-guiov'); if (!ov) return;
+    const d = this.doc, os = this.osel;
+    if (this.mode !== 'place' || !this.showGui || !d.gui || !d.gui.length) { ov.innerHTML = ''; return; }
+    if (ov.dataset.drag) return;
+    ov.innerHTML = '';
+    for (const g of d.gui) {
+      const selected = os && os.k === 'gui' && os.id === g.id; if (g.vis === false && !selected) continue;
+      const el = document.createElement('div'), xy = g.x != null ? [g.x, g.y] : GUI_PRESET_XY[g.pos] || [50, 50];
+      el.className = 'ggui gfree cs-gui' + (g.k === 'button' ? ' gbutton' : '') + (selected ? ' sel' : '') + (g.vis === false ? ' ghost' : '');
+      guiStyle(el, Object.assign({}, g, { x: xy[0], y: xy[1] })); el.textContent = g.text.replace(/\{points\}/g, '0').replace(/\{name\}/g, S.user); el.dataset.gid = g.id;
+      if (selected) { const k = document.createElement('i'); k.className = 'cs-grs'; el.appendChild(k); }
+      ov.appendChild(el);
+    }
+  }
+  guiPointer(e) {
+    const el = e.target.closest('.cs-gui'); if (!el || e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    const id = +el.dataset.gid, g = this.doc.gui.find(x => x.id === id); if (!g) return;
+    if (!(this.osel && this.osel.k === 'gui' && this.osel.id === id)) { this.open.gui = true; this.selectObj('gui', id); return; }
+    const ov = $('#cs-guiov'), r = ov.getBoundingClientRect(), resize = e.target.classList.contains('cs-grs');
+    const xy = g.x != null ? [g.x, g.y] : GUI_PRESET_XY[g.pos] || [50, 50], w0 = el.offsetWidth, h0 = el.offsetHeight, sx = e.clientX, sy = e.clientY;
+    ov.dataset.drag = '1'; let moved = false;
+    const mv = ev => {
+      const dx = ev.clientX - sx, dy = ev.clientY - sy; if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+      if (resize) { g.w = Math.round(clamp(w0 + dx * 2, 30, 1200)); g.h = Math.round(clamp(h0 + dy * 2, 16, 800)); }
+      else { g.x = Math.round(clamp(xy[0] + dx / r.width * 100, 0, 100) * 10) / 10; g.y = Math.round(clamp(xy[1] + dy / r.height * 100, 0, 100) * 10) / 10; }
+      guiStyle(el, g);
+    };
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); delete ov.dataset.drag; if (moved) { this.commit(); this.renderProps(); } this.renderGuiOv(); };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   }
   newObj(kind, parent) {
     const d = this.doc, where = parent === 'rs' ? 'ReplicatedStorage' : 'ServerScriptService';
@@ -5682,7 +5999,8 @@ class Studio {
   }
   delObj() {
     const os = this.osel, d = this.doc; if (!os) return;
-    const key = { script: 'scripts', remote: 'remotes', gui: 'gui', sound: 'sounds', stored: 'storage' }[os.k]; if (!key) return;
+    if (os.k === 'tool') { if (this.editTool === os.id) this.endToolEdit(false); d.scripts = d.scripts.filter(x => !(x.p === 'pack' && x.ev.tl === 'c' + os.id)); }
+    const key = { script: 'scripts', remote: 'remotes', tool: 'tools', gui: 'gui', sound: 'sounds', stored: 'storage' }[os.k]; if (!key) return;
     d[key] = d[key].filter(x => x.id !== os.id); if (this.scriptId === os.id && os.k === 'script') this.closeScript();
     this.osel = null; this.renderExplorer(); this.renderProps(); this.commit();
   }
@@ -5730,7 +6048,10 @@ class Studio {
       case 'remote': return opts(d.remotes, o => o.n + (o.p === 'rs' ? '' : ' (ServerScriptService)'));
       case 'mod': return opts(d.scripts.filter(o => o.id !== this.scriptId && (o.k === 'module' || o.p === 'rs')), o => o.n + (o.k === 'module' ? ' (ModuleScript)' : ' (Script in ReplicatedStorage)'));
       case 'key': return `<select data-se="arg:${path}">${KEYS.map(k => `<option${k === val ? ' selected' : ''}>${k}</option>`).join('')}</select>`;
-      case 'tool': return `<select data-se="arg:${path}">${TOOLS.map(t => `<option value="${t.id}"${t.id === val ? ' selected' : ''}>${esc(t.n)}</option>`).join('')}</select>`;
+      case 'tool': case 'ptool': {
+        const list = (type === 'ptool' ? [['', 'Any tool']] : []).concat((d.tools || []).map(t => ['c' + t.id, t.n + ' (my tool)']), TOOLS.map(t => [t.id, t.n]));
+        return `<select data-se="arg:${path}">${list.map(o => `<option value="${o[0]}"${o[0] === val ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
+      }
       case 'sel': return `<select data-se="arg:${path}">${def.map(v => `<option${v === val ? ' selected' : ''}>${v}</option>`).join('')}</select>`;
       case 'num': return `<input type="number" step="any" data-se="arg:${path}" value="${val}">`;
       case 'color': return `<input type="color" data-se="arg:${path}" value="${val}">`;
@@ -5764,7 +6085,7 @@ class Studio {
       const path = k.slice(4).split('.'), obj = path[0] === 'ev' ? s.ev : s.acts[+path[1]], key = path[path.length - 1];
       const defs = path[0] === 'ev' ? evDef(s.e)[2] : actDef(obj.a)[2], def = defs.find(x => x[0] === key); if (!obj || !def) return;
       const type = def[1];
-      obj[key] = type === 'num' ? cleanNum(el.value, def[3] || 0, -100000, 100000) : ['part', 'store', 'gui', 'sound', 'remote', 'mod'].includes(type) ? (parseInt(el.value, 10) || 0) : type === 'key' ? (KEYS.includes(el.value) ? el.value : 'E') : type === 'text' ? cleanText(el.value, 200) : type === 'color' ? cleanHex(el.value, def[3]) : el.value;
+      obj[key] = type === 'num' ? cleanNum(el.value, def[3] || 0, -100000, 100000) : ['part', 'store', 'gui', 'sound', 'remote', 'mod'].includes(type) ? (parseInt(el.value, 10) || 0) : type === 'ptool' || type === 'tool' ? cleanArgs([[key, type, '', def[3]]], { [key]: el.value })[key] : type === 'key' ? (KEYS.includes(el.value) ? el.value : 'E') : type === 'text' ? cleanText(el.value, 200) : type === 'color' ? cleanHex(el.value, def[3]) : el.value;
     }
     this.commit(); this.renderScript(); this.renderExplorer(); if (this.osel && this.osel.k === 'script') this.renderProps();
   }
@@ -5852,10 +6173,10 @@ function growHTML(g) {
     <a class="btn btn-green" href="#/game/${g.id}">Play</a></div>`;
 }
 function friendHTML(f) {
-  return `<div class="friend"><div class="fav">${avatarSVG(f.c)}<i class="dot${f.on ? ' on' : ''}"></i></div><a>${esc(f.name)}</a><div class="st">${esc(f.st)}</div></div>`;
+  return `<div class="friend"><div class="fav">${avatar3D(f.c)}<i class="dot${f.on ? ' on' : ''}"></i></div><a>${esc(f.name)}</a><div class="st">${esc(f.st)}</div></div>`;
 }
 function postHTML(p) {
-  return `<div class="post"><div class="pav">${avatarSVG(p.c)}</div><div class="pb"><div class="pn"><a>${esc(p.name)}</a></div><div class="px">${esc(p.text)}</div><div class="pt">${esc(p.ago)}</div></div></div>`;
+  return `<div class="post"><div class="pav">${avatar3D(p.c)}</div><div class="pb"><div class="pn"><a>${esc(p.name)}</a></div><div class="px">${esc(p.text)}</div><div class="pt">${esc(p.ago)}</div></div></div>`;
 }
 function colorsFor(name) { if (name === S.user) return S.colors; const f = FRIENDS.find(q => q.name === name); if (f) return f.c; const pal = FRIENDS.map(q => q.c); let h = 0; for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return pal[h % pal.length]; }
 function feedHTML() {
@@ -5964,7 +6285,7 @@ function viewCharacter() {
 function viewStudioHome() {
   const docs = store.get('places', {}), places = Object.keys(docs);
   return `<div class="studio-hero">
-    <div class="sh-text"><span class="beta">BETA</span><h1>Build anything.</h1><h2>CartStudio</h2>
+    <div class="sh-text"><span class="beta">NEW: Tools and Scripts</span><h1>Build anything.</h1><h2>CartStudio</h2>
       <p>Make your own places with blocks, balls, ramps, spawn points and checkpoints, then press <b>Play Solo</b> to run around in them. You can also design hats and hair for the Catalog.</p>
       <button class="btn btn-green btn-lg" data-act="studio-play" type="button">Play</button> <a class="btn btn-lg" href="#/dashboard">Dashboard</a>
       <div class="small muted" style="margin-top:8px">Opens CartStudio right here in your browser. Nothing to download.</div></div>
@@ -6097,8 +6418,8 @@ async function runStatus() {
       if (r.ok && j && j.ok) {
         set('st-health', 'OK (' + (ms > 3000 ? (ms / 1000).toFixed(1) + ' s, it was asleep' : ms + ' ms') + ')', 'good');
         const s = await Net.stats(); set('st-stats', s ? plural(s.players, 'player') + ' in ' + plural(s.rooms, 'room') : 'unknown');
-        if ((Number(j.v) || 0) >= 4) set('st-hint', 'The server is public, running and up to date (version ' + j.v + '). Games connect to it automatically.');
-        else { set('st-health', 'Running, but it is an OLD version' + (j.v ? ' (' + esc(j.v) + ')' : '') + '. It needs version 4.', 'bad'); set('st-hint', 'Tools and Server scripts need the new server. Upload the new <b>server/server.js</b> to GitHub; Render redeploys by itself (or press <b>Manual Deploy</b> > <b>Deploy latest commit</b> in Render). Then check here again.'); }
+        if ((Number(j.v) || 0) >= 5) set('st-hint', 'The server is public, running and up to date (version ' + j.v + '). Games connect to it automatically.');
+        else { set('st-health', 'Running, but it is an OLD version' + (j.v ? ' (' + esc(j.v) + ')' : '') + '. It needs version 5.', 'bad'); set('st-hint', 'Tools and Server scripts need the new server. Upload the new <b>server/server.js</b> to GitHub; Render redeploys by itself (or press <b>Manual Deploy</b> > <b>Deploy latest commit</b> in Render). Then check here again.'); }
       } else {
         set('st-health', 'Something answered (HTTP ' + r.status + ') but it is not the Cartblox server.', 'bad'); set('st-stats', '-');
         set('st-hint', 'In Render, open your service: it must be a <b>Web Service</b> built from the <b>Dockerfile</b> (Language: Docker) and show <b>Live</b>. Then open ' + esc(Net.httpUrl()) + '/health in a new tab: you should see {"ok":true}.');
