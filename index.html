@@ -726,6 +726,20 @@ a.pcard:hover{ text-decoration:none; color:inherit; border-color:#bdd0e3; backgr
 .av3{ display:flex; width:100%; height:100%; align-items:flex-end; justify-content:center; }
 .av3 .av-img{ width:100%; height:100%; object-fit:cover; display:block; }
 .cs-note.tool[hidden]{ display:none; }
+/* toolbox: Models / Scripts library */
+.cs-sub2{ display:flex; gap:4px; padding:6px 6px 0; }
+.cs-sub2 button{ flex:1; padding:3px 4px; font:bold 11px "Segoe UI",Arial; border:1px solid #98a5b8; border-radius:10px; background:#eef2f8; color:#223; cursor:pointer; }
+.cs-sub2 button.on{ background:#2f7bd6; border-color:#1d4f8c; color:#fff; }
+.cs-ph2{ margin:6px 6px 2px; font:bold 11px "Segoe UI",Arial; color:#1d4f8c; border-bottom:1px solid #c8d3e3; padding-bottom:2px; }
+.cs-slist{ display:flex; flex-direction:column; gap:4px; padding:4px 6px 8px; }
+.cs-swrap{ position:relative; }
+.cs-scard{ display:grid; grid-template-columns:26px 1fr; grid-template-rows:auto auto; column-gap:6px; align-items:center; padding:5px 6px; background:#fff; border:1px solid #c3cddb; border-radius:4px; cursor:pointer; position:relative; }
+.cs-scard:hover{ border-color:#2f7bd6; background:#f2f7fe; }
+.cs-scard .ic{ grid-row:1 / span 2; font-size:18px; text-align:center; }
+.cs-scard b{ font:bold 12px "Segoe UI",Arial; color:#1b2a35; }
+.cs-scard small{ font:10px/1.3 "Segoe UI",Arial; color:#5a6878; }
+.cs-scard i{ position:absolute; right:5px; top:4px; font:normal 9px Arial; color:#2f7bd6; }
+.cs-sdel{ position:absolute; right:3px; bottom:3px; width:18px; height:18px; padding:0; border:1px solid #c3cddb; border-radius:3px; background:#fff; color:#a33; cursor:pointer; line-height:14px; }
 
 </style>
 </head>
@@ -3198,7 +3212,7 @@ const SCRIPT_ACTIONS = [
   ['stop', 'Stop a sound', [['snd', 'sound', 'Sound']]],
   ['gui', 'Change GUI text', [['gui', 'gui', 'GUI'], ['text', 'text', 'Text', 'Points: {points}']]],
   ['guivis', 'Show or hide a GUI', [['gui', 'gui', 'GUI'], ['v', 'sel', 'Make it', ['show', 'hide']]]],
-  ['velocity', 'Push the player (velocity)', [['x', 'num', 'Move X', 0], ['y', 'num', 'Move Y', 0], ['z', 'num', 'Move Z', 60], ['num', 'num', 'Time (seconds)', 0.25], ['rel', 'sel', 'Directions', ['facing', 'world']]]],
+  ['velocity', 'Push the player (velocity)', [['x', 'num', 'Move X', 0], ['y', 'num', 'Move Y', 0], ['z', 'num', 'Move Z', 60], ['num', 'num', 'Time (seconds)', 0.25], ['rel', 'sel', 'Directions', ['facing', 'world']], ['track', 'sel', 'Tracking (follow the camera)', ['no', 'yes']], ['fade', 'num', 'Fade out (seconds)', 0]]],
   ['hitbox', 'Make a hitbox', [['x', 'num', 'Size X', 6], ['y', 'num', 'Size Y', 5], ['z', 'num', 'Size Z', 6], ['dmg', 'num', 'Damage', 20], ['num', 'num', 'Time (seconds)', 0.3], ['follow', 'sel', 'Follow the player', ['true', 'false']], ['fwd', 'num', 'Distance in front', 3], ['show', 'sel', 'Show it', ['yes', 'no']]]],
   ['shoot', 'Shoot a projectile', [['dmg', 'num', 'Damage', 15], ['sp', 'num', 'Speed', 120], ['size', 'num', 'Size', 1], ['c', 'color', 'Color', '#ff6a00'], ['drop', 'sel', 'Drops down', ['no', 'yes']]]],
   ['explode', 'Make an explosion', [['dmg', 'num', 'Damage', 40], ['rad', 'num', 'Radius', 9], ['at', 'sel', 'Where', ['aim', 'player']]]],
@@ -3290,7 +3304,7 @@ function scriptPreview(s, doc) {
     move: `TweenService:Create(${P(a.part)}, TweenInfo.new(${a.num}), {Position = ${P(a.part)}.Position + Vector3.new(${a.x}, ${a.y}, ${a.z})}):Play()`,
     clone: `ServerStorage.${nm(doc.storage, a.store, 'Part')}:Clone().Parent = workspace`, sound: `workspace.${nm(doc.sounds, a.snd, 'Sound')}:Play()`, stop: `workspace.${nm(doc.sounds, a.snd, 'Sound')}:Stop()`,
     gui: `StarterGui.${nm(doc.gui, a.gui, 'Label')}.Text = ${q(a.text)}`, guivis: `StarterGui.${nm(doc.gui, a.gui, 'Label')}.Visible = ${a.v === 'show'}`,
-    velocity: `rootPart.AssemblyLinearVelocity = Vector3.new(${a.x}, ${a.y}, ${a.z})  -- ${a.rel === 'world' ? 'world directions' : 'X = right, Z = forward'}, for ${a.num}s`,
+    velocity: `rootPart.AssemblyLinearVelocity = Vector3.new(${a.x}, ${a.y}, ${a.z})  -- ${a.track === 'yes' ? 'follows the camera' : a.rel === 'world' ? 'world directions' : 'X = right, Z = forward'}, for ${a.num}s${a.fade > 0 ? ', fades out over ' + a.fade + 's' : ''}`,
     hitbox: `createHitbox({Size = Vector3.new(${a.x}, ${a.y}, ${a.z}), Damage = ${a.dmg}, Time = ${a.num}, Follow = ${a.follow}})`,
     shoot: `shootProjectile({Damage = ${a.dmg}, Speed = ${a.sp}, Size = ${a.size}, Color = ${q(a.c)}})`,
     explode: `local boom = Instance.new("Explosion")  boom.BlastRadius = ${a.rad}  -- damage ${a.dmg}, at ${a.at === 'aim' ? 'where you aim' : 'the player'}`,
@@ -3440,7 +3454,7 @@ const Scripts = {
       case 'gui': { const el = R.sc.gui.get(a.gui); if (el) { el.dataset.tpl = a.text; el.textContent = this.fill(a.text); } break; }
       case 'guivis': { const el = R.sc.gui.get(a.gui); if (el) el.hidden = a.v === 'hide'; break; }
       case 'fire': this.fireRemote(a.rem, ctx); break;
-      case 'velocity': if (P.alive) P.push = { x: clamp(a.x, -500, 500), y: clamp(a.y, -500, 500), z: clamp(a.z, -500, 500), t: clamp(a.num, 0, 10), rel: a.rel !== 'world', face: P.face }; break;
+      case 'velocity': if (P.alive) { const fade = clamp(a.fade || 0, 0, 10); P.push = { x: clamp(a.x, -500, 500), y: clamp(a.y, -500, 500), z: clamp(a.z, -500, 500), t: clamp(a.num, 0, 10), rel: a.rel !== 'world' || a.track === 'yes', track: a.track === 'yes', face: P.face, fade, fl: fade }; } break;
       case 'hitbox': Tools.hitbox(a, true); break;
       case 'shoot': Tools.shoot(a); break;
       case 'explode': Tools.scriptBoom(a); break;
@@ -4020,12 +4034,17 @@ function physics(dt) {
   if (P.onGround) P.coyote = 0.09;
   if (!busy && (keys.Space || jumpHeld) && P.coyote > 0) { P.vy = P.jump != null ? P.jump : PHYS.JUMP; P.coyote = 0; P.onGround = false; Sfx.play('jump'); }
   P.vy = Math.max(P.vy - PHYS.G * (P.gravMul || 1) * (P.gravS == null ? 1 : P.gravS) * dt, -280);
-  if (P.push && P.push.t > 0) {                                     // "Push the player (velocity)" from a script
-    const u = P.push, s = Math.sin(u.face), c = Math.cos(u.face);
-    const vx = u.rel ? u.z * s - u.x * c : u.x, vz = u.rel ? u.z * c + u.x * s : u.z;   // facing: Z = forward, X = right
-    P.vx = vx + inp.x * walk * 0.3; P.vz = vz + inp.z * walk * 0.3;
-    if (u.y) { P.vy = u.y; P.onGround = false; P.ground = null; }
-    u.t -= dt; if (u.t <= 0) P.push = null;
+  if (P.push) {                                                     // "Push the player (velocity)" from a script
+    const u = P.push; let k = 1;
+    if (u.t > 0) u.t -= dt; else if (u.fl > 0) { u.fl -= dt; k = Math.max(0, u.fl / u.fade); } else k = 0;   // fade: slows down smoothly
+    if (k <= 0) P.push = null;
+    else {
+      if (u.track) { u.face = R.cam.yaw + Math.PI; P.face = u.face; }                  // tracking: go where the camera looks
+      const s = Math.sin(u.face), c = Math.cos(u.face), mix = 1 - 0.7 * k;
+      const vx = u.rel ? u.z * s - u.x * c : u.x, vz = u.rel ? u.z * c + u.x * s : u.z;   // facing: Z = forward, X = right
+      P.vx = vx * k + inp.x * walk * mix; P.vz = vz * k + inp.z * walk * mix;
+      if (u.y) { P.vy = u.y * k; P.onGround = false; P.ground = null; }
+    }
   }
 
   const was = P.onGround;
@@ -5064,6 +5083,62 @@ function gearToggle(id) {
   store.set('gear', S.gear);
 }
 
+/* ====================== CARTBLOX LIBRARY: premade scripts + models for the CartStudio Toolbox ======================
+   Scripts use part "keys" (a, b ...): when inserted, a selected part is used for "a"; anything missing is built for you. */
+const LP = (n, s, p, z, c, extra) => Object.assign({ n, s, p, z, r: [0, 0, 0], c, b: '', q: 1, st: 1 }, extra || {});
+const CB_SCRIPTS = [
+  { id: 'dash', n: 'E to Dash', icon: '&#9889;', desc: 'Press E to dash where your camera looks, then slow down smoothly.',
+    s: { n: 'Dash', e: 'key', ev: { key: 'E' }, cd: 1, acts: [{ a: 'velocity', x: 0, y: 0, z: 95, num: 0.18, rel: 'facing', track: 'yes', fade: 0.3 }, { a: 'emote', v: 'lunge' }, { a: 'sfx', v: 'lunge' }] } },
+  { id: 'superjump', n: 'Super Jump', icon: '&#11014;', desc: 'Everyone jumps more than twice as high.',
+    s: { n: 'SuperJump', e: 'start', ev: {}, acts: [{ a: 'jump', num: 115 }, { a: 'hint', text: 'Super jump is on!' }] } },
+  { id: 'launch', n: 'Q to Launch Up', icon: '&#128640;', desc: 'Press Q to blast straight up into the air.',
+    s: { n: 'LaunchUp', e: 'key', ev: { key: 'Q' }, cd: 2, acts: [{ a: 'velocity', x: 0, y: 110, z: 0, num: 0.2, rel: 'world', track: 'no', fade: 0.25 }, { a: 'sfx', v: 'bounce' }] } },
+  { id: 'sprint', n: 'Shift to Sprint', icon: '&#127939;', desc: 'Press Shift to run fast for 3 seconds.',
+    s: { n: 'Sprint', e: 'key', ev: { key: 'Shift' }, cd: 6, acts: [{ a: 'speed', num: 30 }, { a: 'hint', text: 'Sprinting!' }, { a: 'wait', num: 3 }, { a: 'speed', num: 16 }] } },
+  { id: 'fireball', n: 'F for Fireball', icon: '&#128293;', desc: 'Press F to throw a fireball where you aim.',
+    s: { n: 'Fireball', e: 'key', ev: { key: 'F' }, cd: 0.8, acts: [{ a: 'emote', v: 'shoot' }, { a: 'shoot', dmg: 20, sp: 140, size: 1.6, c: '#ff6a00', drop: 'no' }, { a: 'sfx', v: 'rocket' }] } },
+  { id: 'slam', n: 'G for Ground Slam', icon: '&#128165;', desc: 'Press G to jump, slam down and blast everyone nearby.',
+    s: { n: 'GroundSlam', e: 'key', ev: { key: 'G' }, cd: 4, acts: [{ a: 'velocity', x: 0, y: 60, z: 0, num: 0.2, rel: 'world', track: 'no', fade: 0 }, { a: 'wait', num: 0.35 }, { a: 'velocity', x: 0, y: -200, z: 0, num: 0.3, rel: 'world', track: 'no', fade: 0 }, { a: 'wait', num: 0.3 }, { a: 'explode', dmg: 35, rad: 11, at: 'player' }] } },
+  { id: 'zoom', n: 'Z to Zoom', icon: '&#128269;', desc: 'Press Z to zoom your camera in for 3 seconds (only you see it).',
+    s: { n: 'Zoom', side: 'client', e: 'key', ev: { key: 'Z' }, cd: 3, acts: [{ a: 'fov', num: 35 }, { a: 'wait', num: 3 }, { a: 'fov', num: 70 }] } },
+  { id: 'coin', n: 'Coin', icon: '&#129689;', desc: 'Touch the coin for a point. It comes back after 8 seconds.',
+    parts: { a: LP('Coin', 'cylinder', [0, 3, 0], [2.4, 0.5, 2.4], '#f5cd30', { q: 0 }) },
+    s: { n: 'CoinScript', e: 'touch', ev: { part: 'a' }, cd: 0.5, acts: [{ a: 'points', num: 1 }, { a: 'sfx', v: 'checkpoint' }, { a: 'hide', part: 'a', num: 8 }] } },
+  { id: 'heal', n: 'Healing Pad', icon: '&#10010;', desc: 'Standing on the pad heals 25 health every second.',
+    parts: { a: LP('HealPad', 'block', [0, 0.3, 0], [6, 0.6, 6], '#4b974b') },
+    s: { n: 'HealPad', e: 'touch', ev: { part: 'a' }, cd: 1, acts: [{ a: 'heal', num: 25 }, { a: 'sfx', v: 'drink' }] } },
+  { id: 'launchpad', n: 'Launch Pad', icon: '&#127919;', desc: 'Touch the pad to get launched high into the air.',
+    parts: { a: LP('LaunchPad', 'block', [0, 0.3, 0], [6, 0.6, 6], '#ff66cc') },
+    s: { n: 'LaunchPad', e: 'touch', ev: { part: 'a' }, cd: 0.5, acts: [{ a: 'velocity', x: 0, y: 150, z: 0, num: 0.15, rel: 'world', track: 'no', fade: 0 }, { a: 'sfx', v: 'bounce' }] } },
+  { id: 'teleport', n: 'Teleporter', icon: '&#127744;', desc: 'Step on the blue pad to teleport to the purple pad.',
+    parts: { a: LP('TeleportA', 'block', [0, 0.3, 0], [5, 0.6, 5], '#04afec'), b: LP('TeleportB', 'block', [24, 0.3, 0], [5, 0.6, 5], '#6b327c') },
+    s: { n: 'Teleporter', e: 'touch', ev: { part: 'a' }, cd: 1, acts: [{ a: 'tp', part: 'b' }, { a: 'sfx', v: 'pop' }] } },
+  { id: 'chest', n: 'Lucky Chest', icon: '&#127873;', desc: 'Touch the chest: 30% chance to get a Rocket Launcher.',
+    parts: { a: LP('Chest', 'block', [0, 1, 0], [3, 2, 2], '#694028') },
+    s: { n: 'LuckyChest', e: 'touch', ev: { part: 'a' }, cd: 3, acts: [{ a: 'chance', num: 30 }, { a: 'tool', tool: 'rocket' }, { a: 'msg', text: 'Lucky! You found a Rocket Launcher!' }] } },
+  { id: 'clickbtn', n: 'Click Button', icon: '&#128433;', desc: 'Click the red button to open the door for 5 seconds (everyone sees it).',
+    parts: { a: LP('Button', 'block', [0, 3, 0], [2, 2, 1], '#c4281c'), b: LP('Door', 'block', [8, 4, 0], [6, 8, 1], '#694028') },
+    s: { n: 'ButtonDoor', e: 'clickpart', ev: { part: 'a' }, cd: 5, acts: [{ a: 'hide', part: 'b', num: 5 }, { a: 'sfx', v: 'click' }, { a: 'announce', text: '{name} opened the door!' }] } },
+  { id: 'pointstime', n: 'Points Over Time', icon: '&#9201;', desc: 'Everyone gets 1 point every second.',
+    s: { n: 'PointsOverTime', e: 'timer', ev: { num: 1 }, acts: [{ a: 'points', num: 1 }] } },
+  { id: 'welcome', n: 'Welcome Message', icon: '&#128075;', desc: 'Shows a welcome message when a player joins.',
+    s: { n: 'Welcome', e: 'start', ev: {}, acts: [{ a: 'msg', text: 'Welcome to the game, {name}!' }] } },
+  { id: 'swordhit', n: 'Sword Hitbox (tools)', icon: '&#9876;', desc: 'For a tool: swing and hit players in front of you. Select your tool first.',
+    s: { n: 'SwordHit', e: 'tooluse', ev: { tl: '' }, tool: true, acts: [{ a: 'hitbox', x: 5, y: 5, z: 6, dmg: 20, num: 0.3, follow: 'true', fwd: 3, show: 'yes' }, { a: 'sfx', v: 'slash' }] } },
+  { id: 'hitpoints', n: 'Points for Hits', icon: '&#127942;', desc: 'Get a point every time your hitbox or shot hits someone.',
+    s: { n: 'PointsForHits', e: 'hbhit', ev: {}, acts: [{ a: 'points', num: 1 }] } }
+];
+const CB_MODELS = [
+  { id: 'cb:tree', n: 'Tree', parts: [LP('Trunk', 'block', [0, 4, 0], [2, 8, 2], '#694028'), LP('Leaves', 'block', [0, 9.5, 0], [9, 3, 9], '#287f47'), LP('LeavesTop', 'block', [0, 12.5, 0], [5, 3, 5], '#4b974b')] },
+  { id: 'cb:hut', n: 'Hut', parts: [LP('Floor', 'block', [0, 0.5, 0], [12, 1, 12], '#d7c59a'), LP('BackWall', 'block', [0, 4, -5.5], [12, 6, 1], '#cc8e69'), LP('LeftWall', 'block', [-5.5, 4, 0], [1, 6, 10], '#cc8e69'), LP('RightWall', 'block', [5.5, 4, 0], [1, 6, 10], '#cc8e69'),
+    LP('FrontLeft', 'block', [-3.75, 4, 5.5], [4.5, 6, 1], '#cc8e69'), LP('FrontRight', 'block', [3.75, 4, 5.5], [4.5, 6, 1], '#cc8e69'), LP('Lintel', 'block', [0, 6, 5.5], [3, 2, 1], '#cc8e69'), LP('Roof', 'block', [0, 7.5, 0], [13, 1, 13], '#c4281c')] },
+  { id: 'cb:stairs', n: 'Obby Stairs', parts: [0, 1, 2, 3, 4, 5].map(i => LP('Step' + (i + 1), 'block', [0, 0.6 + i * 1.2, -i * 3.5], [4, 1.2, 3], ['#c4281c', '#da8541', '#f5cd30', '#4b974b', '#04afec', '#6b327c'][i])) },
+  { id: 'cb:lamp', n: 'Lamp Post', parts: [LP('Pole', 'cylinder', [0, 5, 0], [0.6, 10, 0.6], '#1b2a35', { st: 0 }), LP('Lamp', 'ball', [0, 10.6, 0], [1.8, 1.8, 1.8], '#ffff00', { st: 0 }), LP('Base', 'block', [0, 0.25, 0], [1.6, 0.5, 1.6], '#1b2a35', { st: 0 })] },
+  { id: 'cb:tower', n: 'Watch Tower', parts: [LP('LegA', 'block', [-3, 6, -3], [1, 12, 1], '#694028'), LP('LegB', 'block', [3, 6, -3], [1, 12, 1], '#694028'), LP('LegC', 'block', [-3, 6, 3], [1, 12, 1], '#694028'), LP('LegD', 'block', [3, 6, 3], [1, 12, 1], '#694028'),
+    LP('Deck', 'block', [0, 12.5, 0], [8, 1, 8], '#a3a2a5'), LP('Ladder', 'wedge', [0, 6, 8.5], [3, 12, 10], '#635f62')] }
+];
+const myScripts = () => { const l = store.get('myScripts', []); return Array.isArray(l) ? l.slice(0, 40) : []; };
+
 /* ====================== CARTSTUDIO  (place editor + 3D item editor) ====================== */
 let STUDIO = null;
 const DEF_COLOR = { block: '#a3a2a5', ball: '#c4281c', cylinder: '#0d69ac', wedge: '#4b974b', cone: '#f5cd30', pyramid: '#da8541', torus: '#ff66cc' };
@@ -5566,11 +5641,14 @@ class Studio {
     if (a === 'test') return this.test();
     if (a === 'newscript') return this.newObj('script', 'sss');
     if (a === 'newtool') return this.newTool();
+    if (a === 'savescript') return this.saveScriptToToolbox();
+    if (a.indexOf('toolpart:') === 0) { const tid = +a.slice(9); this.addMenu = null; this.startToolEdit(tid); return this.insert('block'); }
     if (a === 'tooledit') { const x = this.objOf(this.osel); if (x && this.osel.k === 'tool') this.startToolEdit(x.id); return; }
+    if (a.indexOf('tooledit:') === 0) { const tid = +a.slice(9); if (this.editTool !== tid) this.startToolEdit(tid); return; }
     if (a === 'tooldone') return this.endToolEdit(true);
     if (a === 'toolscript') return this.toolScript();
     if (a === 'togglegui') { this.showGui = !this.showGui; this.renderGuiOv(); return this.log('GUI on screen: ' + (this.showGui ? 'shown' : 'hidden')); }
-    if (a.indexOf('newobj:') === 0) { const [, k, p] = a.split(':'); this.addMenu = null; return this.newObj(k, p === 'rs' ? 'rs' : 'sss'); }
+    if (a.indexOf('newobj:') === 0) { const [, k, p, tid] = a.split(':'); this.addMenu = null; return this.newObj(k, p === 'rs' ? 'rs' : p === 'pack' ? 'pack' : 'sss', +tid || 0); }
     if (a.indexOf('addmenu:') === 0) { const key = a.slice(8); this.addMenu = this.addMenu === key ? null : key; this.open[key] = true; return this.renderExplorer(); }
     if (a === 'newlabel' || a === 'newbutton') return this.newGui(a === 'newbutton' ? 'button' : 'label');
     if (a === 'savemodel') return this.saveModel();
@@ -5685,6 +5763,11 @@ class Studio {
         else if (t === 'tw') { this.open[arg] = !this.open[arg]; this.renderExplorer(); }
         else if (t === 'tbtab') { this.tbTab = arg; this.root.querySelectorAll('.cs-tab').forEach(b => b.classList.toggle('on', b.dataset.cs === 'tbtab:' + arg)); this.renderToolbox(); }
         else if (t === 'asset') this.useAsset(arg);
+        else if (t === 'mdtab') { this.mdTab = arg; this.renderToolbox(); }
+        else if (t === 'lib') { const tp = CB_SCRIPTS.find(x => x.id === arg); if (tp) this.insertScript(tp.s, tp.parts); }
+        else if (t === 'mylib') { const tp = myScripts()[+arg]; if (tp) this.insertScript(tp, null); }
+        else if (t === 'mydel') { const l = myScripts(); l.splice(+arg, 1); store.set('myScripts', l); this.renderToolbox(); }
+        else if (t === 'cbmodel') { const m = CB_MODELS.find(x => x.id === arg); if (m) this.insertParts(m.parts, m.n); }
         else if (t === 'aprev') AudioPreview.toggle(arg, it);
         else if (t === 'upload') this.pickUpload(arg);
         else if (t === 'env') { this.doc.light.sky = SKIES[arg] ? arg : 'day'; this.doc.env = this.doc.light.sky; this.applyLighting(); this.log('Sky: ' + SKY_LABEL[this.doc.light.sky]); this.commit(); if (this.osel && this.osel.k === 'light') this.renderProps(); }
@@ -5748,11 +5831,58 @@ class Studio {
   renderToolbox() {
     const el = $('#cs-tb'); if (!el) return;
     if (this.mode === 'item' || this.tbTab === 'parts') { el.innerHTML = this.partsHTML; return; }
+    if (this.tbTab === 'model' && this.mdTab === 'scripts') return this.renderScriptLib(el);
     const k = this.tbTab, K = ASSET_KINDS[k], list = Assets.list(k);
     const card = m => `<div class="cs-asset" data-cs="asset:${m.id}" title="${esc(m.n)}${m.mine ? '' : ' by ' + esc(m.c)}">${k === 'audio' ? `<span class="cs-aud">&#9835;</span><button class="cs-aprev" data-cs="aprev:${m.id}" type="button">Play</button>` : (m.th ? `<img src="${m.th}" alt="">` : ICONS.model)}<span>${esc(m.n)}</span>${m.mine ? '' : '<i>public</i>'}</div>`;
     const help = { image: 'Click a picture to stick it on the selected part as a decal (or on a new board).', audio: 'Click a sound to add it to Workspace. It plays when the game starts; change that in Properties.', model: 'Click a model to insert it where you are looking.' }[k];
-    el.innerHTML = `<div class="cs-tbhelp">${help}</div><div class="cs-upl"><button class="btn btn-sm btn-green" data-cs="upload:${k}" type="button">Upload ${esc(K.label)}</button> <a href="#/dashboard/${k}" class="small" data-cs="act:exit">Dashboard</a></div>
+    const sub = k === 'model' ? this.subTabs() : '';
+    const cbm = k === 'model' ? `<div class="cs-ph2">By Cartblox</div><div class="cs-assets">${CB_MODELS.map(m => `<div class="cs-asset" data-cs="cbmodel:${m.id}" title="${esc(m.n)} by Cartblox"><img src="${this.cbThumb(m)}" alt=""><span>${esc(m.n)}</span><i>Cartblox</i></div>`).join('')}</div><div class="cs-ph2">Mine and community</div>` : '';
+    el.innerHTML = `${sub}<div class="cs-tbhelp">${help}</div>${cbm}<div class="cs-upl"><button class="btn btn-sm btn-green" data-cs="upload:${k}" type="button">Upload ${esc(K.label)}</button> <a href="#/dashboard/${k}" class="small" data-cs="act:exit">Dashboard</a></div>
       ${list.length ? `<div class="cs-assets">${list.map(card).join('')}</div>` : `<div class="cs-empty">No ${esc(K.plural.toLowerCase())} yet.${k === 'model' ? ' Select parts, then Edit &gt; Save Selection as Model.' : ''}</div>`}`;
+  }
+  subTabs() { return `<div class="cs-sub2">${[['models', 'Models'], ['scripts', 'Scripts']].map(t => `<button type="button" class="${(this.mdTab || 'models') === t[0] ? 'on' : ''}" data-cs="mdtab:${t[0]}">${t[1]}</button>`).join('')}</div>`; }
+  cbThumb(m) { const key = 'cbm' + m.id; if (!THUMB_CACHE.has(key)) { try { THUMB_CACHE.set(key, renderModelThumb(m.parts)); } catch (e) { THUMB_CACHE.set(key, ''); } } return THUMB_CACHE.get(key); }
+  renderScriptLib(el) {
+    const mine = myScripts();
+    const card = (cs, icon, n, desc, by) => `<div class="cs-scard" data-cs="${cs}" title="${esc(desc)}"><span class="ic">${icon}</span><b>${esc(n)}</b><small>${esc(desc)}</small>${by ? `<i>${by}</i>` : ''}</div>`;
+    el.innerHTML = this.subTabs() + '<div class="cs-tbhelp">Click a script to add it to your game. Scripts that need a part use the part you selected, or build one for you.</div>' +
+      `<div class="cs-ph2">By Cartblox</div><div class="cs-slist">${CB_SCRIPTS.map(t => card('lib:' + t.id, t.icon, t.n, t.desc, '')).join('')}</div>` +
+      `<div class="cs-ph2">My Scripts</div>${mine.length ? `<div class="cs-slist">${mine.map((t, i) => `<div class="cs-swrap">${card('mylib:' + i, '&#128196;', t.n, (evDef(t.e) || evDef('start'))[1] + ', ' + plural(t.acts.length, 'action'), '')}<button class="cs-sdel" data-cs="mydel:${i}" type="button" title="Remove from My Scripts">&times;</button></div>`).join('')}</div>` : '<div class="cs-empty">Select a script and press <b>Save to Toolbox</b> to keep it here for all your games.</div>'}`;
+  }
+  // put a premade (or saved) script into the game
+  insertScript(tpl, parts) {
+    const d = this.doc; if (d.scripts.length >= 60) return dialog({ title: BRAND, html: '<p>A place can have up to 60 scripts and modules.</p>' });
+    const keys = {}, sel = this.part(), made = [];
+    if (parts) {
+      const t = this.orbit.target, base = [Math.round(t.x), 0, Math.round(t.z)];
+      for (const k of Object.keys(parts)) {
+        if (k === 'a' && sel && sel.tool == null && sel.n !== 'Baseplate') { keys[k] = sel.id; continue; }
+        const q = Object.assign(JSON.parse(JSON.stringify(parts[k])), { id: this.nextId++ }); q.p = [q.p[0] + base[0], q.p[1], q.p[2] + base[2]];
+        d.parts.push(q); this.makeMesh(q); keys[k] = q.id; made.push(q.n);
+      }
+    }
+    const fallbackPart = (sel && sel.tool == null ? sel : null) || d.parts.find(p => p.n !== 'Baseplate' && p.tool == null) || d.parts[0] || {};
+    const src = JSON.parse(JSON.stringify(tpl)), id = nextOf(d.scripts);
+    const fix = (args, defs) => { const o = cleanArgs(defs, args); for (const [k, type] of defs) if (type === 'part') o[k] = typeof args[k] === 'string' ? (keys[args[k]] || 0) : (d.parts.some(p => p.id === args[k]) ? args[k] : fallbackPart.id || 0); return o; };
+    const e = evDef(src.e) ? src.e : 'start';
+    const s = { id, n: cleanName(src.n, 'Script'), on: true, k: 'script', p: 'sss', side: src.side === 'client' ? 'client' : 'server', cd: cleanNum(src.cd, 0, 0, 600), e, ev: fix(src.ev || {}, evDef(e)[2]),
+      acts: (src.acts || []).filter(a => actDef(a.a)).map(a => Object.assign({ a: a.a }, fix(a, actDef(a.a)[2]))) };
+    if (src.tool || e === 'tooluse') {                              // tool scripts go inside a tool
+      let tid = this.osel && this.osel.k === 'tool' ? this.osel.id : (d.tools[0] || {}).id;
+      if (tid == null && src.tool) { this.newTool(true); tid = (d.tools[d.tools.length - 1] || {}).id; }
+      if (tid != null) { s.p = 'pack'; s.ev.tl = 'c' + tid; this.open['tool' + tid] = true; this.open.pack = true; }
+    }
+    if (d.scripts.some(x => x.n === s.n)) s.n = (s.n + id).slice(0, 24);
+    d.scripts.push(s); this.open[s.p] = true;
+    this.selectObj('script', id); this.commit(); this.rebuildAll(); this.selectObj('script', id);
+    this.log('Added "' + s.n + '"' + (made.length ? ' and built ' + made.join(', ') : '') + (s.p === 'pack' ? ' inside your tool' : '') + '. Double-click it in the Explorer to edit it.');
+  }
+  saveScriptToToolbox() {
+    const x = this.objOf(this.osel); if (!x || this.osel.k !== 'script') return;
+    const list = myScripts(); if (list.length >= 40) return dialog({ title: BRAND, html: '<p>My Scripts holds up to 40 scripts. Remove some first.</p>' });
+    list.push({ n: x.n, e: x.e, ev: x.ev, acts: x.acts, cd: x.cd, side: x.side }); store.set('myScripts', list);
+    this.log('Saved "' + x.n + '" to Toolbox > Models > Scripts > My Scripts.');
+    if (this.tbTab === 'model' && this.mdTab === 'scripts') this.renderToolbox();
   }
   pickUpload(k) {
     if (k === 'model') return dialog({ title: 'Models', html: '<p>To make a model, select some parts (Shift+click to pick several), then choose <b>Edit &gt; Save Selection as Model</b>.</p><p class="small muted">Model files (.cbxm) from the Dashboard can be uploaded there too.</p>' });
@@ -5778,12 +5908,17 @@ class Studio {
     } else if (m.k === 'model') {
       this.log('Loading model...');
       const parts = await Assets.model(id); if (!parts || !this.alive) return dialog({ title: BRAND, html: '<p>That model could not be loaded.</p>' });
+      this.insertParts(parts, m.n);
+    }
+  }
+  insertParts(parts, name) {
+    {
       let minY = Infinity, cx = 0, cz = 0; parts.forEach(p => { minY = Math.min(minY, p.p[1] - p.z[1] / 2); cx += p.p[0]; cz += p.p[2]; }); cx /= parts.length; cz /= parts.length;
       const t = this.orbit.target, base = Math.max(0, this.doc.parts.some(p => p.n === 'Baseplate') ? 0 : t.y), ids = [];
-      for (const p of parts) { const q = Object.assign({}, p, { id: this.nextId++, p: [r2(p.p[0] - cx + Math.round(t.x)), r2(p.p[1] - minY + base), r2(p.p[2] - cz + Math.round(t.z))] }); this.doc.parts.push(q); this.makeMesh(q); ids.push(q.id); }
+      for (const p of parts) { const q = Object.assign(JSON.parse(JSON.stringify(p)), { id: this.nextId++, p: [r2(p.p[0] - cx + Math.round(t.x)), r2(p.p[1] - minY + base), r2(p.p[2] - cz + Math.round(t.z))] }); this.doc.parts.push(q); this.makeMesh(q); ids.push(q.id); }
       this.select(ids[0]); ids.slice(1).forEach(i => this.multi.add(i)); this.refreshMulti(); this.renderExplorer(); this.renderProps(); this.commit();
       if (this.tool === 'select') this.setTool('translate');
-      this.log('Inserted model "' + m.n + '" (' + plural(ids.length, 'part') + '). Drag the arrows to move it.');
+      this.log('Inserted model "' + name + '" (' + plural(ids.length, 'part') + '). Drag the arrows to move it.');
     }
   }
   /* ---------------- Explorer tree ---------------- */
@@ -5805,8 +5940,12 @@ class Studio {
       svc('storage', 'ServerStorage', 'storage', d.storage.map(s => orow('stored', s, s.s)).join('')) +
       svc('gui', 'StarterGui', 'gui', d.gui.map(g => orow('gui', g, g.k === 'button' ? 'button' : 'label')).join(''), add('newlabel', 'Insert a TextLabel')) +
       svc('pack', 'StarterPack', 'pack', d.pack.map(t => `<div class="cs-row ch" data-cs="obj:pack:0"><span class="ico">${ICONS.tool}</span>${esc((toolById(t) || {}).n || t)}</div>`).join('') +
-        (d.tools || []).map(t => orow('tool', t, 'tool', ` <small>(${plural(t.parts.length, 'part')}${this.editTool === t.id ? ', editing' : ''})</small>`) +
-          d.scripts.filter(x => x.p === 'pack' && x.ev.tl === 'c' + t.id).map(x => `<div class="cs-sub">${scrow(x)}</div>`).join('')).join(''), add('newtool', 'Make a new Tool'));
+        (d.tools || []).map(t => {
+          const key = 'tool' + t.id, kids = d.scripts.filter(x => x.p === 'pack' && x.ev.tl === 'c' + t.id), editing = this.editTool === t.id;
+          const menu = this.addMenu === key ? `<div class="cs-addmenu cs-sub">${[['newobj:script:pack:' + t.id, 'script', 'Script'], ['newobj:local:pack:' + t.id, 'local', 'LocalScript'], ['toolpart:' + t.id, 'block', 'Part']].map(([a, ic, l]) => `<button type="button" data-cs="act:${a}"><span class="ico">${ICONS[ic]}</span>${l}</button>`).join('')}</div>` : '';
+          return `<div class="cs-row ch${isSel('tool', t.id) ? ' sel' : ''}" data-cs="obj:tool:${t.id}">${tw(key)}<span class="ico">${ICONS.tool}</span>${esc(t.n)}${editing ? ' <small>(editing)</small>' : ''}${add('addmenu:' + key, 'Add a Script, LocalScript or Part to this tool')}</div>` + menu +
+            (o[key] ? t.parts.map((p, i) => `<div class="cs-sub"><div class="cs-row ch" data-cs="act:tooledit:${t.id}" title="Click to edit the tool's parts"><span class="ico">${ICONS[p.s] || ICONS.block}</span>${esc(p.n)}</div></div>`).join('') + kids.map(x => `<div class="cs-sub">${scrow(x)}</div>`).join('') : '');
+        }).join(''), add('newtool', 'Make a new Tool'));
   }
   selectObj(k, id) {
     this.multi.clear(); this.sel = null; this.helper.visible = false; this.tc.detach(); this.refreshMulti();
@@ -5837,13 +5976,13 @@ class Studio {
         (mod ? '' : row('Side', sel('side', SIDES, x.side)) + row('Cooldown (s)', `<input type="number" data-o="cd" min="0" max="600" step="0.1" value="${x.cd || 0}">`)) +
         `<div class="cs-empty">${mod ? `Runs ${plural(x.acts.length, 'action')} when another script uses <b>Run a ModuleScript</b>. Great for code you use in many scripts.` : `<b>${esc(ev[1])}</b>, do ${plural(x.acts.length, 'action')}.` +
           (x.p === 'rs' ? '<br>Scripts in ReplicatedStorage only run when "Run a ModuleScript" picks them.' : x.side === 'client' ? '<br><b>Client:</b> what it does only happens on that player\'s screen.' : '<br><b>Server:</b> part changes, sounds and announcements are seen by everyone.')}</div>` +
-        `<div class="cs-prow"><label></label><button class="btn btn-sm btn-blue" data-cs="act:editscript" type="button">Edit Script</button></div>` + del;
+        `<div class="cs-prow"><label></label><button class="btn btn-sm btn-blue" data-cs="act:editscript" type="button">Edit Script</button> ${mod ? '' : '<button class="btn btn-sm" data-cs="act:savescript" type="button">Save to Toolbox</button>'}</div>` + del;
     } else if (os.k === 'tool') {
       const editing = this.editTool === x.id, scr = d.scripts.filter(s => s.p === 'pack' && s.ev.tl === 'c' + x.id);
       h = `<div class="cs-pt">Tool</div>` + (TOOL_IMG['c' + x.id] ? `<div class="cs-ticon"><img src="${TOOL_IMG['c' + x.id]}" alt=""></div>` : '') + row('Name', txt('n', x.n)) + row('Players start with it', chk('start', x.start)) +
         row('Cooldown (s)', `<input type="number" data-o="cd" min="0" max="60" step="0.05" value="${x.cd}">`) + row('Animation', sel('anim', TOOL_ANIMS, x.anim)) + row('Description', txt('desc', x.desc, 120)) +
         `<div class="cs-empty">${plural(x.parts.length, 'part')}. ${editing ? '<b>Editing:</b> the tool is in the Workspace. Build it standing up with the <b>Handle</b> at the bottom (that is where the hand holds it), then press Done.' : 'Press <b>Edit Parts</b> to build how it looks.'} When a player clicks while holding it, its scripts run (${plural(scr.length, 'script')}).</div>` +
-        `<div class="cs-prow"><label></label>${editing ? '<button class="btn btn-sm btn-green" data-cs="act:tooldone" type="button">Done Editing</button>' : '<button class="btn btn-sm btn-blue" data-cs="act:tooledit" type="button">Edit Parts</button>'} <button class="btn btn-sm" data-cs="act:toolscript" type="button">+ When used script</button></div>` + del;
+        `<div class="cs-prow"><label></label>${editing ? '<button class="btn btn-sm btn-green" data-cs="act:tooldone" type="button">Done Editing</button>' : '<button class="btn btn-sm btn-blue" data-cs="act:tooledit" type="button">Edit Parts</button>'} <button class="btn btn-sm" data-cs="act:toolscript" type="button">+ Script</button></div>` + del;
     } else if (os.k === 'remote') {
       const users = d.scripts.filter(s => (s.e === 'remote' && s.ev.rem === x.id) || s.acts.some(a => a.a === 'fire' && a.rem === x.id)).length;
       h = `<div class="cs-pt">RemoteEvent</div>` + row('Name', txt('n', x.n)) + row('Parent', sel('p', [['rs', 'ReplicatedStorage'], ['sss', 'ServerScriptService']], x.p)) +
@@ -5898,14 +6037,12 @@ class Studio {
     this.renderExplorer(); this.renderProps(); this.commit();
   }
   /* ---------------- custom tools (StarterPack) ---------------- */
-  newTool() {
+  newTool(quiet) {
     const d = this.doc; if (d.tools.length >= MAX_CUSTOM_TOOLS) return dialog({ title: BRAND, html: `<p>A game can have up to ${MAX_CUSTOM_TOOLS} of its own tools.</p>` });
-    const id = nextOf(d.tools), P = (n, p, z, c, s) => ({ id: 0, n, s: s || 'block', p, z, r: [0, 0, 0], c, b: '', q: 1, st: 0 });
-    d.tools.push({ id, n: 'Tool' + id, desc: '', cd: 0.5, anim: 'slash', start: true, parts: [P('Handle', [0, 0, 0], [0.35, 1.2, 0.35], '#694028', 'cylinder'), P('Guard', [0, 0.72, 0], [1.1, 0.24, 0.35], '#a3a2a5'), P('Blade', [0, 2.4, 0], [0.22, 3.1, 0.5], '#e5e4df')] });
-    d.scripts.push({ id: nextOf(d.scripts), n: 'Tool' + id + 'Script', on: true, k: 'script', p: 'pack', side: 'server', cd: 0, e: 'tooluse', ev: { tl: 'c' + id },
-      acts: [{ a: 'hitbox', x: 5, y: 5, z: 6, dmg: 20, num: 0.3, follow: 'true', fwd: 3, show: 'yes' }, { a: 'sfx', v: 'slash' }] });
-    this.toolIcon(id); this.open.pack = true; this.selectObj('tool', id); this.commit();
-    this.log('Made Tool' + id + ' in StarterPack. It swings and makes a hitbox; press Edit Parts to change how it looks, or edit its script.');
+    const id = nextOf(d.tools);                                     // a new tool is just a Handle: add parts and scripts with its +
+    d.tools.push({ id, n: 'Tool' + id, desc: '', cd: 0.5, anim: 'slash', start: true, parts: [{ id: 0, n: 'Handle', s: 'block', p: [0, 0, 0], z: [0.4, 1.4, 0.4], r: [0, 0, 0], c: '#694028', b: '', q: 1, st: 0 }] });
+    this.toolIcon(id); this.open.pack = true; this.open['tool' + id] = true; this.selectObj('tool', id); this.commit();
+    if (!quiet) this.log('Made Tool' + id + ' in StarterPack with a Handle. Use its + to add parts and scripts.');
   }
   toolIcon(id) { const t = this.doc.tools.find(x => x.id === id); if (!t) return; try { setCustomTools(this.doc.tools); TOOL_IMG['c' + id] = renderToolImage(toolById('c' + id)); } catch (e) { /* no icon */ } }
   startToolEdit(id) {
@@ -5975,8 +6112,10 @@ class Studio {
     const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); delete ov.dataset.drag; if (moved) { this.commit(); this.renderProps(); } this.renderGuiOv(); };
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   }
-  newObj(kind, parent) {
-    const d = this.doc, where = parent === 'rs' ? 'ReplicatedStorage' : 'ServerScriptService';
+  newObj(kind, parent, toolId) {
+    const d = this.doc, tool = parent === 'pack' ? d.tools.find(t => t.id === toolId) : null;
+    if (parent === 'pack' && !tool) parent = 'sss';
+    const where = tool ? tool.n : parent === 'rs' ? 'ReplicatedStorage' : 'ServerScriptService';
     if (kind === 'remote') {
       if (d.remotes.length >= 30) return dialog({ title: BRAND, html: '<p>A place can have up to 30 RemoteEvents.</p>' });
       const id = nextOf(d.remotes); d.remotes.push({ id, n: 'RemoteEvent' + (id > 1 ? id : ''), p: parent });
@@ -5988,6 +6127,7 @@ class Studio {
     const mod = kind === 'module', label = mod ? 'ModuleScript' : kind === 'local' ? 'LocalScript' : 'Script';
     d.scripts.push(mod ? { id, n: 'ModuleScript' + id, on: true, k: 'module', p: parent, side: 'server', cd: 0, e: 'start', ev: {}, acts: [{ a: 'msg', text: 'Hello from a module, {name}!' }] }
       : { id, n: label + id, on: true, k: 'script', p: parent, side: kind === 'local' ? 'client' : 'server', cd: 0, e: kind === 'local' ? 'key' : target ? 'touch' : 'start', ev: kind === 'local' ? { key: 'E' } : target ? { part: target.id } : {}, acts: [kind === 'local' ? { a: 'fov', num: 50 } : { a: 'msg', text: 'Hello, {name}!' }] });
+    if (tool) { const s = d.scripts[d.scripts.length - 1]; s.k = 'script'; s.p = 'pack'; s.e = 'tooluse'; s.ev = { tl: 'c' + tool.id }; s.acts = [{ a: 'msg', text: 'You used ' + tool.n + '!' }]; this.open['tool' + tool.id] = true; this.open.pack = true; }
     this.open[parent] = true; this.selectObj('script', id); this.commit(); this.openScript(id);
     this.log('Inserted ' + label + id + ' into ' + where + '.');
   }
