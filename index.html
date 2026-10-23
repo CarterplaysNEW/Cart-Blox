@@ -538,6 +538,20 @@ ul.tick{ margin:0; padding-left:18px; } ul.tick li{ margin:3px 0; }
 
 .studio-hero .muted{ color:#d6eaff; text-shadow:0 1px 0 rgba(0,0,0,.35); }
 
+
+/* ---------- v3: money, status, publish box ---------- */
+a.money{ color:inherit; text-decoration:none; } a.money:hover{ text-decoration:none; filter:brightness(1.12); }
+.good{ color:#2a7a14; font-weight:bold; } .bad{ color:#b3261e; font-weight:bold; }
+.stt{ width:100%; border-collapse:collapse; } .stt th{ text-align:left; width:170px; padding:6px 8px 6px 0; color:#41566b; vertical-align:top; } .stt td{ padding:6px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+.bal{ display:flex; gap:30px; flex-wrap:wrap; } .bigbal{ display:flex; align-items:center; gap:10px; font-size:20px; } .bigbal b{ font-size:32px; color:#173b63; }
+.bigbal .coin{ width:28px; height:28px; } .bigbal .coin::after{ font-size:15px; line-height:26px; } .bigbal .tix{ width:36px; height:24px; }
+.earn{ margin:12px 0; } .prog2{ height:12px; border:1px solid #1b5ea9; border-radius:6px; background:#e7f0f9; overflow:hidden; margin:4px 0; } .prog2 i{ display:block; height:100%; background:linear-gradient(#92e56b,#3ea41e); }
+.buyrow{ display:flex; gap:10px; flex-wrap:wrap; } .buyrow .btn{ padding:10px 18px; line-height:1.35; } .buyrow small{ font-weight:normal; opacity:.92; }
+.fld{ margin:10px 0; } .fld label{ display:block; font-weight:bold; margin-bottom:3px; }
+.fld input, .fld textarea{ width:100%; font:13px var(--font); padding:7px 9px; border:1px solid #8aa6c1; border-radius:3px; resize:vertical; }
+.dlg .btns{ flex-wrap:wrap; }
+.place-row{ align-items:center; gap:10px; } .place-row b{ flex:1; }
+
 </style>
 </head>
 <body>
@@ -575,7 +589,7 @@ ul.tick{ margin:0; padding-left:18px; } ul.tick li{ margin:3px 0; }
           <span class="sep">|</span> <a data-act="rename">Change Name</a>
           <span class="sep">|</span> <a data-act="soon">Settings</a>
           <span class="sep">|</span> <a data-act="soon">Log Out</a></div>
-        <div class="money"><span title="Cartbux"><i class="coin"></i> <b id="ub-bux">1,250</b></span><span title="Tix"><i class="tix"></i> <b id="ub-tix">9,999</b></span></div>
+        <a class="money" href="#/money" title="My Money: earn, trade and see what things cost"><span title="Robux"><i class="coin"></i> <b id="ub-bux">0</b></span><span title="Tix"><i class="tix"></i> <b id="ub-tix">0</b></span></a>
       </div>
     </header>
     <nav id="nav" aria-label="Main">
@@ -593,7 +607,7 @@ ul.tick{ margin:0; padding-left:18px; } ul.tick li{ margin:3px 0; }
     <main id="main"></main>
   </div>
   <footer id="foot">
-    <div class="flinks"><a data-act="soon">About Us</a>|<a data-act="soon">Jobs</a>|<a data-act="soon">Blog</a>|<a data-act="soon">Parents</a>|<a data-act="soon">Help</a>|<a data-act="soon">Terms</a>|<a data-act="soon">Privacy</a></div>
+    <div class="flinks"><a data-act="soon">About Us</a>|<a data-act="soon">Jobs</a>|<a data-act="soon">Blog</a>|<a data-act="soon">Parents</a>|<a data-act="soon">Help</a>|<a data-act="soon">Terms</a>|<a data-act="soon">Privacy</a>|<a href="#/status">Status</a></div>
     <div class="fine">&copy;2026 Cartblox. All rights reserved. Cartblox is an independent fan project and is not affiliated with, or endorsed by, Roblox Corporation.</div>
   </footer>
 </div>
@@ -670,9 +684,11 @@ ul.tick{ margin:0; padding-left:18px; } ul.tick li{ margin:3px 0; }
   </div>
 </div>
 
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+<script>window.CARTBLOX_DEFAULTS = {"serverUrl":"https://cart-blox.onrender.com","firebase":{"apiKey":"AIzaSyACZsyvXl-05UJr_pFjIlW1yjL1Id8kBb4","authDomain":"multiplayer-84fcc.firebaseapp.com","databaseURL":"https://multiplayer-84fcc-default-rtdb.firebaseio.com","projectId":"multiplayer-84fcc","storageBucket":"multiplayer-84fcc.firebasestorage.app","messagingSenderId":"1018280244915","appId":"1:1018280244915:web:f9f09d7b09ec51aeaba2c6"}};</script>
 <script src="config.js"></script>
 <script>
 (function () {
@@ -747,8 +763,15 @@ const NEWS = [
   { t: 'Cartblox Studio is coming', d: 'Soon', x: 'Build and publish your own places from the browser.' }
 ];
 
-/* ====================== online config (see config.js) ====================== */
-const CFG = Object.assign({ serverUrl: '', firebase: null }, window.CARTBLOX_CONFIG || {});
+/* ====================== online config (built-in defaults + config.js) ====================== */
+const CB_DEF = window.CARTBLOX_DEFAULTS || {}, CB_USER = window.CARTBLOX_CONFIG || {};
+const cfgPick = (a, b) => (b !== undefined && b !== null && b !== '' ? b : a);      // config.js wins, but a blank value never wipes the built-in default
+const CFG = {
+  serverUrl: cfgPick(CB_DEF.serverUrl || '', CB_USER.serverUrl || CB_USER.serverURL || CB_USER.server),
+  firebase: cfgPick(CB_DEF.firebase || null, CB_USER.firebase || CB_USER.firebaseConfig),
+  startRobux: Number(CB_USER.startRobux) || 0, startTix: Number(CB_USER.startTix) || 0, timeScale: Number(CB_USER.timeScale) || 1,
+  configFound: typeof window.CARTBLOX_CONFIG !== 'undefined', preview: !!window.__CB_PREVIEW
+};
 try { const q = new URLSearchParams(window.location.search); if (q.get('server')) CFG.serverUrl = q.get('server'); } catch (e) { /* ignore */ }
 
 /* ====================== saved state ====================== */
@@ -756,6 +779,7 @@ const S = {
   user: store.get('user', null),
   colors: Object.assign({}, DEFAULT_COLORS, store.get('colors', {})),
   equipped: store.get('equipped', {}),
+  wallet: store.get('wallet', null) || { rbx: CFG.startRobux, tix: CFG.startTix, ptix: 0, prbx: 0 },
   recent: store.get('recent', []),
   posts: store.get('posts', []),
   votes: store.get('votes', {}),
@@ -763,6 +787,26 @@ const S = {
   settings: Object.assign({ quality: 6, shadows: true, sound: true, volume: 60, sens: 50 }, store.get('settings', {}))
 };
 if (!S.user) { S.user = 'Player' + (1000 + Math.floor(Math.random() * 9000)); store.set('user', S.user); }
+
+/* ====================== money: Robux + Tix ====================== */
+const PRICES = { itemRbx: 50, itemTix: 150, tixPerRbx: 3 };            // uploading an item costs 50 Robux OR 150 Tix (games are free)
+const EARN = { tix: 10, tixMin: 20, rbx: 10, rbxMin: 25 };             // +10 Tix per 20 min played, +10 Robux per 25 min played
+const Wallet = {
+  save() { store.set('wallet', S.wallet); this.paint(); },
+  paint() { const a = document.getElementById('ub-bux'), b = document.getElementById('ub-tix'); if (a) a.textContent = fmt(S.wallet.rbx); if (b) b.textContent = fmt(S.wallet.tix); },
+  can(kind) { return kind === 'rbx' ? S.wallet.rbx >= PRICES.itemRbx : S.wallet.tix >= PRICES.itemTix; },
+  spend(kind) { if (!this.can(kind)) return false; if (kind === 'rbx') S.wallet.rbx -= PRICES.itemRbx; else S.wallet.tix -= PRICES.itemTix; this.save(); return true; },
+  refund(kind) { if (kind === 'rbx') S.wallet.rbx += PRICES.itemRbx; else S.wallet.tix += PRICES.itemTix; this.save(); },
+  exchange(rbx) { const cost = rbx * PRICES.tixPerRbx; if (rbx < 1 || S.wallet.tix < cost) return false; S.wallet.tix -= cost; S.wallet.rbx += rbx; this.save(); return true; },
+  tick(sec) {                                                           // seconds of ACTIVE play; returns what was earned (or null)
+    const sc = CFG.timeScale || 1, w = S.wallet, out = [];
+    w.ptix += sec * sc; w.prbx += sec * sc;
+    while (w.ptix >= EARN.tixMin * 60) { w.ptix -= EARN.tixMin * 60; w.tix += EARN.tix; out.push('+' + EARN.tix + ' Tix'); }
+    while (w.prbx >= EARN.rbxMin * 60) { w.prbx -= EARN.rbxMin * 60; w.rbx += EARN.rbx; out.push('+' + EARN.rbx + ' Robux'); }
+    if (out.length) this.save();
+    return out.length ? out : null;
+  }
+};
 
 /* ====================== SVG avatar (front view) ====================== */
 let avSeq = 0;
@@ -1183,7 +1227,6 @@ class World {
   }
   dispose() { disposeObject(this.root); }
 }
-
 
 /* ====================== appearance: clothes, faces, accessories ====================== */
 const ATL = { W: 512, H: 768 };
@@ -1805,9 +1848,8 @@ const Cloud = {
     if (!this.enabled) return Promise.resolve(false);
     if (this.ready) return this.ready;
     this.state = 'loading';
-    const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('could not load ' + src)); document.head.appendChild(s); });
-    this.ready = load(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app-compat.js`)
-      .then(() => load(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-database-compat.js`))
+    this.ready = this.loadScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app-compat.js`)
+      .then(() => this.loadScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-database-compat.js`))
       .then(() => {
         const cfg = Object.assign({}, CFG.firebase);
         if (!cfg.databaseURL && cfg.projectId) cfg.databaseURL = `https://${cfg.projectId}-default-rtdb.firebaseio.com`;
@@ -1816,7 +1858,42 @@ const Cloud = {
       .catch(e => { this.state = 'failed'; console.warn('Firebase unavailable:', e.message); return false; });
     return this.ready;
   },
+  loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('could not load ' + src)); document.head.appendChild(s); }); },
   stamp() { return window.firebase.database.ServerValue.TIMESTAMP; },
+  /* --- anonymous sign-in: a private id for this browser, so only YOU can update the games you published --- */
+  auth() {
+    if (this._auth) return this._auth;
+    const p = this.init().then(ok => {
+      if (!ok) return { uid: null, err: 'Firebase could not be loaded.' };
+      const have = () => (window.firebase.auth && window.firebase.auth().currentUser);
+      return (window.firebase.auth ? Promise.resolve() : this.loadScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-auth-compat.js`))
+        .then(() => (have() ? { user: have() } : window.firebase.auth().signInAnonymously()))
+        .then(c => ({ uid: c.user.uid, err: null }))
+        .catch(e => ({ uid: null, err: (e && (e.code || e.message)) || 'sign-in failed' }));
+    });
+    this._auth = p; p.then(r => { if (!r.uid) this._auth = null; });
+    return p;
+  },
+  /* --- published (community) games --- */
+  placesWatch(cb) {
+    return this.init().then(ok => {
+      if (!ok || this.placesRef) return;
+      this.placesRef = this.db.ref('placesMeta').orderByChild('u').limitToLast(60);
+      const f = snap => { const v = snap.val(); if (v && typeof v.n === 'string') cb(Object.assign({ id: snap.key }, v)); };
+      this.placesRef.on('child_added', f); this.placesRef.on('child_changed', f);
+    });
+  },
+  fetchPlaceMeta(id) { return this.init().then(ok => (!ok ? null : this.db.ref('placesMeta/' + id).once('value').then(s => { const v = s.val(); return v && typeof v.n === 'string' ? Object.assign({ id }, v) : null; }))); },
+  fetchPlace(id) { return this.init().then(ok => (!ok ? null : this.db.ref('placesData/' + id).once('value').then(s => { const v = s.val(); return v && typeof v.d === 'string' ? v.d : null; }))); },
+  publishPlace(rec, update) {                           // rec: { id, n, ds, c, e, th, d }
+    return this.auth().then(a => {
+      if (!a.uid) return { ok: false, err: a.err || 'not signed in' };
+      const now = this.stamp(), meta = { n: rec.n, ds: rec.ds, c: rec.c, e: rec.e, th: rec.th || '', uid: a.uid, u: now };
+      if (!update) meta.t = now;
+      const mref = this.db.ref('placesMeta/' + rec.id);
+      return this.db.ref('placesData/' + rec.id).set({ d: rec.d, uid: a.uid }).then(() => (update ? mref.update(meta) : mref.set(meta))).then(() => ({ ok: true }));
+    }).catch(e => ({ ok: false, err: (e && (e.code || e.message)) || 'failed' }));
+  },
   /* --- in-game chat: one channel per game --- */
   chatJoin(channel, onMsg) {
     this.chatLeave();
@@ -2197,7 +2274,7 @@ function netHandlers() {
     onStatus(s, info) {
       if (!R) return;
       if (s === 'connecting' && !info) sys('Connecting to the game server...');
-      else if (s === 'offline') sys('Could not reach the game server. You are playing offline.');
+      else if (s === 'offline') sys('Could not reach the game server, so you are playing offline. The Status page (link at the bottom of the site) shows why.');
     },
     onWake() { if (R) sys('The server is waking up. This can take up to a minute...'); },
     onLost() { if (R) { sys('Lost connection to the server. Reconnecting...'); for (const id of [...R.remote.keys()]) removeRemote(id); } },
@@ -2433,11 +2510,21 @@ function sendState(dt) {
   const P = R.P;
   Net.send({ t: 'state', x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), ry: +P.face.toFixed(2), f: (P.onGround ? 0 : 1) | (P.alive ? 0 : 2) | (Math.max(0, EMOTES.indexOf(P.emote || '')) << 2), st: P.stage });
 }
+// Playing earns money: +10 Tix every 20 min, +10 Robux every 25 min. Counts only while you are active, never in CartStudio tests.
+function earn(real) {
+  R.idleT += real; R.walletT += real;
+  if (R.def.online !== false && R.idleT < 60) {
+    const got = Wallet.tick(real);
+    if (got) { Sfx.play('checkpoint'); showHint('You earned ' + got.join(' and ') + ' for playing! Keep going to earn more.', 6500); chatAdd('You earned ' + got.join(' and ') + ' for playing.', 'sys'); }
+  }
+  if (R.walletT > 15) { R.walletT = 0; store.set('wallet', S.wallet); }
+}
 function frame(ts) {
   if (!R) return;
   R.raf = requestAnimationFrame(frame);
   const now = ts / 1000;
   let dt = now - R.last; R.last = now;
+  const real = dt > 0 ? Math.min(2, dt) : 0;                      // true elapsed seconds (physics uses the clamped dt)
   if (!(dt > 0)) dt = 0; if (dt > 0.05) dt = 0.05;
   R.acc += dt;
   let n = 0;
@@ -2449,6 +2536,7 @@ function frame(ts) {
   updateCam(dt);
   updateTags(dt);
   sendState(dt);
+  earn(real);
   R.env.update(R.camera.position, tmpFocus.set(R.cam.fx, R.cam.fy, R.cam.fz));
   renderer.render(R.scene, R.camera);
 }
@@ -2487,7 +2575,7 @@ function startRun(def) {
   def.build(world);
   world.updateMovers(0); world.clearMoverDeltas();
   R = {
-    def, scene, camera, world, env, ch: null, ff: null, fp: false, debris: [], acc: 0, time: 0, raf: 0, menuOpen: false, netT: 0, plistDirty: false,
+    def, scene, camera, world, env, ch: null, ff: null, fp: false, debris: [], acc: 0, time: 0, raf: 0, menuOpen: false, netT: 0, plistDirty: false, idleT: 0, walletT: 0,
     remote: new Map(), me: { isMe: true, tag: null, bubble: null, bubbleT: 0 }, cloudChat: false, channel: String(def.id).replace(/[^\w\-]/g, '_'),
     last: performance.now() / 1000,
     P: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, face: Math.PI, onGround: false, ground: null, coyote: 0, alive: true, health: 100, deadT: 0, ff: 0, stage: 1, cp: null, phase: 0, emote: null, emoteT: 0, speed: 0, air: false },
@@ -2510,7 +2598,7 @@ function startRun(def) {
   if (def.online !== false) {
     if (Net.enabled) Net.connect(def.id, S.user, myLook(), netHandlers());
     if (Cloud.enabled) Cloud.chatJoin(R.channel, chatIncoming).then(ok => { if (ok && R && R.def === def) R.cloudChat = true; });
-    if (!Net.enabled) chatAdd('Offline mode: no game server is set up, so you are playing solo.', 'sys');
+    if (!Net.enabled) chatAdd(CFG.preview ? 'Preview mode: multiplayer and online chat work on your own website, not inside this preview.' : 'Offline mode: no game server URL was found. Open the Status page (link at the bottom of the site) to see why.', 'sys');
   }
 }
 function stopRun() {
@@ -2525,7 +2613,7 @@ function stopRun() {
   R.world.dispose();
   disposeObject(R.scene);
   if (R.ch) R.ch.dispose();
-  R = null;
+  R = null; Wallet.save();
   for (const k in keys) keys[k] = false;
   jumpHeld = false; joy.x = joy.y = 0;
   $('#game').hidden = true;
@@ -2605,6 +2693,7 @@ function initGameUI() {
   window.addEventListener('keyup', e => { keys[e.code] = false; });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; jumpHeld = false; });
   window.addEventListener('resize', resize);
+  ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart'].forEach(ev => window.addEventListener(ev, () => { if (R) R.idleT = 0; }, { passive: true, capture: true }));
 
   // camera: drag with the right (or left) mouse button / one finger; wheel zooms
   let drag = null;
@@ -2710,7 +2799,7 @@ function viewCatalog(kind) {
     </aside>
     <section class="col-main"><div class="box"><h2>${esc(title)}${q ? ` matching "${esc(q)}"` : ''} <span class="small">${list.length} item${list.length === 1 ? '' : 's'}</span></h2>
       <div class="in igrid">${list.length ? list.map(icard).join('') : '<div class="empty" style="grid-column:1/-1">Nothing here yet. Be the first to create one!</div>'}</div></div>
-      <div class="box"><div class="in muted small">${Cloud.enabled ? 'Items you publish are shared with everyone on Cartblox.' : 'Online sharing is not set up here, so items you create stay in this browser.'} Everything is free.</div></div>
+      <div class="box"><div class="in muted small">${Cloud.enabled ? 'Items you publish are shared with everyone on Cartblox.' : 'Online sharing is not set up here, so items you create stay in this browser.'} Wearing items is free. Uploading your own costs ${PRICES.itemRbx} Robux or ${PRICES.itemTix} Tix (see <a href="#/money">My Money</a>).</div></div>
     </section>
   </div>`;
 }
@@ -2997,12 +3086,16 @@ async function publish2D() {
   if (name.length < 3) { $('#ed-name').focus(); return dialog({ title: BRAND, html: '<p>Please give your item a name (at least 3 letters).</p>' }); }
   const png = E.art.toDataURL('image/png');
   if (png.length > 800000) return dialog({ title: BRAND, html: '<p>This picture is too detailed to publish (the limit is about 600 KB). Try a smaller or simpler image.</p>' });
+  const up = await askUpload({ what: K.label.toLowerCase(), name: null });
+  if (!up) return;
+  if (!Wallet.spend(up.pay)) return dialog({ title: BRAND, html: '<p>You do not have enough money for that.</p>' });
   const th = (() => { const c = mkCanvasN(96, 120), x = c.getContext('2d'), o = { side: 'front' }; if (E.kind === 'shirt') o.shirt = E.art; if (E.kind === 'pants') o.pants = E.art; if (E.kind === 'tshirt') o.tshirt = E.art; dollFace(x, 96, 120, DEFAULT_COLORS, o, E.kind === 'face' ? E.art : Items.peek('b_face_smile').img); return c.toDataURL('image/png'); })();
   const rec = { id: 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), k: E.kind, n: name, c: S.user, t: Date.now(), th, png };
   Items.saveMine(rec);
   let online = false;
   if (Cloud.enabled) online = await Cloud.publishItem(rec);
-  const d = dialog({ title: BRAND, html: `<p><b>Your ${esc(K.label.toLowerCase())} "${esc(name)}" was created!</b></p><p>${online ? 'It is now live in the Catalog for everyone.' : (Cloud.enabled ? 'It was saved in this browser, but could not be shared online right now.' : 'It was saved in this browser.')}</p>`,
+  if (Cloud.enabled && !online) Wallet.refund(up.pay);
+  const d = dialog({ title: BRAND, html: `<p><b>Your ${esc(K.label.toLowerCase())} "${esc(name)}" was created!</b></p><p>${online ? 'It is now live in the Catalog for everyone.' : (Cloud.enabled ? 'It was saved in this browser, but could not be shared online right now.' : 'It was saved in this browser.')} ${(!Cloud.enabled || online) ? 'You paid ' + payText(up.pay) + '.' : 'You were not charged.'}</p>`,
     buttons: [{ label: 'Wear it', cls: 'btn-green', value: 'wear' }, { label: 'Go to Catalog', cls: 'btn-blue', value: 'cat' }] });
   const v = await d.promise;
   if (v === 'wear') { S.equipped[E.kind] = rec.id; store.set('equipped', S.equipped); }
@@ -3039,10 +3132,11 @@ const ICONS = {
   dup: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" fill="#fff" stroke="#333"/><rect x="4" y="4" width="12" height="12" fill="#e6eefa" stroke="#333"/></svg>',
   del: '<svg viewBox="0 0 24 24"><path d="M5 6h14M9 6V4h6v2M7 6l1 14h8l1-14" fill="none" stroke="#a33" stroke-width="2"/></svg>',
   mirror: '<svg viewBox="0 0 24 24"><path d="M12 3v18" stroke="#333" stroke-dasharray="2 2"/><path d="M10 6L3 18h7zM14 6l7 12h-7z" fill="#cfe0f5" stroke="#333"/></svg>',
+  save: '<svg viewBox="0 0 24 24"><path d="M4 3h13l3 3v15H4z" fill="#4b7fc4" stroke="#1d4f8c"/><rect x="7" y="3" width="9" height="6" fill="#e8eef8" stroke="#1d4f8c"/><rect x="7" y="13" width="10" height="8" fill="#fff" stroke="#1d4f8c"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="#2fa21f" stroke="#1d6b12"/></svg>'
 };
 const MENUS_PLACE = {
-  File: [['New Place', 'act:new'], ['Open Place...', 'act:open'], ['Save', 'act:save', 'Ctrl+S'], ['Save As...', 'act:saveas'], '-', ['Export to Text...', 'act:export'], ['Import from Text...', 'act:import'], '-', ['Exit CartStudio', 'act:exit']],
+  File: [['New Place', 'act:new'], ['Open Place...', 'act:open'], ['Save Place', 'act:save', 'Ctrl+S'], ['Game Settings...', 'act:settings'], ['Save a Copy...', 'act:saveas'], '-', ['Export to Text...', 'act:export'], ['Import from Text...', 'act:import'], '-', ['Exit CartStudio', 'act:exit']],
   Edit: [['Undo', 'act:undo', 'Ctrl+Z'], ['Redo', 'act:redo', 'Ctrl+Y'], '-', ['Duplicate', 'act:dup', 'Ctrl+D'], ['Delete', 'act:del', 'Del'], ['Rotate 90 degrees', 'act:rot90', 'Ctrl+R']],
   View: [['Toolbox', 'pan:left'], ['Explorer and Properties', 'pan:right'], ['Output', 'pan:output'], '-', ['Focus on Selection', 'act:focus', 'F']],
   Insert: [['Block', 'ins:block'], ['Ball', 'ins:ball'], ['Cylinder', 'ins:cylinder'], ['Wedge', 'ins:wedge'], ['Cone', 'ins:cone'], ['Pyramid', 'ins:pyramid'], ['Torus', 'ins:torus'], '-', ['Spawn Location', 'ins:@spawn'], ['Checkpoint', 'ins:@check'], ['Kill Brick', 'ins:@kill'], ['Bounce Pad', 'ins:@bounce']],
@@ -3078,7 +3172,7 @@ function sanitizeDoc(txt) {                           // accepts pasted text; re
     p: [0, 1, 2].map(k => num(q.p && q.p[k], 0, 5000)), z: [0, 1, 2].map(k => Math.max(0.1, num(q.z && q.z[k], 4, 2048))), r: [0, 1, 2].map(k => num(q.r && q.r[k], 0, 360)),
     c: hex(q.c), b: ['spawn', 'check', 'kill', 'bounce'].includes(q.b) ? q.b : '', q: q.q === 0 ? 0 : 1, st: q.st === 0 ? 0 : 1
   }));
-  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.]/g, '').slice(0, 24) || 'Imported', env: o.env === 'dusk' ? 'dusk' : 'day', parts };
+  return { v: 1, name: String(o.name || 'Imported').replace(/[^\w \-.!'&]/g, '').slice(0, 40) || 'Imported', env: o.env === 'dusk' ? 'dusk' : 'day', parts };
 }
 function testDef(doc) {
   const d = JSON.parse(JSON.stringify(doc));
@@ -3086,6 +3180,55 @@ function testDef(doc) {
     hint: 'Testing your place. Press Esc, then Leave Game to go back to CartStudio.' };
 }
 const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
+
+const cleanTitle = v => String(v || '').replace(/[^\w \-.!'&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+function compactDoc(doc) { return JSON.stringify({ v: 1, name: doc.name, env: doc.env, parts: doc.parts.map(p => ({ n: p.n, s: p.s, p: p.p.map(r2), z: p.z.map(r2), r: p.r, c: p.c, b: p.b, q: p.q, st: p.st })) }); }
+function authHint(err) {
+  err = String(err || '');
+  if (/admin-restricted|operation-not-allowed|configuration-not-found/i.test(err)) return 'Turn on Anonymous sign-in: Firebase console > Build > Authentication > Sign-in method > Anonymous > Enable.';
+  if (/permission|denied/i.test(err)) return 'Paste the new database.rules.json into Firebase console > Realtime Database > Rules and press Publish.';
+  return 'Open the Status page (link at the bottom of the site) to see what is wrong.';
+}
+// The "Publish Game" box: title + description. Returns { action: 'publish' | 'private', title, desc } or null.
+async function publishBox(o) {
+  const html = `<div class="fld"><label for="pb-title">Title</label><input type="text" id="pb-title" maxlength="40" value="${esc(o.title || '')}" placeholder="Name your game"></div>
+    <div class="fld"><label for="pb-desc">Description</label><textarea id="pb-desc" maxlength="300" rows="4" placeholder="Tell people what to do in your game">${esc(o.desc || '')}</textarea></div>
+    <p class="muted small">${o.update ? 'This updates your published game.' : 'Publishing a game is free. It will show up on the Games page for everyone.'}</p>`;
+  const buttons = o.update ? [{ label: 'Update game', cls: 'btn-green', value: 'publish' }, { label: 'Cancel', value: null }]
+    : [{ label: 'Publish', cls: 'btn-green', value: 'publish' }, { label: 'Save privately', cls: 'btn-blue', value: 'private' }, { label: 'Cancel', value: null }];
+  const d = dialog({ title: o.update ? 'Game Settings' : 'Publish Game', html, buttons, collect: back => ({ title: $('#pb-title', back).value, desc: $('#pb-desc', back).value }) });
+  setTimeout(() => { const t = $('#pb-title'); if (t) t.focus(); }, 40);
+  const r = await d.promise; if (!r || !r.v) return null;
+  const title = cleanTitle(r.x.title), desc = String(r.x.desc || '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f<>]/g, '').trim().slice(0, 300);
+  if (title.length < 3) { await dialog({ title: BRAND, html: '<p>Please give your game a title (at least 3 letters).</p>' }).promise; return publishBox(Object.assign({}, o, { title: r.x.title, desc: r.x.desc })); }
+  return { action: r.v, title, desc };
+}
+// Uploading an ITEM costs 50 Robux or 150 Tix. Returns { pay: 'rbx'|'tix', name } or null.
+async function askUpload(o) {
+  const w = S.wallet, canR = Wallet.can('rbx'), canT = Wallet.can('tix'), none = !canR && !canT;
+  const html = `<p>Uploading a ${esc(o.what)} to the Catalog costs <b>${PRICES.itemRbx} Robux</b> or <b>${PRICES.itemTix} Tix</b>.</p>${o.name != null ? `<div class="fld"><label for="up-name">Name</label><input type="text" id="up-name" maxlength="24" placeholder="Name your item" value="${esc(o.name)}"></div>` : ''}
+    <p class="muted small">You have <b>${fmt(w.rbx)}</b> Robux and <b>${fmt(w.tix)}</b> Tix.${none ? ' That is not enough yet. You earn 10 Tix every 20 minutes and 10 Robux every 25 minutes of playing, and you can trade Tix for Robux on the My Money page.' : ''}</p>`;
+  const buttons = [{ label: `Pay ${PRICES.itemRbx} Robux`, cls: 'btn-green', value: 'rbx', disabled: !canR }, { label: `Pay ${PRICES.itemTix} Tix`, cls: 'btn-blue', value: 'tix', disabled: !canT }];
+  if (none) buttons.push({ label: 'How do I get more?', value: 'money' });
+  buttons.push({ label: 'Cancel', value: null });
+  const d = dialog({ title: 'Upload ' + o.what, html, buttons, collect: back => ({ name: o.name != null ? $('#up-name', back).value : null }) });
+  const r = await d.promise;
+  if (!r || !r.v) return null;
+  if (r.v === 'money') { if (STUDIO) STUDIO.destroy(); go('money'); return null; }
+  return { pay: r.v, name: r.x.name };
+}
+const payText = k => (k === 'rbx' ? PRICES.itemRbx + ' Robux' : PRICES.itemTix + ' Tix');
+function placeThumbCfg(doc) {
+  let list = doc.parts.filter(p => Math.max(p.z[0], p.z[2]) < 120); if (!list.length) list = doc.parts;
+  let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
+  for (const p of list) { x0 = Math.min(x0, p.p[0] - p.z[0] / 2); x1 = Math.max(x1, p.p[0] + p.z[0] / 2); y0 = Math.min(y0, p.p[1] - p.z[1] / 2); y1 = Math.max(y1, p.p[1] + p.z[1] / 2); z0 = Math.min(z0, p.p[2] - p.z[2] / 2); z1 = Math.max(z1, p.p[2] + p.z[2] / 2); }
+  if (x0 > x1) { x0 = -10; x1 = 10; y0 = 0; y1 = 6; z0 = -10; z1 = 10; }
+  const c = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], r = Math.max(8, Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2);
+  return { cam: [c[0] + r * 0.9, c[1] + r * 0.75 + 4, c[2] + r * 1.5 + 6], look: c, fov: 55 };
+}
+function placeDef(m, doc) {
+  return { id: 'place:' + m.id, name: m.n, creator: m.c, stat: null, online: true, env: (m.e || doc.env) === 'dusk' ? ENV_DUSK : ENV_DAY, build: w => buildPlace(w, doc), hint: 'Welcome to ' + m.n + '!', thumb: placeThumbCfg(doc) };
+}
 
 class Studio {
   constructor(o) {
@@ -3107,7 +3250,7 @@ class Studio {
     root.innerHTML = `
       <div class="cs-title"><span class="cs-logo">CB</span><b id="cs-title"></b><span class="cs-sp"></span><button class="cs-x" data-cs="act:exit" title="Close" type="button">&times;</button></div>
       <div class="cs-menubar">${Object.keys(menus).map(m => `<div class="cs-mi" data-menu="${m}">${m}<div class="cs-dd" hidden>${menus[m].map(it => it === '-' ? '<hr>' : `<div class="cs-it" data-cs="${it[1]}"><span>${it[0]}</span><i>${it[2] || ''}</i></div>`).join('')}</div></div>`).join('')}</div>
-      <div class="cs-toolbar">${tb('act:undo', 'undo', 'Undo')}${tb('act:redo', 'redo', 'Redo')}<span class="cs-sep"></span>
+      <div class="cs-toolbar">${item ? '' : tb('act:save', 'save', 'Save Place (Ctrl+S). The first time this opens the Publish box.') + '<span class="cs-sep"></span>'}${tb('act:undo', 'undo', 'Undo')}${tb('act:redo', 'redo', 'Redo')}<span class="cs-sep"></span>
         ${tb('tool:select', 'select', 'Select (Ctrl+1)', 'tool-select on')}${tb('tool:translate', 'translate', 'Move (Ctrl+2)', 'tool-translate')}${tb('tool:scale', 'scale', 'Scale (Ctrl+3)', 'tool-scale')}${tb('tool:rotate', 'rotate', 'Rotate (Ctrl+4)', 'tool-rotate')}<span class="cs-sep"></span>
         ${tb('act:dup', 'dup', 'Duplicate (Ctrl+D)')}${tb('act:del', 'del', 'Delete')}${item ? tb('act:mirror', 'mirror', 'Mirror copy across the middle') : ''}<span class="cs-sp"></span>
         ${item ? '<button class="cs-go" data-cs="act:publish" type="button">Publish ' + esc(K.label) + '</button>' : '<button class="cs-go" data-cs="act:test" type="button">' + ICONS.play + ' Play Solo</button>'}</div>
@@ -3121,7 +3264,7 @@ class Studio {
     this.setTitle();
   }
   setTitle() {
-    const t = this.mode === 'item' ? `${KINDS[this.kind].label} Creator - CartStudio (Beta)` : `CartStudio (Beta) - ${this.doc.name}`;
+    const t = this.mode === 'item' ? `${KINDS[this.kind].label} Creator - CartStudio (Beta)` : `CartStudio (Beta) - ${this.doc.name}${this.doc.pub ? ' (published)' : ''}`;
     $('#cs-title').textContent = t; document.title = this.mode === 'item' ? `${KINDS[this.kind].label} Creator - CartStudio` : 'CartStudio';
   }
   log(msg) { const el = $('#cs-log'); if (el) { const d = document.createElement('div'); d.textContent = new Date().toLocaleTimeString() + '  ' + msg; el.appendChild(d); while (el.children.length > 80) el.removeChild(el.firstChild); el.scrollTop = el.scrollHeight; } const s = $('#cs-status'); if (s) s.textContent = msg; }
@@ -3341,6 +3484,7 @@ class Studio {
     if (a === 'new') { const d = dialog({ title: 'New Place', html: '<p>Start a new place? Unsaved changes will be lost.</p>', buttons: [{ label: 'New Place', cls: 'btn-blue', value: true }, { label: 'Cancel', value: null }] }); if (await d.promise) this.load(newPlaceDoc()); return; }
     if (a === 'save') return this.save(false);
     if (a === 'saveas') return this.save(true);
+    if (a === 'settings') return this.settings();
     if (a === 'open') return this.openPlace();
     if (a === 'export') { const json = JSON.stringify(this.doc); const d = dialog({ title: 'Export to Text', html: '<p>Copy this text to keep a backup. Use Import to load it again.</p><textarea class="cs-ta" readonly>' + esc(json) + '</textarea>' }); setTimeout(() => { const t = document.querySelector('.cs-ta'); if (t) { t.focus(); t.select(); } }, 30); return d.promise; }
     if (a === 'import') {
@@ -3352,14 +3496,45 @@ class Studio {
     }
     if (a === 'test') return this.test();
   }
+  localSave() { const places = store.get('places', {}); places[this.doc.name] = JSON.parse(JSON.stringify(this.doc)); store.set('places', places); store.set('studioAuto', this.doc); }
   async save(as) {
-    const places = store.get('places', {}); let name = this.doc.name;
-    if (as || name === 'Place1') {
-      const d = dialog({ title: as ? 'Save As' : 'Save Place', html: '<p>Name your place:</p>', input: name === 'Place1' ? '' : name, maxlength: 24, buttons: [{ label: 'Save', cls: 'btn-blue', value: true }, { label: 'Cancel', value: null }] });
+    if (as) {                                                  // a local copy that starts as a brand-new, unpublished game
+      const d = dialog({ title: 'Save a Copy', html: '<p>Name for the copy (it starts as a new, unpublished game):</p>', input: this.doc.name, maxlength: 40, buttons: [{ label: 'Save', cls: 'btn-blue', value: true }, { label: 'Cancel', value: null }] });
       const v = await d.promise; if (typeof v !== 'string') return;
-      name = v.replace(/[^\w \-.]/g, '').trim().slice(0, 24); if (name.length < 2) return dialog({ title: BRAND, html: '<p>Please type a name.</p>' });
+      const name = cleanTitle(v); if (name.length < 3) return dialog({ title: BRAND, html: '<p>Please type a name (at least 3 letters).</p>' });
+      this.doc = Object.assign(JSON.parse(JSON.stringify(this.doc)), { name }); delete this.doc.pub; this.setTitle(); this.localSave();
+      this.log('Saved a copy named "' + name + '". Press Save to publish it as a new game.'); return;
     }
-    this.doc.name = name; places[name] = JSON.parse(JSON.stringify(this.doc)); store.set('places', places); this.setTitle(); this.log('Saved "' + name + '" in this browser.');
+    if (this.doc.pub) return this.publishNow(true);            // already published: Save just updates the game
+    const r = await publishBox({ title: this.doc.name === 'Place1' ? '' : this.doc.name, desc: this.doc.desc || '' });
+    if (!r) return;
+    this.doc.name = r.title; this.doc.desc = r.desc; this.setTitle();
+    if (r.action === 'private') { this.localSave(); return this.log('Saved "' + r.title + '" in this browser (not published).'); }
+    return this.publishNow(false);
+  }
+  async settings() {
+    const r = await publishBox({ title: this.doc.name === 'Place1' ? '' : this.doc.name, desc: this.doc.desc || '', update: !!this.doc.pub });
+    if (!r) return;
+    this.doc.name = r.title; this.doc.desc = r.desc; this.setTitle();
+    if (this.doc.pub) return this.publishNow(true);
+    if (r.action === 'private') { this.localSave(); return this.log('Saved in this browser.'); }
+    return this.publishNow(false);
+  }
+  async publishNow(update) {
+    this.localSave();
+    if (!Cloud.enabled) { this.log('Saved in this browser. Online publishing is not set up here.'); return dialog({ title: BRAND, html: '<p>Your place was saved in this browser.</p><p class="muted small">Publishing works on your own website (it needs Firebase, which is switched off in this preview).</p>' }); }
+    this.log(update ? 'Updating your game...' : 'Publishing your game...');
+    let th = ''; try { th = thumbFor(placeDef({ id: 'x', n: this.doc.name, c: S.user, e: this.doc.env }, this.doc)); } catch (e) { console.warn('place thumbnail failed', e); }
+    this.resize();
+    const id = this.doc.pub ? this.doc.pub.id : 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const res = await Cloud.publishPlace({ id, n: this.doc.name, ds: this.doc.desc || '', c: S.user, e: this.doc.env, th, d: compactDoc(this.doc) }, update);
+    if (!res.ok) { this.log('Publish failed: ' + res.err); return dialog({ title: "Couldn't publish", html: `<p>Your place is saved in this browser, but it could not be published.</p><p class="muted small">${esc(String(res.err))}</p><p class="small">${esc(authHint(res.err))}</p>` }); }
+    if (!update) { this.doc.pub = { id, t: Date.now() }; this.setTitle(); this.localSave(); }
+    this.log(update ? 'Game updated.' : 'Game published!');
+    if (!update) {
+      const v = await dialog({ title: BRAND, html: `<p><b>"${esc(this.doc.name)}" is published!</b></p><p>It is on the Games page now. Press Save again any time to update it.</p>`, buttons: [{ label: 'View game page', cls: 'btn-green', value: 'view' }, { label: 'Keep building', cls: 'btn-blue', value: null }] }).promise;
+      if (v === 'view') { this.exit(); go('game/' + id); }
+    }
   }
   async openPlace() {
     const names = Object.keys(store.get('places', {}));
@@ -3382,17 +3557,20 @@ class Studio {
     if (parts.length > 30) return dialog({ title: BRAND, html: '<p>Items can have up to 30 parts.</p>' });
     this.refreshChecks();
     if (this.badIdx && this.badIdx.length) return dialog({ title: "Can't publish yet", html: `<p>${this.badIdx.length} part${this.badIdx.length > 1 ? 's go' : ' goes'} outside the blue lines. They are outlined in red. Move or shrink ${this.badIdx.length > 1 ? 'them' : 'it'} so everything fits inside the blue box, then try again.</p>` });
-    const d = dialog({ title: 'Publish ' + K.label, html: '<p>Give your ' + esc(K.label.toLowerCase()) + ' a name:</p>', input: '', maxlength: 24, buttons: [{ label: 'Publish', cls: 'btn-green', value: true }, { label: 'Cancel', value: null }] });
-    let name = await d.promise; if (typeof name !== 'string') return;
-    name = name.replace(/[^\w \-.!']/g, '').trim().slice(0, 24);
-    if (name.length < 3) return dialog({ title: BRAND, html: '<p>Names need at least 3 letters.</p>' });
+    const up = await askUpload({ what: K.label.toLowerCase(), name: '' });
+    if (!up) return;
+    const name = String(up.name || '').replace(/[^\w \-.!']/g, '').trim().slice(0, 24);
+    if (name.length < 3) return dialog({ title: BRAND, html: '<p>Names need at least 3 letters. You were not charged.</p>' });
+    if (!Wallet.spend(up.pay)) return dialog({ title: BRAND, html: '<p>You do not have enough money for that.</p>' });
     const id = 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     Items.items.set(id, { id, k: this.kind, n: name, c: S.user, parts });
     const th = await new Promise(res => itemThumb({ id, k: this.kind, n: name, c: S.user }, res));
     const rec = { id, k: this.kind, n: name, c: S.user, t: Date.now(), th, d: JSON.stringify(parts) };
     Items.saveMine(rec);
     let online = false; if (Cloud.enabled) online = await Cloud.publishItem(rec);
-    const d2 = dialog({ title: BRAND, html: `<p><b>Your ${esc(K.label.toLowerCase())} "${esc(name)}" was published!</b></p><p>${online ? 'It is now live in the Catalog for everyone.' : (Cloud.enabled ? 'It was saved in this browser, but could not be shared online right now.' : 'It was saved in this browser.')}</p>`, buttons: [{ label: 'Wear it', cls: 'btn-green', value: 'wear' }, { label: 'Go to Catalog', cls: 'btn-blue', value: 'cat' }] });
+    if (Cloud.enabled && !online) Wallet.refund(up.pay);
+    const paid = (!Cloud.enabled || online) ? ` You paid ${payText(up.pay)}.` : ' You were not charged.';
+    const d2 = dialog({ title: BRAND, html: `<p><b>Your ${esc(K.label.toLowerCase())} "${esc(name)}" was published!</b></p><p>${online ? 'It is now live in the Catalog for everyone.' : (Cloud.enabled ? 'It was saved in this browser, but could not be shared online right now.' : 'It was saved in this browser.')}${paid}</p>`, buttons: [{ label: 'Wear it', cls: 'btn-green', value: 'wear' }, { label: 'Go to Catalog', cls: 'btn-blue', value: 'cat' }] });
     const v = await d2.promise;
     if (v === 'wear') { S.equipped[this.kind] = id; store.set('equipped', S.equipped); }
     store.set('itemAuto_' + this.kind, []);
@@ -3562,7 +3740,7 @@ function viewHome() {
       <div class="box"><h2>My Feed ${Cloud.enabled ? '<span class="small">live</span>' : ''}</h2><div id="feed">${feedHTML()}</div></div>
       <div class="box"><h2>Recently Played</h2><div class="in">${recentHTML}</div></div>
       <div class="box"><h2>Recommended Games <a href="#/games">See all</a></h2><div class="in glist">${GAMES.map(gcard).join('')}${SOON_CARD}</div></div>
-      <div class="box blog"><h2>Cartblox Blog</h2>${NEWS.map(n => `<div class="item"><b>${esc(n.t)}</b><span>${esc(n.d)}</span><div>${esc(n.x)}</div></div>`).join('')}</div>
+      ${communityBox()}<div class="box blog"><h2>Cartblox Blog</h2>${NEWS.map(n => `<div class="item"><b>${esc(n.t)}</b><span>${esc(n.d)}</span><div>${esc(n.x)}</div></div>`).join('')}</div>
     </section>
   </div>`;
 }
@@ -3579,10 +3757,11 @@ function viewGames() {
   <div class="cols">
     <aside class="col-side narrow"><div class="box"><h2>Browse</h2><div class="browse">${tabs.map(t => `<a data-act="sort" data-sort="${t[0]}" class="${gamesSort === t[0] && !searchQ ? 'on' : ''}">${t[1]}</a>`).join('')}</div></div></aside>
     <section class="col-main"><div class="box"><h2>${title}</h2>${rows}</div>
-      <div class="box"><div class="in muted small">More games are coming soon. Build your own in <a href="#/studio">CartStudio</a>.</div></div></section>
+      ${communityRows(searchQ)}<div class="box"><div class="in muted small">Build your own game in <a href="#/studio">CartStudio</a> and it shows up here.</div></div></section>
   </div>`;
 }
 function viewGame(id) {
+  if (String(id).indexOf('p_') === 0) return viewPlaceGame(id);
   const g = gameById(id);
   if (!g) return viewSoon('Game not found', 'That game does not exist yet.');
   const r = ratingOf(g), v = S.votes[g.id];
@@ -3633,7 +3812,7 @@ function viewCharacter() {
   </div>`;
 }
 function viewStudioHome() {
-  const places = Object.keys(store.get('places', {}));
+  const docs = store.get('places', {}), places = Object.keys(docs);
   return `<div class="studio-hero">
     <div class="sh-text"><span class="beta">BETA</span><h1>Build anything.</h1><h2>CartStudio</h2>
       <p>Make your own places with blocks, balls, ramps, spawn points and checkpoints, then press <b>Play Solo</b> to run around in them. You can also design hats and hair for the Catalog.</p>
@@ -3641,11 +3820,11 @@ function viewStudioHome() {
       <div class="small muted" style="margin-top:8px">Opens CartStudio right here in your browser. Nothing to download.</div></div>
     <div class="sh-art">${BRICKS_SVG}</div></div>
   <div class="cols">
-    <section class="col-main"><div class="box"><h2>My Places</h2><div class="in">${places.length ? places.map(n => `<div class="place-row"><b>${esc(n)}</b><span class="muted small">saved in this browser</span></div>`).join('') : '<div class="empty">You have not saved a place yet. Open CartStudio, build something and choose File, Save.</div>'}</div></div>
+    <section class="col-main"><div class="box"><h2>My Places</h2><div class="in">${places.length ? places.map(n => `<div class="place-row"><b>${esc(n)}</b>${docs[n] && docs[n].pub ? `<a class="live" href="#/game/${docs[n].pub.id}"><i></i>Published</a>` : '<span class="muted small">private</span>'}<button class="btn btn-sm btn-blue" data-act="open-place" data-name="${esc(n)}" type="button">Open</button></div>`).join('') : '<div class="empty">You have not saved a place yet. Open CartStudio, build something and press Save to publish it.</div>'}</div></div>
       <div class="box"><h2>Make items for the Catalog</h2><div class="in"><p style="margin-bottom:8px">Design shirts, pants and faces on a drawing canvas, or build hats, hair and accessories out of 3D parts.</p><div class="mkrow">${createLinks()}</div></div></div></section>
     <aside class="col-side"><div class="box"><h2>What is in the beta</h2><div class="in small">
-      <ul class="tick"><li>Blocks, balls, cylinders, wedges, cones, pyramids, tori</li><li>Move, Scale and Rotate tools</li><li>Explorer, Properties and Output windows</li><li>Spawn points, checkpoints, kill bricks, bounce pads</li><li>Play Solo to test your place</li><li>Save places in your browser</li></ul>
-      <p class="muted" style="margin-top:8px">Coming later: scripting, publishing places, models.</p></div></div></aside>
+      <ul class="tick"><li>Blocks, balls, cylinders, wedges, cones, pyramids, tori</li><li>Move, Scale and Rotate tools</li><li>Explorer, Properties and Output windows</li><li>Spawn points, checkpoints, kill bricks, bounce pads</li><li>Play Solo to test your place</li><li>Press Save to publish your game for everyone</li></ul>
+      <p class="muted" style="margin-top:8px">Coming later: scripting and models.</p></div></div></aside>
   </div>`;
 }
 const SOON_PAGES = {
@@ -3654,6 +3833,144 @@ const SOON_PAGES = {
 };
 function viewSoon(title, text) {
   return `<div class="pagehead"><h1>${esc(title)}</h1></div><div class="box"><div class="hazard"></div><div class="soonbox">${BRICKS_SVG}<h3>Under construction</h3><p>${esc(text)}</p><a class="btn btn-blue" href="#/home">Back to Home</a></div><div class="hazard"></div></div>`;
+}
+
+/* ---------- published (community) games ---------- */
+const Places = {
+  metas: new Map(),
+  add(m) {
+    if (m.th && !SAFE_IMG.test(m.th)) m.th = '';
+    m.n = String(m.n || '').slice(0, 40); m.ds = String(m.ds || '').slice(0, 300); m.c = String(m.c || '?').slice(0, 20);
+    const o = this.metas.get(m.id), changed = !o || o.u !== m.u || o.n !== m.n || o.th !== m.th;
+    this.metas.set(m.id, m); return changed;
+  },
+  list() { return [...this.metas.values()].sort((a, b) => (b.u || 0) - (a.u || 0)); }
+};
+const placeLoading = {};
+let renderT = 0;
+function schedRender() { clearTimeout(renderT); renderT = setTimeout(() => render(true), 300); }
+const localPlaceFor = id => Object.values(store.get('places', {})).find(d => d && d.pub && d.pub.id === id) || null;
+function pcard(m) {
+  return `<a class="gcard" href="#/game/${m.id}"><div class="gthumb">${m.th ? `<img src="${m.th}" alt="">` : ''}<div class="gplay">&#9654; Play</div></div>
+    <div class="gname">${esc(m.n)}</div><div class="gby">By ${esc(m.c)}</div>${playingHTML('place:' + m.id)}<div class="gstat">Updated ${esc(timeAgo(m.u || m.t || Date.now()))}</div></a>`;
+}
+function prowHTML(m) {
+  return `<div class="grow"><a class="gthumb" href="#/game/${m.id}">${m.th ? `<img src="${m.th}" alt="">` : ''}<div class="gplay">&#9654; Play</div></a>
+    <div class="gi"><h3><a href="#/game/${m.id}">${esc(m.n)}</a></h3><div class="gby">By <a>${esc(m.c)}</a> &bull; Community game</div><p>${esc(m.ds || 'No description.')}</p>
+    <div class="stats">${ONLINE.ok ? `<span class="live"><i></i>${fmt(ONLINE.games['place:' + m.id] || 0)} playing</span>` : ''}<span>Updated ${esc(timeAgo(m.u || m.t || Date.now()))}</span></div></div>
+    <a class="btn btn-green" href="#/game/${m.id}">Play</a></div>`;
+}
+function communityBox() {
+  const list = Places.list().slice(0, 6); if (!list.length) return '';
+  return `<div class="box"><h2>Community Games <a href="#/games">See all</a></h2><div class="in glist">${list.map(pcard).join('')}</div></div>`;
+}
+function communityRows(q) {
+  let list = Places.list();
+  if (q) list = list.filter(m => (m.n + ' ' + (m.ds || '') + ' ' + m.c).toLowerCase().includes(q));
+  if (!Cloud.enabled && !list.length) return '';
+  return `<div class="box"><h2>Community Games <span class="small">made in CartStudio</span></h2>${list.length ? list.map(prowHTML).join('') : '<div class="empty">No community games yet. Build one in <a href="#/studio">CartStudio</a> and press Save to publish it!</div>'}</div>`;
+}
+const CONTROLS_HTML = '<div class="box"><h2>Controls</h2><div class="in"><div class="keys"><span><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></span><span>Move</span><span><kbd>Space</kbd></span><span>Jump</span><span><kbd>Right-drag</kbd></span><span>Rotate the camera</span><span><kbd>Wheel</kbd></span><span>Zoom in and out</span><span><kbd>/</kbd></span><span>Chat (try /e wave)</span><span><kbd>Esc</kbd></span><span>Game menu</span></div></div></div>';
+function viewPlaceGame(id) {
+  const m = Places.metas.get(id);
+  if (!m) {
+    if (!placeLoading[id]) { placeLoading[id] = 1; Cloud.fetchPlaceMeta(id).then(v => { if (v) Places.add(v); placeLoading[id] = 2; if (currentRoute().arg === id) render(true); }, () => { placeLoading[id] = 2; }); }
+    return placeLoading[id] === 2 ? viewSoon('Game not found', 'That game does not exist, or it was removed.') : '<div class="pagehead"><h1>Loading...</h1></div><div class="box"><div class="in empty">Loading the game...</div></div>';
+  }
+  const mine = !!localPlaceFor(id);
+  return `<div class="pagehead"><div><h1>${esc(m.n)}</h1><div class="muted">By <a>${esc(m.c)}</a> &bull; Community game</div></div><a class="btn" href="#/games">Back to Games</a></div>
+  <div class="gp"><div class="gp-left"><div class="gp-shot">${m.th ? `<img src="${m.th}" alt="${esc(m.n)} screenshot">` : ''}</div>
+      <div class="gp-actions"><button class="btn btn-green btn-lg" data-act="play-place" data-id="${id}" type="button">Play</button>${mine ? `<button class="btn btn-blue" data-act="edit-place" data-id="${id}" type="button">Edit in CartStudio</button>` : ''}</div></div>
+    <div class="gp-right"><div class="box"><h2>Description</h2><div class="in" style="white-space:pre-wrap">${esc(m.ds || 'The creator did not write a description.')}</div></div>
+      <div class="box"><h2>Game Info</h2><div class="in"><dl class="kv"><dt>Creator</dt><dd>${esc(m.c)}</dd><dt>Created</dt><dd>${esc(timeAgo(m.t || m.u || Date.now()))}</dd><dt>Updated</dt><dd>${esc(timeAgo(m.u || m.t || Date.now()))}</dd><dt>Max players</dt><dd>16 per server</dd>${ONLINE.ok ? `<dt>Playing now</dt><dd>${fmt(ONLINE.games['place:' + id] || 0)}</dd>` : ''}</dl></div></div>
+      ${CONTROLS_HTML}</div></div>`;
+}
+async function launchPlace(id) {
+  const m = Places.metas.get(id); if (!m || launching) return;
+  if (!HAVE_THREE) { dialog({ title: BRAND, html: '<p>The 3D engine could not be loaded. Check your connection and reload the page.</p>' }); return; }
+  launching = true; Sfx.init();
+  let cancelled = false;
+  const dlg = dialog({ title: BRAND, html: `<p><b>Cartblox is now loading.</b><br>Get ready to play ${esc(m.n)}!</p><div class="prog"><i id="lp"></i></div>`, buttons: [{ label: 'Cancel', value: 'cancel' }] });
+  dlg.promise.then(v => { if (v === 'cancel' || v === null) cancelled = true; });
+  requestAnimationFrame(() => { const b = $('#lp'); if (b) { b.style.transition = 'width .9s ease-out'; b.style.width = '100%'; } });
+  const got = await Promise.all([Cloud.fetchPlace(id).catch(() => null), sleep(1000)]);
+  launching = false;
+  if (cancelled) return;
+  dlg.close('done');
+  const doc = got[0] ? sanitizeDoc(got[0]) : null;
+  if (!doc) { dialog({ title: BRAND, html: '<p>This game could not be loaded right now. Please try again in a moment.</p>' }); return; }
+  S.recentPlaces = [id].concat((S.recentPlaces || []).filter(x => x !== id)).slice(0, 6);
+  beginRun(placeDef(m, doc), {
+    onExit: () => { go('game/' + id); render(true); },
+    onError: err => dialog({ title: BRAND, html: `<p>Your browser could not start the 3D view.</p><p class="muted small">${esc((err && err.message) || err)}</p>` })
+  });
+}
+
+/* ---------- money ---------- */
+function viewMoney() {
+  const w = S.wallet, tMin = EARN.tixMin * 60, rMin = EARN.rbxMin * 60, sc = CFG.timeScale || 1;
+  const left = (have, need) => { const s = Math.max(0, Math.ceil((need - have) / sc)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const bar = (have, need) => `<div class="prog2"><i style="width:${Math.min(100, have / need * 100)}%"></i></div>`;
+  const buy = n => `<button class="btn btn-blue" data-act="exchange" data-rbx="${n}" type="button"${w.tix >= n * PRICES.tixPerRbx ? '' : ' disabled'}>Get ${n} Robux<br><small>for ${fmt(n * PRICES.tixPerRbx)} Tix</small></button>`;
+  return `<div class="pagehead"><h1>My Money</h1></div>
+  <div class="cols"><section class="col-main">
+    <div class="box"><h2>Your balance</h2><div class="in bal"><div class="bigbal"><i class="coin"></i><b>${fmt(w.rbx)}</b> Robux</div><div class="bigbal"><i class="tix"></i><b>${fmt(w.tix)}</b> Tix</div></div></div>
+    <div class="box"><h2>Earn by playing</h2><div class="in"><p>Play any game in Cartblox and you earn money automatically:</p>
+      <div class="earn"><b>${EARN.tix} Tix</b> every ${EARN.tixMin} minutes${bar(w.ptix, tMin)}<span class="muted small">Next payout after ${left(w.ptix, tMin)} more of play</span></div>
+      <div class="earn"><b>${EARN.rbx} Robux</b> every ${EARN.rbxMin} minutes${bar(w.prbx, rMin)}<span class="muted small">Next payout after ${left(w.prbx, rMin)} more of play</span></div>
+      <p class="muted small">Time only counts while you are moving or typing (not when you walk away), and not while testing in CartStudio.</p></div></div>
+    <div class="box"><h2>Trade Tix for Robux</h2><div class="in"><p style="margin-bottom:10px">${PRICES.tixPerRbx} Tix = 1 Robux.</p><div class="buyrow">${buy(10)}${buy(50)}${buy(100)}</div></div></div>
+  </section>
+  <aside class="col-side"><div class="box"><h2>What things cost</h2><div class="in"><dl class="kv"><dt>Upload an item</dt><dd>${PRICES.itemRbx} Robux or ${PRICES.itemTix} Tix</dd><dt>Publish a game</dt><dd>Free</dd><dt>Wear catalog items</dt><dd>Free</dd></dl>
+    <p class="small muted" style="margin-top:8px">Items are shirts, pants, T-shirts, faces, hats, hair and other accessories.</p></div></div></aside></div>`;
+}
+
+/* ---------- status page ---------- */
+function viewStatus() {
+  const row = (k, id, v) => `<tr><th>${k}</th><td id="${id}">${v}</td></tr>`;
+  return `<div class="pagehead"><h1>Connection Status</h1><button class="btn" data-act="status-run" type="button">Check again</button></div>
+  <div class="box"><h2>This website</h2><div class="in"><table class="stt">${row('Build', 'st-build', CFG.preview ? 'Preview build (online features are off here)' : 'Website build')}${row('config.js', 'st-cfg', CFG.preview ? '-' : (CFG.configFound ? '<span class="good">found</span>' : 'not found (that is OK: the built-in settings are used)'))}${row('Server URL', 'st-url', esc(CFG.serverUrl || '(none)'))}</table></div></div>
+  <div class="box"><h2>Game server (Render)</h2><div class="in"><table class="stt">${row('Health check', 'st-health', 'checking...')}${row('Players online', 'st-stats', '-')}</table><p id="st-hint" class="small muted" style="margin-top:8px"></p></div></div>
+  <div class="box"><h2>Firebase (chat, feed, shared items, published games)</h2><div class="in"><table class="stt">${row('Config', 'st-fbcfg', '-')}${row('Database', 'st-fbdb', 'checking...')}${row('Anonymous sign-in', 'st-fbauth', 'checking...')}</table><p id="st-fbhint" class="small muted" style="margin-top:8px"></p></div></div>`;
+}
+async function runStatus() {
+  const set = (id, html, cls) => { const e = document.getElementById(id); if (e) { e.innerHTML = html; e.className = cls || ''; } };
+  ['st-health', 'st-fbdb', 'st-fbauth'].forEach(i => set(i, 'checking...')); set('st-hint', ''); set('st-fbhint', '');
+  if (!Net.enabled) {
+    set('st-health', 'No server URL is set.', 'bad'); set('st-stats', '-');
+    set('st-hint', CFG.preview ? 'This is the preview build, so online features are switched off. Use index.html from the zip on your own website.' : 'Put your Render URL in <b>serverUrl</b> in config.js (for example https://my-game.onrender.com) and reload.');
+  } else {
+    const t0 = performance.now();
+    try {
+      const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 70000);
+      set('st-health', 'checking... (a sleeping free server can take up to a minute to wake)');
+      const r = await fetch(Net.httpUrl() + '/health', { cache: 'no-store', signal: ctl.signal }); clearTimeout(to);
+      const j = await r.json().catch(() => null), ms = Math.round(performance.now() - t0);
+      if (r.ok && j && j.ok) {
+        set('st-health', 'OK (' + (ms > 3000 ? (ms / 1000).toFixed(1) + ' s, it was asleep' : ms + ' ms') + ')', 'good');
+        const s = await Net.stats(); set('st-stats', s ? plural(s.players, 'player') + ' in ' + plural(s.rooms, 'room') : 'unknown');
+        set('st-hint', 'The server is public and running. Games connect to it automatically.');
+      } else {
+        set('st-health', 'Something answered (HTTP ' + r.status + ') but it is not the Cartblox server.', 'bad'); set('st-stats', '-');
+        set('st-hint', 'In Render, open your service: it must be a <b>Web Service</b> built from the <b>Dockerfile</b> (Language: Docker) and show <b>Live</b>. Then open ' + esc(Net.httpUrl()) + '/health in a new tab: you should see {"ok":true}.');
+      }
+    } catch (e) {
+      set('st-health', 'No answer (' + esc(e.name === 'AbortError' ? 'timed out' : (e.message || 'blocked')) + ').', 'bad'); set('st-stats', '-');
+      set('st-hint', 'Common reasons: the deploy failed (Render > your service > Logs), the service is a <b>Private Service</b> instead of a <b>Web Service</b>, or the URL is wrong. Try ' + esc(Net.httpUrl()) + '/health in a new tab.');
+    }
+  }
+  if (!Cloud.enabled) { set('st-fbcfg', 'No Firebase config found.', 'bad'); set('st-fbdb', '-'); set('st-fbauth', '-'); return; }
+  set('st-fbcfg', 'found (project ' + esc(CFG.firebase.projectId || '?') + ')', 'good');
+  const ok = await Cloud.init();
+  if (!ok) { set('st-fbdb', 'Could not load the Firebase scripts (blocked or offline).', 'bad'); set('st-fbauth', '-'); return; }
+  const conn = await new Promise(res => {
+    const ref = window.firebase.database().ref('.info/connected'), t = setTimeout(() => res(false), 9000);
+    const f = ref.on('value', s => { if (s.val() === true) { clearTimeout(t); try { ref.off('value', f); } catch (e) { /* ignore */ } res(true); } });
+  });
+  set('st-fbdb', conn ? 'connected' : 'could not connect. Check that a Realtime Database exists and databaseURL is right.', conn ? 'good' : 'bad');
+  const a = await Cloud.auth();
+  set('st-fbauth', a.uid ? 'working' : 'not working (' + esc(String(a.err)) + ')', a.uid ? 'good' : 'bad');
+  set('st-fbhint', a.uid ? 'Everything online is ready, including publishing games.' : 'Publishing games needs this. In the Firebase console open <b>Build &gt; Authentication &gt; Sign-in method &gt; Anonymous</b> and turn it on.');
 }
 
 /* ---------- router ---------- */
@@ -3670,7 +3987,7 @@ function render(force) {
   const keepStudio = rt.name === 'cartstudio' || (rt.name === 'create' && KINDS[rt.arg] && KINDS[rt.arg].dim === 3);
   if (!keepStudio) { closeStudio(); if (document.title.indexOf('CartStudio') >= 0) document.title = BRAND; }
   if (rt.name === 'games') { html = viewGames(); title = 'Games'; }
-  else if (rt.name === 'game') { html = viewGame(rt.arg); tab = 'games'; const g = gameById(rt.arg); title = g ? g.name : 'Game'; }
+  else if (rt.name === 'game') { html = viewGame(rt.arg); tab = 'games'; const g = gameById(rt.arg), pm = Places.metas.get(rt.arg); title = g ? g.name : (pm ? pm.n : 'Game'); }
   else if (rt.name === 'character') { html = viewCharacter(); tab = ''; title = 'Customize Character'; after = charRefresh; }
   else if (rt.name === 'catalog') { html = viewCatalog(rt.arg); title = 'Catalog'; }
   else if (rt.name === 'item') { html = viewItem(rt.arg); tab = 'catalog'; const m = Items.metas.get(rt.arg); title = m ? m.n : 'Item'; }
@@ -3681,6 +3998,8 @@ function render(force) {
   }
   else if (rt.name === 'studio' || rt.name === 'build') { html = viewStudioHome(); tab = 'studio'; title = 'Studio'; }
   else if (rt.name === 'cartstudio') { html = viewStudioHome(); tab = 'studio'; title = 'CartStudio'; after = () => openPlaceStudio(() => go('studio')); }
+  else if (rt.name === 'money') { html = viewMoney(); tab = ''; title = 'My Money'; }
+  else if (rt.name === 'status') { html = viewStatus(); tab = ''; title = 'Status'; after = runStatus; }
   else if (SOON_PAGES[rt.name]) { html = viewSoon(SOON_PAGES[rt.name][0], SOON_PAGES[rt.name][1]); title = SOON_PAGES[rt.name][0]; }
   else { html = viewHome(); tab = 'home'; }
   $('#main').innerHTML = html;
@@ -3703,7 +4022,7 @@ function dialog(o) {
   const btns = o.buttons || [{ label: 'OK', cls: 'btn-blue', value: true }];
   back.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><h3>${esc(o.title || BRAND)}</h3>` +
     `<div class="body">${o.html || ''}${o.input != null ? `<input type="text" id="dlg-in" maxlength="${o.maxlength || 20}" value="${esc(o.input)}">` : ''}</div>` +
-    `<div class="btns">${btns.map((b, i) => `<button class="btn ${b.cls || ''}" data-i="${i}" type="button">${esc(b.label)}</button>`).join('')}</div></div>`;
+    `<div class="btns">${btns.map((b, i) => `<button class="btn ${b.cls || ''}" data-i="${i}" type="button"${b.disabled ? ' disabled' : ''}>${esc(b.label)}</button>`).join('')}</div></div>`;
   document.body.appendChild(back);
   let finish; const promise = new Promise(res => { finish = res; });
   const onKey = e => {
@@ -3715,6 +4034,7 @@ function dialog(o) {
   back.addEventListener('click', e => {
     const b = e.target.closest('button[data-i]'); if (!b) return;
     const btn = btns[+b.dataset.i]; Sfx.play('click');
+    if (o.collect) return close({ v: btn.value, x: o.collect(back) });
     close(o.input != null && btn.value === true ? $('#dlg-in', back).value : btn.value);
   });
   const inp = $('#dlg-in', back);
@@ -3829,6 +4149,11 @@ document.addEventListener('click', e => {
       const pick = () => PALETTE[(Math.random() * PALETTE.length) | 0][1], a = pick(), l = pick();
       S.colors = { head: pick(), torso: pick(), armL: a, armR: a, legL: l, legR: l }; saveColors(); break;
     }
+    case 'exchange': { if (Wallet.exchange(+el.dataset.rbx)) Sfx.play('checkpoint'); render(true); break; }
+    case 'status-run': runStatus(); break;
+    case 'play-place': launchPlace(el.dataset.id); break;
+    case 'edit-place': { const d = localPlaceFor(el.dataset.id); if (d) { store.set('studioAuto', d); go('CartStudio'); } break; }
+    case 'open-place': { const d = store.get('places', {})[el.dataset.name]; if (d) { store.set('studioAuto', d); go('CartStudio'); } break; }
     default: break;
   }
 });
@@ -3840,7 +4165,7 @@ document.addEventListener('input', e => {
 function boot() {
   $('#ub-name').innerHTML = '<b>' + esc(S.user) + '</b>';
   Sfx.on = S.settings.sound; Sfx.volume = S.settings.volume / 100;
-  Items.init();
+  Items.init(); Wallet.paint();
   initGameUI();
   window.addEventListener('hashchange', () => render());
   $('#search').addEventListener('submit', e => {
@@ -3854,6 +4179,7 @@ function boot() {
   makeThumbs();
   if (Cloud.enabled) {
     Cloud.itemsWatch(meta => { if (Items.addMeta(meta)) Items.changed(); });
+    Cloud.placesWatch(m => { if (Places.add(m)) { const n = currentRoute().name; if (n === 'games' || n === 'home' || n === 'game') schedRender(); } });
     Cloud.feedWatch((key, v) => { if (!REMOTE_FEED.some(p => p.key === key)) { REMOTE_FEED.push({ key, name: v.name, text: v.text, ts: v.ts }); const f = $('#feed'); if (f) f.innerHTML = feedHTML(); } });
   }
   if (Net.enabled) { refreshStats(); setInterval(refreshStats, 30000); }
