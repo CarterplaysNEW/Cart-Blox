@@ -1111,6 +1111,7 @@ const SEED_POSTS = [
     text: 'anyone found the golden brick inside the castle on baseplate? hint: bounce pad' }
 ];
 const NEWS = [
+  { t: 'CartStudio: Roblox-style camera + one-side resizing', d: 'Today', x: 'Right-drag to look, WASD to fly, wheel zooms to the mouse. Resize balls on every side of a part. Tiny parts stay tiny. New event: When the player knocks someone out (for KO points).' },
   { t: 'Rival Strike: play online with friends!', d: 'Today', x: 'Make a public or private server, share the code or invite link, and battle in Deathmatch or Rounds. Or keep playing vs bots.' },
   { t: 'New game: Rival Strike', d: 'Today', x: 'A first-person shooter with loadouts, headshots, sliding and smart bots. Plus new CartStudio actions to make your own: hitscan guns, first person, crosshair, ammo and NPC bots.' },
   { t: 'Smooth tweens, bigger chat, player size', d: 'Today', x: 'Tween FOV, color correction, parts and GUIs with styles like bounce. Resize the chat, new settings, and move joints in the Animator.' },
@@ -2735,7 +2736,7 @@ const Tools = {
     P.health = clamp(Number(m.hp) || 0, 0, 100); updateHealth(); this.ouch();     // when it reaches 0 the server sends "die"
   },
   addKO(name) {
-    Badges.award('ko');
+    Badges.award('ko'); Scripts.fire('ko', null, { enemy: name });
     if (R.def.stat === 'KOs') { R.P.stage++; updatePlist(); }
     chatAdd('You knocked out ' + esc(name) + '!', 'sys');
   },
@@ -3799,7 +3800,7 @@ const Combat = {
     if (Math.hypot(n.x - R.P.x, n.z - R.P.z) < 120) Sfx.play('oof');
     const byName = by === 'me' ? S.user : by && by.name;
     KillFeed.add(byName || '', n.name, head, by === 'me');
-    if (by === 'me') { Badges.award('ko'); if (R.def.stat === 'KOs') { R.P.stage++; updatePlist(); } }
+    if (by === 'me') { Badges.award('ko'); if (R.def.stat === 'KOs') { R.P.stage++; updatePlist(); } Scripts.fire('ko', null, { enemy: n.name }); }
     if (n.onKO) n.onKO(n, by);
     Rival.onKO(n, by);
     Scripts.onNpcKO(n);
@@ -5109,7 +5110,8 @@ const SCRIPT_EVENTS = [
   ['spawn', 'When the player respawns', []],
   ['die', 'When the player is knocked out', []],
   ['points', 'When the player reaches some points', [['num', 'num', 'Points', 10]]],
-  ['npcko', 'When an NPC is knocked out', [['text', 'text', 'NPC name (empty = any)', '']]]
+  ['npcko', 'When an NPC is knocked out', [['text', 'text', 'NPC name (empty = any)', '']]],
+  ['ko', 'When the player knocks someone out', []]
 ];
 const SCRIPT_ACTIONS = [
   ['msg', 'Show a message', [['text', 'text', 'Text', 'Hello, {name}!'], ['pos', 'sel', 'Where', MSG_POS], ['num', 'num', 'Seconds', 3.5]]],
@@ -5264,7 +5266,7 @@ function scriptPreview(s, doc) {
     key: `UserInputService.InputBegan:Connect(function(input)  -- Enum.KeyCode.${s.ev.key}`, chat: `player.Chatted:Connect(function(message)  -- contains ${q(s.ev.text)}`,
     click: `StarterGui.${nm(doc.gui, s.ev.gui, 'Button')}.MouseButton1Click:Connect(function()`, remote: `${rem(s.ev.rem)}.${client ? 'OnClientEvent' : 'OnServerEvent'}:Connect(function(player)`,
     tooluse: `${s.ev.tl ? 'StarterPack.' + toolLabel(s.ev.tl, doc).replace(/\s+/g, '') : 'tool'}.Activated:Connect(function()`,
-    clickpart: `${'workspace.' + nm(doc.parts, s.ev.part, 'Part')}.ClickDetector.MouseClick:Connect(function(player)`, hbhit: 'hitbox.Hit:Connect(function(target)', spawn: 'player.CharacterAdded:Connect(function(character)', die: 'humanoid.Died:Connect(function()', points: `leaderstats.Points.Changed:Connect(function(value)  -- reaches ${s.ev.num}` }[s.e];
+    clickpart: `${'workspace.' + nm(doc.parts, s.ev.part, 'Part')}.ClickDetector.MouseClick:Connect(function(player)`, hbhit: 'hitbox.Hit:Connect(function(target)', spawn: 'player.CharacterAdded:Connect(function(character)', die: 'humanoid.Died:Connect(function()', points: `leaderstats.Points.Changed:Connect(function(value)  -- reaches ${s.ev.num}`, ko: 'humanoid.Died:Connect(function()  -- someone YOU knocked out (their name is {enemy})', npcko: `npc.Humanoid.Died:Connect(function()  -- ${s.ev.text ? 'an NPC called ' + q(s.ev.text) : 'any NPC'}` }[s.e];
   const P = id => `workspace.${nm(doc.parts, id, 'Part')}`;
   const line0 = a => ({
     msg: `showMessage(${q(a.text)}, ${q(a.pos)}, ${a.num})`, hint: `showHint(${q(a.text)})`, announce: `TextChatService:DisplaySystemMessage(${q(a.text)})`, points: `leaderstats.Points.Value += ${a.num}`,
@@ -5392,7 +5394,7 @@ const Scripts = {
   },
   team(id) { return R && R.sc && R.sc.doc ? (R.sc.doc.teams || []).find(t => t.id === id) || null : null; },
   online() { return Net.status === 'online' && Net.v >= 4; },
-  fire(type, test) { if (!R || !R.sc) return; for (const s of R.sc.list) if (s.e === type && (!test || test(s))) this.run(s); },
+  fire(type, test, ctx) { if (!R || !R.sc) return; for (const s of R.sc.list) if (s.e === type && (!test || test(s))) this.run(s, ctx); },
   run(s, ctx, noCd) {
     const sc = R.sc;
     if (s.cd > 0 && !noCd) { const t = sc.last.get(s.id); if (t != null && R.time - t < s.cd) return; sc.last.set(s.id, R.time); }   // cooldown (debounce)
@@ -7499,6 +7501,8 @@ const CB_SCRIPTS = [
     s: { n: 'BotSpawner', e: 'timer', ev: { num: 15 }, acts: [{ a: 'npc', text: 'Bot', part: 'a', num: 100, gun: 'rifle', dmg: 8, acc: 45, sp: 14, c: '#c4281c', foe: 'the player', resp: 0 }] } },
   { id: 'npcpoints', n: 'Points for Bot KOs', icon: '&#127941;', desc: 'When you knock out an NPC you get a point and a message.',
     s: { n: 'BotKO', e: 'npcko', ev: { text: '' }, acts: [{ a: 'points', num: 1 }, { a: 'msg', text: 'Bot down! {points} KOs', pos: 'center', num: 1.5 }] } },
+  { id: 'kopoints', n: 'Points for Knockouts', icon: '&#128165;', desc: 'Every time you knock someone out (a player, an NPC or a dummy) you get 1 point. The points show on the player list.',
+    s: { n: 'KOPoints', e: 'ko', ev: {}, acts: [{ a: 'points', num: 1 }, { a: 'hint', text: 'You knocked out {enemy}! Points: {points}' }] } },
   { id: 'fireball', n: 'F for Fireball', icon: '&#128293;', desc: 'Press F to throw a fireball where you aim.',
     s: { n: 'Fireball', e: 'key', ev: { key: 'F' }, cd: 0.8, acts: [{ a: 'emote', v: 'shoot' }, { a: 'shoot', dmg: 20, sp: 140, size: 1.6, c: '#ff6a00', drop: 'no' }, { a: 'sfx', v: 'rocket' }] } },
   { id: 'slam', n: 'G for Ground Slam', icon: '&#128165;', desc: 'Press G to jump, slam down and blast everyone nearby.',
@@ -7813,6 +7817,7 @@ class Studio {
     const oc = this.orbit = new THREE.OrbitControls(cam, canvas);
     oc.mouseButtons = { LEFT: -1, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
     oc.screenSpacePanning = true; oc.enableDamping = false; oc.maxDistance = 1500; oc.minDistance = 0.5;
+    if (!item) { oc.mouseButtons = { LEFT: -1, MIDDLE: THREE.MOUSE.PAN, RIGHT: -1 }; oc.enableZoom = false; this.bindCamera(canvas); }   // places: Roblox Studio camera (see bindCamera)
     const tc = this.tc = new THREE.TransformControls(cam, canvas); sc.add(tc);
     tc.addEventListener('dragging-changed', e => { oc.enabled = !e.value; this.dragging = e.value; if (e.value) { const q = this.part(), m = q && this.meshes.get(q.id); this.dragStart = q ? { z: q.z.slice(), p0: m ? m.position.clone() : null, others: [...this.multi].map(id => [id, (this.part(id) || { p: [0, 0, 0] }).p.slice()]) } : null; } else this.onDragEnd(); });
     tc.addEventListener('objectChange', () => this.onGizmo());
@@ -7857,6 +7862,7 @@ class Studio {
     }
     this.orbit.update();
     if (this.helper.visible) this.helper.update();
+    this.sizeHandles();
     this.mhelp.forEach(h => h.update());
     if (this.anim) this.animTick(dt);
     if (this.fxs) for (const em of this.fxs) em.update(dt, this.camera, this.renderer.domElement.height);
@@ -7901,7 +7907,7 @@ class Studio {
       else if (this.multi.has(id)) this.multi.delete(id); else this.multi.add(id);
     } else { this.multi.clear(); this.sel = id == null ? null : id; }
     const q = this.part(), m = q && this.meshes.get(q.id);
-    if (m) { this.helper.setFromObject(m); this.helper.visible = true; if (this.tool !== 'select') this.tc.attach(m); else this.tc.detach(); }
+    if (m) { this.helper.setFromObject(m); this.helper.visible = true; if (this.tool !== 'select' && this.tool !== 'scale') this.tc.attach(m); else this.tc.detach(); }
     else { this.helper.visible = false; this.tc.detach(); }
     this.refreshMulti(); this.applySnap(); this.renderExplorer(); this.renderProps();
   }
@@ -7936,7 +7942,7 @@ class Studio {
   onDragEnd() {
     const q = this.part(); if (!q) return;
     const st = this.mode === 'item' || q.tool ? 0.1 : 0.5, rd = v => Math.round(v / st) * st;
-    if (this.tool === 'scale') q.z = q.z.map(v => Math.max(st, r2(rd(v))));
+    if (this.tool === 'scale') q.z = q.z.map(v => Math.max(0.1, r2(this.snapOn ? rd(v) : v)));
     const ps = q.tool ? 0.1 : this.snapStep; q.p = q.p.map(v => r2(this.snapOn ? Math.round(v / ps) * ps : v));
     for (const id of this.multi) { const o = this.part(id); if (o) { o.p = o.p.map(v => r2(this.snapOn ? Math.round(v / this.snapStep) * this.snapStep : v)); this.syncMesh(o); } }
     this.syncMesh(q); this.helper.setFromObject(this.meshes.get(q.id)); this.fillProps(); this.refreshChecks(); this.commit();
@@ -7984,6 +7990,91 @@ class Studio {
     const m = this.meshes.get(this.sel); if (m) this.helper.setFromObject(m); this.refreshMulti(); this.fillProps(); this.refreshChecks(); this.commit();
   }
   rot90() { this.turn(1, 90); }
+  /* ---------------- Roblox Studio camera (places): right-drag looks around, wheel zooms toward the mouse, Alt orbits ---------------- */
+  bindCamera(canvas) {
+    let look = null;
+    canvas.addEventListener('pointerdown', e => { if (e.button !== 2 || this.dragging) return; look = { x: e.clientX, y: e.clientY, alt: e.altKey, id: e.pointerId }; try { canvas.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } });
+    canvas.addEventListener('pointermove', e => {
+      if (!look || e.pointerId !== look.id) return;
+      const dx = e.clientX - look.x, dy = e.clientY - look.y; look.x = e.clientX; look.y = e.clientY;
+      const cam = this.camera, tg = this.orbit.target, k = 0.0045;
+      if (look.alt) {                                                  // orbit around the point in front of you
+        const off = cam.position.clone().sub(tg), sp = new THREE.Spherical().setFromVector3(off);
+        sp.theta -= dx * k; sp.phi = clamp(sp.phi - dy * k, 0.05, Math.PI - 0.05); off.setFromSpherical(sp); cam.position.copy(tg).add(off);
+      } else {                                                         // look around from where the camera is
+        const dir = tg.clone().sub(cam.position); let dist = dir.length(); if (dist < 2) dist = 12;
+        const sp = new THREE.Spherical().setFromVector3(dir.normalize());
+        sp.theta -= dx * k; sp.phi = clamp(sp.phi + dy * k, 0.05, Math.PI - 0.05); dir.setFromSpherical(sp);
+        tg.copy(cam.position).addScaledVector(dir, dist);
+      }
+      this.orbit.update();
+    });
+    const end = e => { if (look && e.pointerId === look.id) look = null; };
+    canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault(); if (this.dragging) return;
+      const cam = this.camera, r = canvas.getBoundingClientRect(), rc = new THREE.Raycaster();
+      rc.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), cam);
+      const hit = rc.intersectObjects([...this.meshes.values()], false)[0], sign = e.deltaY < 0 ? 1 : -1;
+      const step = hit ? clamp(hit.distance * 0.16, 0.4, 80) : 6, dir = rc.ray.direction.clone();
+      if (sign > 0 && hit && hit.distance < 1.2) return;                // don't fly through what you zoom into
+      const mv = dir.multiplyScalar(step * sign); cam.position.add(mv); this.orbit.target.add(mv); this.orbit.update();
+    }, { passive: false });
+  }
+  /* ---------------- resize handles: a ball on every face; drag one and only that side moves ---------------- */
+  sizeHandles() {
+    const q = this.tool === 'scale' && !this.anim ? this.part() : null, m = q && this.meshes.get(q.id);
+    if (!this.hgrp) {
+      this.hgrp = new THREE.Group(); this.scene.add(this.hgrp); const geo = new THREE.SphereGeometry(1, 16, 12);
+      [[0, 1], [0, -1], [1, 1], [1, -1], [2, 1], [2, -1]].forEach(([ax, sg]) => {
+        const h = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: [0xff4a3a, 0x3ccf3c, 0x3f86ff][ax], depthTest: false, transparent: true, opacity: 0.9 }));
+        h.renderOrder = 999; h.userData = { ax, sg }; this.hgrp.add(h);
+      });
+    }
+    this.hgrp.visible = !!m; if (!m) return;
+    m.updateMatrixWorld();
+    for (const h of this.hgrp.children) {
+      const { ax, sg } = h.userData, out = new THREE.Vector3(); out.setComponent(ax, sg); out.applyQuaternion(m.quaternion);
+      const face = m.position.clone().addScaledVector(out, q.z[ax] / 2), s = clamp(this.camera.position.distanceTo(face) * 0.016, 0.06, 5);
+      h.scale.setScalar(s); h.position.copy(face).addScaledVector(out, s * 1.8);
+      h.material.opacity = this.hdrag && this.hdrag.h === h ? 1 : 0.85;
+    }
+  }
+  rayParam(e, p0, A) {                                                // where along the line p0 + t*A is the mouse?
+    const r = this.canvas.getBoundingClientRect(), rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.camera);
+    const O = rc.ray.origin, D = rc.ray.direction, w = p0.clone().sub(O), b = A.dot(D), d = A.dot(w), f = D.dot(w), den = 1 - b * b;
+    return Math.abs(den) < 1e-5 ? null : (b * f - d) / den;
+  }
+  handleDown(e) {
+    if (!this.hgrp || !this.hgrp.visible) return false;
+    const r = this.canvas.getBoundingClientRect(), rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.camera);
+    const hit = rc.intersectObjects(this.hgrp.children, false)[0]; if (!hit) return false;
+    const q = this.part(), m = this.meshes.get(q.id), { ax, sg } = hit.object.userData, A = new THREE.Vector3(); A.setComponent(ax, 1); A.applyQuaternion(m.quaternion);
+    const t0 = this.rayParam(e, m.position, A); if (t0 == null) return false;
+    this.hdrag = { h: hit.object, q, ax, sg, A, c0: m.position.clone(), z0: q.z.slice(), t0, id: e.pointerId };
+    this.dragging = true; this.orbit.enabled = false; try { this.canvas.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+    return true;
+  }
+  handleMove(e) {
+    const hd = this.hdrag; if (!hd || e.pointerId !== hd.id) return;
+    const t = this.rayParam(e, hd.c0, hd.A); if (t == null) return;
+    const q = hd.q, both = e.altKey, step = this.snapOn ? (this.mode === 'item' || q.tool != null ? 0.1 : this.snapStep) : 0;
+    let size = hd.z0[hd.ax] + (t - hd.t0) * hd.sg * (both ? 2 : 1);
+    if (step) size = Math.round(size / step) * step;
+    size = Math.max(0.1, Math.round(size * 1000) / 1000);
+    const grow = size - hd.z0[hd.ax];
+    q.z[hd.ax] = size;
+    const c = both ? hd.c0.clone() : hd.c0.clone().addScaledVector(hd.A, hd.sg * grow / 2);   // the other side stays where it was
+    q.p = [r2(c.x * 1000) / 1000, r2(c.y * 1000) / 1000, r2(c.z * 1000) / 1000];
+    this.syncMesh(q); const m = this.meshes.get(q.id); if (m) this.helper.setFromObject(m); this.fillProps();
+  }
+  handleUp(e) {
+    const hd = this.hdrag; if (!hd || e.pointerId !== hd.id) return;
+    this.hdrag = null; this.orbit.enabled = true; setTimeout(() => { this.dragging = false; }, 0);
+    this.refreshChecks(); this.commit(); this.log('Resized ' + hd.q.n + ' to ' + hd.q.z.map(v => r2(v)).join(' x '));
+  }
   /* ---------------- clipboard: Ctrl+X / Ctrl+C / Ctrl+V (works between your places too) ---------------- */
   clipKey() { return this.mode === 'item' ? 'clipItem' : 'clipPlace'; }
   copy(cut) {
@@ -8101,7 +8192,7 @@ class Studio {
       case 'cut': return this.copy(true); case 'copy': return this.copy(false); case 'paste': return this.paste(); case 'selall': return this.selectAll();
       case 'focus': { const m = this.meshes.get(this.sel); if (m) { const b = new THREE.Box3().setFromObject(m), c = new THREE.Vector3(), s = new THREE.Vector3(); b.getCenter(c); b.getSize(s); const d = Math.max(3, s.length() * 2); this.orbit.target.copy(c); this.camera.position.copy(c).add(new THREE.Vector3(d * 0.7, d * 0.5, d * 0.8)); } return; }
       case 'snap': this.snapOn = !this.snapOn; this.applySnap(); return this.log('Snap to grid: ' + (this.snapOn ? 'on' : 'off'));
-      case 'help': return dialog({ title: 'Controls and Shortcuts', html: '<p><b>Camera:</b> hold the right mouse button and drag to look around, use the wheel to zoom, middle-drag to pan' + (item ? '.' : ', and W A S D / Q E to fly.') + '</p><p><b>Tools:</b> <b>1</b> Select, <b>2</b> Move, <b>3</b> Scale, <b>4</b> Rotate. Drag the colored handles, or type exact numbers in Properties.</p><p><b>Selecting:</b> click a part. Shift+click adds or removes parts, so you can move several at once or save them as a model.</p><p><b>Shortcuts:</b> Ctrl+Z undo, Ctrl+Y redo, Ctrl+X cut, Ctrl+C copy, Ctrl+V paste, Ctrl+D duplicate, Ctrl+A select all, Delete removes, F focuses the selection, Ctrl+S saves, F5 plays.</p><p><b>Moving:</b> arrow keys move the selection one grid step (the way the camera looks), PageUp / PageDown move it up and down.</p><p><b>Turning:</b> the Rotate tool (4) has three rings: green turns left/right, red and blue tilt up/down (great for ramps). It snaps in 15 degree steps (Format &gt; Snap to Grid turns that off). Ctrl+R turns 90, Ctrl+E tilts 90, Shift+E tilts 15.</p>' });
+      case 'help': return dialog({ title: 'Controls and Shortcuts', html: '<p><b>Camera:</b> ' + (item ? 'hold the right mouse button and drag to turn around the item, use the wheel to zoom, middle-drag to pan.' : 'like Roblox Studio: hold the right mouse button and drag to look around, W A S D to fly (Q down, E up, Shift for slow), the wheel zooms toward the mouse, middle-drag pans, and <b>Alt + right-drag</b> turns around what you are looking at. F focuses the selected part.') + '</p><p><b>Tools:</b> <b>1</b> Select, <b>2</b> Move, <b>3</b> Scale, <b>4</b> Rotate. Drag the colored handles, or type exact numbers in Properties. <b>Scale</b> has a ball on every side: drag one and only that side moves (the other side stays put). Hold <b>Alt</b> to resize both sides at once.</p><p><b>Selecting:</b> click a part. Shift+click adds or removes parts, so you can move several at once or save them as a model.</p><p><b>Shortcuts:</b> Ctrl+Z undo, Ctrl+Y redo, Ctrl+X cut, Ctrl+C copy, Ctrl+V paste, Ctrl+D duplicate, Ctrl+A select all, Delete removes, F focuses the selection, Ctrl+S saves, F5 plays.</p><p><b>Moving:</b> arrow keys move the selection one grid step (the way the camera looks), PageUp / PageDown move it up and down.</p><p><b>Turning:</b> the Rotate tool (4) has three rings: green turns left/right, red and blue tilt up/down (great for ramps). It snaps in 15 degree steps (Format &gt; Snap to Grid turns that off). Ctrl+R turns 90, Ctrl+E tilts 90, Shift+E tilts 15.</p>' });
       case 'about': return dialog({ title: 'About CartStudio', html: '<p><b>CartStudio 1.0</b></p><p>Build places for Cartblox. Scripts are made from safe "When ... do ..." blocks, and every script shows a Lua-style code view so you can learn how real scripts look. Make your own tools in StarterPack, put GUI on the screen, and use Server or Client scripts.</p>' });
       default: break;
     }
@@ -8281,7 +8372,9 @@ class Studio {
     $('#cs-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) this.doUpload(this.upKind, f); });
     // click to select (only when the pointer did not move: otherwise the user was dragging a handle or the camera)
     let down = null;
-    this.canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, b: e.button }; this.canvas.focus(); });
+    this.canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, b: e.button }; this.canvas.focus(); if (e.button === 0) this.handleDown(e); });
+    this.canvas.addEventListener('pointermove', e => this.handleMove(e));
+    this.canvas.addEventListener('pointerup', e => this.handleUp(e));
     this.canvas.addEventListener('pointerup', e => {
       if (!down || down.b !== 0 || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5 || this.dragging) { down = null; return; }
       down = null;
@@ -8957,7 +9050,7 @@ Object.assign(Studio.prototype, {
     const bar = `<div class="an-bar" data-an="bar">${[...Array(Math.floor(d.len * 10) + 1).keys()].map(i => `<i class="tick${i % 5 ? '' : ' big'}" style="left:${i / 10 / d.len * 100}%">${i % 5 ? '' : (i / 10).toFixed(1)}</i>`).join('')}
       ${d.keys.map((k, i) => `<b class="key${key === k ? ' sel' : ''}" data-key="${i}" style="left:${k.t / d.len * 100}%" title="Keyframe at ${k.t.toFixed(2)}s"></b>`).join('')}<u class="scrub" style="left:${a.time / d.len * 100}%"></u></div>`;
     const rot = (a.gmode === 'move' ? [] : ['X', 'Y', 'Z']).map((n, i) => `<label class="an-sl"><span>${n}</span><input type="range" min="-180" max="180" step="1" data-an="rot:${i}" value="${Math.round(cur[i] || 0)}"><input type="number" min="-360" max="360" step="1" data-an="rotn:${i}" value="${Math.round((cur[i] || 0) * 10) / 10}"></label>`).join('') +
-      (a.gmode !== 'move' ? [] : a.joint === 'root' ? [['X', 4], ['Up', 3], ['Z', 5]] : [['X', 3], ['Y', 4], ['Z', 5]]).map(([n, i]) => { const L = a.joint === 'root' ? 10 : 3; return `<label class="an-sl"><span>${n}</span><input type="range" min="${-L}" max="${L}" step="0.05" data-an="rot:${i}" value="${cur[i] || 0}"><input type="number" min="${-L * 2}" max="${L * 2}" step="0.05" data-an="rotn:${i}" value="${Math.round((cur[i] || 0) * 100) / 100}"></label>`; }).join('');
+      (a.gmode !== 'move' ? (a.joint === 'root' ? [['Up', 3]] : []) : a.joint === 'root' ? [['X', 4], ['Up', 3], ['Z', 5]] : [['X', 3], ['Y', 4], ['Z', 5]]).map(([n, i]) => { const L = a.joint === 'root' ? 10 : 3; return `<label class="an-sl"><span>${n}</span><input type="range" min="${-L}" max="${L}" step="0.05" data-an="rot:${i}" value="${cur[i] || 0}"><input type="number" min="${-L * 2}" max="${L * 2}" step="0.05" data-an="rotn:${i}" value="${Math.round((cur[i] || 0) * 100) / 100}"></label>`; }).join('');
     if (light && el.firstChild) {                                  // just refresh the parts that change while dragging
       if (keepAxis == null) el.querySelector('.an-rot .an-sls').innerHTML = rot;      // don't rebuild a slider while it is being dragged
       else el.querySelectorAll('.an-sl input').forEach(i => { if (i !== document.activeElement) { const ax = +i.dataset.an.split(':')[1]; i.value = ax >= 3 ? Math.round((cur[ax] || 0) * 100) / 100 : i.type === 'range' ? Math.round(cur[ax] || 0) : Math.round((cur[ax] || 0) * 10) / 10; } });
