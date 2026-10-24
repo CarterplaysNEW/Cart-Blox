@@ -812,7 +812,7 @@ code.aid{ font-size:11px; background:#eef2f8; padding:1px 4px; border-radius:3px
 #xhair u{ position:absolute; left:0; top:0; width:220px; height:220px; border-radius:50%; border-top:6px solid rgba(255,40,30,.85); opacity:0; transform:translate(-50%,-50%); }
 #xhair u.on{ animation:xhurt .9s ease-out; }
 @keyframes xhurt{ 0%{ opacity:1; } 100%{ opacity:0; } }
-#killfeed{ right:calc(var(--sar) + 8px); top:calc(var(--sat) + 130px); display:flex; flex-direction:column; align-items:flex-end; gap:3px; pointer-events:none !important; z-index:3; }
+#killfeed{ right:calc(var(--sar) + 8px); top:calc(var(--sat) + 150px); display:flex; flex-direction:column; align-items:flex-end; gap:3px; pointer-events:none !important; z-index:3; }
 #killfeed .kf{ background:rgba(0,0,0,.55); color:#fff; font:bold 13px var(--font-hud); padding:3px 8px; border-radius:3px; }
 #killfeed .kf.mine{ background:rgba(30,110,40,.75); } #killfeed .kf.me{ background:rgba(150,25,20,.78); }
 #killfeed em{ font-style:normal; color:#ffd23f; margin:0 3px; }
@@ -866,6 +866,32 @@ code.aid{ font-size:11px; background:#eef2f8; padding:1px 4px; border-radius:3px
 #rv .rv-play:hover{ filter:brightness(1.08); }
 #rv .rv-keys{ font-size:11px; opacity:.65; margin-top:10px; }
 @media (max-width:640px){ #rv .rv-card{ width:46%; } #rv .rv-row > span, #rv .rv-slotrow > span{ width:100%; text-align:center; } #rv .rv-slots button{ width:62px; height:52px; } #rv .rv-big{ font-size:42px; } }
+.rvsrv{ display:flex; align-items:center; gap:12px; padding:6px 0; border-bottom:1px solid #e3e8ef; }
+.rvsrv b{ font-family:monospace; font-size:16px; letter-spacing:1px; min-width:64px; } .rvsrv a{ margin-left:auto; }
+#rv .rv-tabs{ display:flex; justify-content:center; gap:6px; margin:8px 0 10px; }
+#rv .rv-tabs button{ border:0; border-radius:10px 10px 0 0; padding:10px 22px; font:bold 15px var(--font-hud); color:#cfe0f5; background:rgba(255,255,255,.08); cursor:pointer; border-bottom:3px solid transparent; }
+#rv .rv-tabs button.on{ color:#1b2a35; background:#ffd23f; border-bottom-color:#c4281c; }
+#rv .rv-note{ background:rgba(255,255,255,.08); border-radius:8px; padding:10px; font-size:13px; }
+#rv .rv-online input{ width:96px; text-align:center; text-transform:uppercase; font:bold 16px monospace; letter-spacing:2px; padding:6px; border-radius:8px; border:2px solid rgba(255,255,255,.3); background:rgba(0,0,0,.35); color:#fff; outline:none; }
+#rv .rv-online input:focus{ border-color:#ffd23f; }
+#rv .rv-or{ width:auto !important; color:#9fc4e8; font-size:12px; }
+#rv .rv-pill.big{ padding:9px 22px; font-size:15px; background:#2f86e0; border-color:#2f86e0; }
+#rv .rv-pill.go{ background:#3fb92a; border-color:#3fb92a; } #rv .rv-pill.sm{ padding:3px 10px; font-size:11px; } #rv .rv-pill[disabled]{ opacity:.4; }
+#rv .rv-list{ background:rgba(0,0,0,.28); border-radius:10px; padding:8px 12px; margin:8px auto; max-width:620px; text-align:left; }
+#rv .rv-lh{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; font-size:13px; }
+#rv .rv-srv{ display:flex; align-items:center; gap:12px; padding:5px 0; border-top:1px solid rgba(255,255,255,.08); font-size:13px; }
+#rv .rv-srv b{ font:bold 15px monospace; letter-spacing:1px; color:#ffd23f; min-width:62px; } #rv .rv-srv i{ font-style:normal; opacity:.8; } #rv .rv-srv button{ margin-left:auto; }
+#rv .rv-empty{ font-size:12px; opacity:.75; padding:6px 0; }
+#rv .rv-code{ font:bold 18px monospace; letter-spacing:2px; color:#ffd23f; }
+#rv .rv-sub.sm{ font-size:12px; letter-spacing:1px; color:#9fc4e8; text-transform:uppercase; margin:12px 0 4px; }
+#rv .rv-net{ top:calc(var(--sat) + 6px); left:calc(var(--sal) + 446px); right:calc(var(--sar) + 240px); display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:center; background:rgba(15,18,24,.78); border-radius:8px; padding:5px 10px; font-size:12px; pointer-events:auto; }
+#rv .rv-net .code{ font:bold 15px monospace; letter-spacing:2px; color:#ffd23f; } #rv .rv-net b{ color:#7fe07f; } #rv .rv-net em{ color:#ff9a5c; font-style:normal; }
+#rv .rv-net button{ border:0; border-radius:6px; padding:4px 10px; font:bold 11px var(--font-hud); cursor:pointer; background:#2f86e0; color:#fff; }
+#rv .rv-net button[data-start]{ background:#3fb92a; font-size:13px; padding:5px 14px; }
+#rv .rv-ffa div.dead{ opacity:.45; text-decoration:line-through; }
+#rv [hidden]{ display:none !important; }
+#rv:has(.rv-net) .rv-ffa{ top:calc(var(--sat) + 206px); left:calc(var(--sal) + 8px); transform:none; min-width:180px; }
+@media (max-width:900px){ #rv .rv-net{ left:8px; right:8px; top:calc(var(--sat) + 200px); } }
 
 </style>
 </head>
@@ -1085,6 +1111,7 @@ const SEED_POSTS = [
     text: 'anyone found the golden brick inside the castle on baseplate? hint: bounce pad' }
 ];
 const NEWS = [
+  { t: 'Rival Strike: play online with friends!', d: 'Today', x: 'Make a public or private server, share the code or invite link, and battle in Deathmatch or Rounds. Or keep playing vs bots.' },
   { t: 'New game: Rival Strike', d: 'Today', x: 'A first-person shooter with loadouts, headshots, sliding and smart bots. Plus new CartStudio actions to make your own: hitscan guns, first person, crosshair, ammo and NPC bots.' },
   { t: 'Smooth tweens, bigger chat, player size', d: 'Today', x: 'Tween FOV, color correction, parts and GUIs with styles like bounce. Resize the chat, new settings, and move joints in the Animator.' },
   { t: 'CartStudio: Holding + Color correction', d: 'Today', x: 'Hold a key to sprint, fly or shoot. New actions: color correction, camera shake, repeat, values and more.' },
@@ -2749,9 +2776,9 @@ const Tools = {
     if (ti !== rp.toolI || (ti > 0 && !rp.ch.tool)) {
       rp.toolI = ti;
       const tt = ti > 0 ? toolByIndex(ti - 1) : null;
-      if (tt) this.attach(rp.ch, tt); else this.detach(rp.ch);
+      if (tt) this.attach(rp.ch, tt); else if (!rp.rvGun) this.detach(rp.ch);
     }
-    rp.hold = ti > 0;
+    rp.hold = ti > 0 || !!rp.rvGun;
   },
   onFx(id, m) {
     if (!R || !R.bp) return;
@@ -3679,6 +3706,7 @@ const Combat = {
     const muzzle = R.fp ? R.camera.localToWorld(new THREE.Vector3(0.42, -0.34, -2.6)) : Tools.handPos();
     let hits = 0, heads = 0, kills = 0, dealt = 0;
     const n = Math.round(clamp(sp.pellets || 1, 1, 12));
+    this.batch = {};                                                  // shotgun pellets on one player = one message
     for (let i = 0; i < n; i++) {
       const d = this.spreadDir(aim.d, sp.spread || 0), r = this.ray(o, d, clamp(sp.range || 300, 5, 1000), 'me');
       this.tracer(muzzle, r.point, sp.c || '#ffd23f', true);
@@ -3692,6 +3720,8 @@ const Combat = {
       if (sp.ctx && sp.onhit) Tools.onHit(sp.ctx, sp.onhit, r.tg.kind === 'remote' ? { kind: 'remote', id: r.tg.id, ref: r.tg.ref } : r.tg);
       else if (sp.ctx) Scripts.fire('hbhit');
     }
+    const batch = this.batch; this.batch = null;
+    for (const id in batch) this.hurt({ kind: 'remote', id }, Math.round(batch[id].d), batch[id].kb, 'me', false);
     if (hits) { Sfx.play(heads ? 'headshot' : 'hitmark'); Crosshair.hit(kills > 0, heads > 0); }
     Net.send({ t: 'fx', k: 'trace', o: [muzzle.x, muzzle.y, muzzle.z].map(v => +v.toFixed(2)), p: [o.x + aim.d.x * 60, o.y + aim.d.y * 60, o.z + aim.d.z * 60].map(v => +v.toFixed(2)), s: parseInt(String(sp.c || '#ffd23f').slice(1), 16) || 0 });
     return { hits, heads, kills, dealt };
@@ -3699,7 +3729,10 @@ const Combat = {
   // damage a victim. Returns true if it was knocked out.
   hurt(v, d, kb, by, head) {
     if (!(d > 0)) return false;
-    if (v.kind === 'remote') { Net.send({ t: 'hit', to: v.id, d: Math.min(60, d), kb: kb.map(x => +x.toFixed(1)), w: 'r' }); return false; }
+    if (v.kind === 'remote') {                                      // the server checks it (version 6 servers allow big gun hits)
+      if (this.batch) { const b = this.batch[v.id] || (this.batch[v.id] = { d: 0, kb }); b.d += d; return false; }
+      const g = Net.v >= 6; Net.send({ t: 'hit', to: v.id, d: Math.min(g ? 200 : 60, d), kb: kb.map(x => +x.toFixed(1)), w: g ? 'g' : 'r' }); return false;
+    }
     if (v.kind === 'dummy') { const was = v.ref.alive; Tools.damage({ kind: 'dummy', ref: v.ref }, d, kb, 'r'); return was && !v.ref.alive; }
     if (v.kind === 'npc') return this.hurtNpc(v.ref, d, kb, by, head);
     if (v.kind === 'me') {
@@ -4020,14 +4053,15 @@ const Rival = {
   setup(def) {
     if (!def.rivals) { R.rv = null; return; }
     const save = store.get('rivals', {});
-    R.rv = { phase: 'loadout', mode: save.mode || 'duel', diff: save.diff || 'normal', load: Object.assign({ 0: 'ar', 1: 'pistol', 2: 'knife', 3: 'grenade' }, save.load || {}),
+    R.rv = { phase: 'lobby', menu: false, tab: save.tab || 'bots', net: def.rvNet || null, sc: {}, cmode: save.cmode || 'dm', cpub: save.cpub !== false, streak: 0, mode: save.mode || 'duel', diff: save.diff || 'normal', load: Object.assign({ 0: 'ar', 1: 'pistol', 2: 'knife', 3: 'grenade' }, save.load || {}),
       slot: 0, last: 1, guns: [], score: [0, 0], round: 0, trig: false, queued: false, ads: false, timers: [], kills: 0, heads: 0, vmKick: 0, vmSwap: 0, slideCd: 0, sliding: 0, fovNow: 0 };
     R.myTeam = 1; R.firstPerson = true; R.cam.distT = R.cam.dist = 0.5; R.allowShiftLock = true;
     R.scene.add(R.camera);
     Object.keys(RV_W).forEach(rvIcon); renderer.setClearColor(def.env.fog, 1); applyQuality();   // icons borrow the renderer: put it back
     $('#br').style.display = $('#game').classList.contains('touchmode') ? '' : 'none';
     $('#hotkeys').innerHTML = 'Click shoot &nbsp;&bull;&nbsp; Right-click aim &nbsp;&bull;&nbsp; <b>R</b> reload &nbsp;&bull;&nbsp; <b>1-4</b> weapons &nbsp;&bull;&nbsp; <b>C</b> slide &nbsp;&bull;&nbsp; <b>V</b> camera &nbsp;&bull;&nbsp; Esc menu';
-    this.buildHud(); this.openLoadout();
+    this.buildHud();
+    if (R.rv.net) this.netStart(); else { this.openLoadout(); if (RV_JOIN.code) { const c = RV_JOIN.code; RV_JOIN.code = null; setTimeout(() => this.joinCode(c), 200); } }
   },
   teardown() {
     if (!R || !R.rv) return;
@@ -4035,6 +4069,9 @@ const Rival = {
     if (R.rv.vm) { R.camera.remove(R.rv.vm); disposeObject(R.rv.vm); }
     Crosshair.show(false); KillFeed.clear(); R.rv = null;
   },
+  live() { const ph = R.rv.phase; return ph === 'fight' || ph === 'warm'; },
+  closeMenu() { const rv = R.rv; rv.menu = false; $('#rv .rv-load').hidden = true; if (rv.net) { this.loadGuns(); this.netGun(); } if (!('ontouchstart' in window)) setShiftLock(true); $('#gl').focus(); },
+  loadGuns() { const rv = R.rv; rv.guns = [0, 1, 2, 3].map(s => ({ id: rv.load[s], w: RV_W[rv.load[s]] })); this.refill(); rv.slot = Math.min(rv.slot, 3); this.equip(rv.slot, true); },
   stats() { return store.get('rivalStats', { wins: 0, losses: 0, kos: 0, best: 0, streak: 0 }); },
   /* ---------- HUD + loadout screen ---------- */
   buildHud() {
@@ -4056,17 +4093,35 @@ const Rival = {
     Crosshair.show(true);
   },
   openLoadout() {
-    const rv = R.rv; rv.phase = 'loadout'; rv.trig = false; Combat.clearNpcs(); KillFeed.clear();
+    const rv = R.rv; rv.menu = true; rv.trig = false;
+    if (!rv.net) { rv.phase = 'lobby'; Combat.clearNpcs(); KillFeed.clear(); }
     if (R.shiftLock) setShiftLock(false);
     const st = this.stats(), L = rv.load;
     const card = (slot, id) => { const w = RV_W[id], img = rvIcon(id); return `<button type="button" class="rv-card${L[slot] === id ? ' on' : ''}" data-pick="${slot}:${id}">${img ? `<img src="${img}" alt="">` : ''}<b>${esc(w.n)}</b><small>${esc(w.info)}</small>${w.mag ? `<i>${w.dmg}${w.pellets ? ' x' + w.pellets : ''} dmg &middot; ${w.mag} ammo</i>` : w.melee ? `<i>${w.dmg} dmg</i>` : `<i>${w.uses} per round</i>`}</button>`; };
     const box = $('#rv .rv-load');
-    box.innerHTML = `<div class="rv-panel"><h2>RIVAL STRIKE</h2><p class="rv-sub">Pick your loadout and beat your rivals!</p>
-      <div class="rv-row"><span>Mode</span>${RV_MODES.map(m => `<button type="button" class="rv-pill${rv.mode === m[0] ? ' on' : ''}" data-mode="${m[0]}" title="${esc(m[2])}">${m[1]}</button>`).join('')}</div>
-      <div class="rv-row"><span>Bots</span>${Object.keys(RV_DIFF).map(d => `<button type="button" class="rv-pill${rv.diff === d ? ' on' : ''}" data-diff="${d}">${d[0].toUpperCase() + d.slice(1)}</button>`).join('')}</div>
-      ${RV_SLOTS.map(([n, ids], slot) => `<div class="rv-slotrow"><span>${slot + 1}. ${n}</span><div class="rv-cards">${ids.map(id => card(slot, id)).join('')}</div></div>`).join('')}
-      <div class="rv-foot"><div class="rv-stats">Wins <b>${st.wins}</b> &middot; Losses <b>${st.losses}</b> &middot; Knockouts <b>${st.kos}</b> &middot; Best streak <b>${st.best}</b></div><button type="button" class="rv-play" data-go="1">PLAY &#9654;</button></div>
-      <p class="rv-keys">Click shoot &middot; Right-click aim / scope &middot; R reload &middot; 1-4 weapons &middot; C slide &middot; V first / third person &middot; Esc menu</p></div>`;
+    const pills = (key, list, cur) => list.map(m => `<button type="button" class="rv-pill${cur === m[0] ? ' on' : ''}" data-${key}="${m[0]}"${m[2] ? ` title="${esc(m[2])}"` : ''}>${m[1]}</button>`).join('');
+    const cards = RV_SLOTS.map(([n, ids], slot) => `<div class="rv-slotrow"><span>${slot + 1}. ${n}</span><div class="rv-cards">${ids.map(id => card(slot, id)).join('')}</div></div>`).join('');
+    const stats = `<div class="rv-stats">Wins <b>${st.wins}</b> &middot; Losses <b>${st.losses}</b> &middot; Knockouts <b>${st.kos}</b> &middot; Best streak <b>${st.best}</b></div>`;
+    const keys = '<p class="rv-keys">Click shoot &middot; Right-click aim / scope &middot; R reload &middot; 1-4 weapons &middot; C slide &middot; V first / third person &middot; L loadout &middot; Esc menu</p>';
+    let top, foot;
+    if (rv.net) {                                                       // on a server: change your loadout, invite friends, leave
+      const n = rv.net;
+      top = `<p class="rv-sub">Server <b class="rv-code">${esc(n.code)}</b> &middot; ${n.mode === 'rd' ? 'Rounds (last one standing, first to 3)' : 'Deathmatch (first to ' + RV_NET_TARGET + ' KOs)'} &middot; ${n.pub ? 'Public' : 'Private'}</p>
+        <div class="rv-row"><button type="button" class="rv-pill" data-invite="1">&#128279; Copy invite link</button><button type="button" class="rv-pill" data-leave="1">&#8592; Leave server</button></div>`;
+      foot = `<div class="rv-foot">${stats}<button type="button" class="rv-play" data-deploy="1">DEPLOY &#9654;</button></div>`;
+    } else {
+      top = `<div class="rv-tabs"><button type="button" data-tab="bots" class="${rv.tab === 'bots' ? 'on' : ''}">&#129302; PLAY VS BOTS</button><button type="button" data-tab="online" class="${rv.tab === 'online' ? 'on' : ''}">&#127760; PLAY ONLINE</button></div>`;
+      if (rv.tab === 'online') {
+        top += !Net.enabled ? `<p class="rv-note">Online servers work on your own website (they need the game server). ${CFG.preview ? 'This is the offline preview.' : 'Open the Status page to check the server.'}</p>`
+          : `<div class="rv-online">
+            <div class="rv-row"><button type="button" class="rv-pill big" data-quick="1">&#9889; QUICK MATCH</button><span class="rv-or">or</span><input type="text" id="rv-code" maxlength="5" placeholder="CODE" spellcheck="false" autocomplete="off"><button type="button" class="rv-pill" data-join="1">JOIN</button></div>
+            <div class="rv-row"><span>New server</span>${pills('cmode', [['dm', 'Deathmatch', 'Everyone respawns. First to ' + RV_NET_TARGET + ' knockouts.'], ['rd', 'Rounds', 'No respawns: last one standing wins the round. First to 3.']], rv.cmode)}${pills('cpub', [['1', 'Public'], ['0', 'Private (code only)']], rv.cpub ? '1' : '0')}<button type="button" class="rv-pill go" data-create="1">CREATE SERVER</button></div>
+            <div class="rv-list"><div class="rv-lh"><b>Public servers</b><button type="button" class="rv-pill sm" data-refresh="1">&#8635; Refresh</button></div><div class="rv-rows">${this.serverRows()}</div></div></div>`;
+      } else top += `<div class="rv-row"><span>Mode</span>${pills('mode', RV_MODES, rv.mode)}</div><div class="rv-row"><span>Bots</span>${pills('diff', Object.keys(RV_DIFF).map(d => [d, d[0].toUpperCase() + d.slice(1)]), rv.diff)}</div>`;
+      foot = `<div class="rv-foot">${stats}${rv.tab === 'bots' ? '<button type="button" class="rv-play" data-go="1">PLAY &#9654;</button>' : ''}</div>`;
+    }
+    box.innerHTML = `<div class="rv-panel"><h2>RIVAL STRIKE</h2>${top}<p class="rv-sub sm">Your loadout</p>${cards}${foot}${keys}</div>`;
+    if (!rv.net && rv.tab === 'online' && Net.enabled && !rv.listT) this.refreshServers();
     box.hidden = false;
     this.paintHud();
   },
@@ -4074,20 +4129,35 @@ const Rival = {
     const rv = R && R.rv; if (!rv) return;
     const b = e.target.closest('button'); if (!b) return;
     Sfx.play('click');
+    const save = () => store.set('rivals', { mode: rv.mode, diff: rv.diff, load: rv.load, tab: rv.tab, cmode: rv.cmode, cpub: rv.cpub });
     if (b.dataset.mode) rv.mode = b.dataset.mode;
     else if (b.dataset.diff) rv.diff = b.dataset.diff;
+    else if (b.dataset.tab) { rv.tab = b.dataset.tab; rv.listT = 0; }
+    else if (b.dataset.cmode) rv.cmode = b.dataset.cmode;
+    else if (b.dataset.cpub) rv.cpub = b.dataset.cpub === '1';
     else if (b.dataset.pick) { const [s, id] = b.dataset.pick.split(':'); rv.load[+s] = id; }
-    else if (b.dataset.go) { store.set('rivals', { mode: rv.mode, diff: rv.diff, load: rv.load }); $('#rv .rv-load').hidden = true; this.startMatch(); $('#gl').focus(); return; }
-    this.openLoadout();
+    else if (b.dataset.go) { save(); $('#rv .rv-load').hidden = true; rv.menu = false; this.startMatch(); $('#gl').focus(); return; }
+    else if (b.dataset.deploy) { save(); this.closeMenu(); return; }
+    else if (b.dataset.quick) { save(); return this.quickMatch(); }
+    else if (b.dataset.create) { save(); return this.goServer(this.newCode(rv.cmode), rv.cpub); }
+    else if (b.dataset.join) { save(); const v = ($('#rv-code') || {}).value || ''; return this.joinCode(v); }
+    else if (b.dataset.refresh) { this.refreshServers(); return; }
+    else if (b.dataset.srv) { save(); return this.goServer(b.dataset.srv, true); }
+    else if (b.dataset.invite) { this.copyInvite(); return; }
+    else if (b.dataset.leave) { return this.goServer(null); }
+    save(); this.openLoadout();
   },
   paintHud() {
     const rv = R.rv, el = $('#rv'); if (!el) return;
-    const ffa = rv.mode === 'ffa';
+    const ffa = rv.mode === 'ffa' || !!rv.net;
     el.querySelector('.rv-score').hidden = ffa; el.querySelector('.rv-ffa').hidden = !ffa;
     el.querySelector('.t.a b').textContent = rv.score[0]; el.querySelector('.t.b b').textContent = rv.score[1];
     el.querySelector('.t.a small').textContent = rv.mode === 'duo' ? 'YOUR TEAM' : 'YOU';
     el.querySelector('.mid small').textContent = rv.round ? 'ROUND ' + rv.round + ' · FIRST TO 3' : '';
-    if (ffa) {
+    if (rv.net) {
+      const rows = this.players().map(p => ({ n: p.name, k: rv.sc[p.id] || 0, me: p.me, dead: !p.alive })).sort((a, b) => b.k - a.k).slice(0, 6);
+      el.querySelector('.rv-ffa').innerHTML = `<b>${rv.net.mode === 'rd' ? 'ROUNDS &middot; FIRST TO 3' : 'FIRST TO ' + RV_NET_TARGET + ' KOs'}</b>` + rows.map(r => `<div class="${r.me ? 'me' : ''}${r.dead && rv.net.mode === 'rd' && rv.phase === 'fight' ? ' dead' : ''}"><span>${esc(r.n)}</span><i>${r.k}</i></div>`).join('');
+    } else if (ffa) {
       const rows = [{ n: S.user, k: rv.kills, me: true }].concat(R.npcs.map(n => ({ n: n.name, k: n.kills || 0 }))).sort((a, b) => b.k - a.k).slice(0, 4);
       el.querySelector('.rv-ffa').innerHTML = '<b>FIRST TO 15</b>' + rows.map(r => `<div class="${r.me ? 'me' : ''}"><span>${esc(r.n)}</span><i>${r.k}</i></div>`).join('');
     }
@@ -4116,8 +4186,7 @@ const Rival = {
   startMatch() {
     const rv = R.rv; Combat.clearNpcs();
     rv.score = [0, 0]; rv.round = 0; rv.kills = 0; rv.heads = 0; rv.over = false;
-    rv.guns = [0, 1, 2, 3].map(s => ({ id: rv.load[s], w: RV_W[rv.load[s]] }));
-    this.refill(); rv.slot = 0; this.equip(0, true);
+    rv.slot = 0; this.loadGuns();
     if (rv.mode === 'ffa') {
       R.respawnT = 3; R.world.spawns = RV_SPAWN.ffa.map(p => p.slice());
       for (let i = 0; i < 5; i++) { const n = this.bot(3 + i, RV_SPAWN.ffa[i + 1], rv.diff, { resp: 3 }); if (n) { n.kills = 0; n.spawnAt = () => this.farSpawn(); } }
@@ -4166,15 +4235,17 @@ const Rival = {
     if (won) { Sfx.play('win'); confetti(R.P.x, R.P.y + 5, R.P.z, 80); Badges.award('rivals'); chatAdd(`${esc(S.user)} won a Rival Strike match (${rv.mode === 'ffa' ? rv.kills + ' KOs' : rv.score.join(' - ')})!`, 'sys'); }
     if (rv.heads >= 5) Badges.award('sharp');
     rv.timers.push({ t: 4, fn: () => { if (R && R.rv === rv) { R.respawnT = 3; if (!R.P.alive) respawn(); this.openLoadout(); } } });
+    rv.streak = 0;
   },
   onKO(n, by) {                                                       // somebody knocked out a bot
     const rv = R && R.rv; if (!rv) return;
-    if (by === 'me') { rv.kills++; Crosshair.hit(true, false); }
+    if (by === 'me') { rv.kills++; Crosshair.hit(true, false); rv.streak = (rv.streak || 0) + 1; const st = RV_STREAKS[rv.streak]; if (st) { this.big(st, 'go', 1200); Sfx.play('win'); } }
     else if (by && by.kills != null) by.kills++;
     if (rv.mode === 'ffa') { this.paintHud(); if (rv.kills >= 15) this.endMatch(true); else if (by && by !== 'me' && by.kills >= 15) this.endMatch(false); }
   },
   onMeKO(by) {                                                        // I was knocked out
     const rv = R && R.rv; if (!rv) return;
+    rv.streak = 0;
     if (by && by.kills != null) by.kills++;
     if (rv.mode === 'ffa') { this.paintHud(); if (by && by.kills >= 15) this.endMatch(false); }
   },
@@ -4185,7 +4256,7 @@ const Rival = {
     rv.slot = i; rv.vmSwap = 1; rv.ads = false;
     const g = rv.guns[i]; g.burst = 0; if (g.reloadT > 0) g.reloadT = 0;
     if (R.ch) Tools.attach(R.ch, { parts: GUN_MODELS[g.w.model] });
-    this.buildViewmodel(); if (!quiet) Sfx.play('equip');
+    this.buildViewmodel(); if (!quiet) Sfx.play('equip'); this.netGun();
     this.paintHud();
   },
   buildViewmodel() {
@@ -4202,7 +4273,7 @@ const Rival = {
     vm.position.copy(vm.userData.base); R.camera.add(vm); rv.vm = vm;
   },
   reload() {
-    const rv = R.rv; if (!rv || rv.phase === 'loadout') return; const g = rv.guns[rv.slot];
+    const rv = R.rv; if (!rv || rv.menu) return; const g = rv.guns[rv.slot];
     if (!g || !g.w.mag || g.reloadT > 0 || g.ammo >= g.w.mag) return;
     g.reloadT = g.w.reload; g.burst = 0; rv.ads = false; Sfx.play('reload');
   },
@@ -4267,7 +4338,7 @@ const Rival = {
   detonate(n) {
     const p = n.m.position.clone(), P = R.P;
     if (n.kind === 'grenade') {
-      Tools.explode(p, false); if (S.settings.shake !== false) R.shake = { t: 0.35, str: 2 };
+      Tools.explode(p, false); Net.send({ t: 'fx', k: 'boom', p: [p.x, p.y, p.z].map(v => +v.toFixed(2)) }); if (S.settings.shake !== false) R.shake = { t: 0.35, str: 2 };
       for (const v of Combat.victims('me')) {
         const d = Math.hypot(v.x - p.x, v.y + 2.5 - p.y, v.z - p.z); if (d > 12) continue;
         const f = 1 - d / 12, kx = (v.x - p.x) / Math.max(d, 0.5), kz = (v.z - p.z) / Math.max(d, 0.5);
@@ -4284,7 +4355,7 @@ const Rival = {
     }
   },
   slide() {
-    const rv = R.rv, P = R.P; if (rv.slideCd > 0 || !P.onGround || !P.alive || rv.phase !== 'fight') return;
+    const rv = R.rv, P = R.P; if (rv.slideCd > 0 || !P.onGround || !P.alive || !this.live()) return;
     const sp = Math.hypot(P.vx, P.vz); if (sp < 6) return;
     rv.slideCd = 1.1; rv.sliding = 0.6;
     P.push = { x: P.vx / sp * 38, y: 0, z: P.vz / sp * 38, t: 0.22, rel: false, track: false, face: P.face, fade: 0.38, fl: 0.38 };
@@ -4293,7 +4364,8 @@ const Rival = {
   /* ---------- input (called by the game before its own handlers) ---------- */
   key(e) {
     const rv = R && R.rv; if (!rv) return false;
-    if (rv.phase === 'loadout') { if (e.code === 'Enter') { const go = $('#rv .rv-play'); if (go) go.click(); return true; } return /^Digit/.test(e.code); }
+    if (rv.menu) return /^Digit/.test(e.code);
+    if (e.code === 'KeyL' && rv.net) { this.openLoadout(); return true; }
     const dg = /^Digit([1-4])$/.exec(e.code);
     if (dg) { this.equip(+dg[1] - 1); return true; }
     if (e.code === 'KeyQ') { this.equip(rv.last); return true; }
@@ -4303,13 +4375,13 @@ const Rival = {
     return false;
   },
   mouse(e, down) {
-    const rv = R && R.rv; if (!rv || rv.phase === 'loadout' || e.pointerType === 'touch') return false;
+    const rv = R && R.rv; if (!rv || rv.menu || e.pointerType === 'touch') return false;
     if (down && !R.shiftLock && !('ontouchstart' in window && e.pointerType !== 'mouse')) { setShiftLock(true); return true; }
     if (e.button === 0) { rv.trig = down; if (down) rv.queued = true; return true; }
     if (e.button === 2) { rv.ads = down && !!(rv.guns[rv.slot] && rv.guns[rv.slot].w.mag) && !(rv.guns[rv.slot].reloadT > 0); return true; }
     return false;
   },
-  wheel(e) { const rv = R && R.rv; if (!rv || rv.phase === 'loadout') return false; const n = rv.guns.length; this.equip((rv.slot + (e.deltaY > 0 ? 1 : n - 1)) % n); return true; },
+  wheel(e) { const rv = R && R.rv; if (!rv || rv.menu) return false; const n = rv.guns.length; this.equip((rv.slot + (e.deltaY > 0 ? 1 : n - 1)) % n); return true; },
   /* ---------- every frame ---------- */
   update(dt) {
     const rv = R && R.rv; if (!rv) return;
@@ -4318,16 +4390,18 @@ const Rival = {
     const P = R.P, g = rv.guns[rv.slot];
     rv.slideCd -= dt; rv.sliding -= dt;
     if (g && R.ch && !R.ch.tool && P.alive) Tools.attach(R.ch, { parts: GUN_MODELS[g.w.model] });   // after respawning
+    if (rv.net) for (const rp of R.remote.values()) if (rp.rvGun && rp.alive && !rp.ch.tool) Tools.attach(rp.ch, { parts: GUN_MODELS[rp.rvGun] });
     // the countdown
-    if (rv.phase === 'freeze') {
+    if (rv.net) this.netTick(dt);
+    if (!rv.net && rv.phase === 'freeze') {
       const before = Math.ceil(rv.freeze); rv.freeze -= dt; const now = Math.ceil(rv.freeze);
       if (now !== before && now >= 1 && now <= 3) { this.big(String(now), '', 800); Sfx.play('click'); }
       if (rv.freeze <= 0) { rv.phase = 'fight'; this.big('FIGHT!', 'go', 900); Sfx.play('bounce'); }
     }
-    const frozen = rv.phase === 'freeze' || rv.phase === 'loadout';
+    const frozen = rv.phase === 'freeze' || (rv.menu && !rv.net) || rv.phase === 'lobby';
     P.walk = frozen ? 0 : undefined; P.jump = frozen ? 0 : undefined;
     // who won the round?
-    if (rv.phase === 'fight' && rv.mode !== 'ffa') {
+    if (!rv.net && rv.phase === 'fight' && rv.mode !== 'ffa') {
       const mine = (P.alive ? 1 : 0) + R.npcs.filter(n => n.alive && n.team === 1).length, theirs = R.npcs.filter(n => n.alive && n.team === 2).length;
       if (!mine || !theirs) this.endRound(!!mine);
     }
@@ -4335,7 +4409,7 @@ const Rival = {
     if (g) {
       for (const x of rv.guns) { if (x.cd > 0) x.cd -= dt; }
       if (g.reloadT > 0) { g.reloadT -= dt; if (g.reloadT <= 0) { g.reloadT = 0; g.ammo = g.w.mag; Sfx.play('equip'); } this.paintAmmo(); }
-      const can = rv.phase === 'fight' && P.alive && !R.menuOpen;
+      const can = this.live() && P.alive && !R.menuOpen && !rv.menu;
       if (can && g.burst > 0) { g.burstT -= dt; if (g.burstT <= 0 && g.ammo > 0) { this.fireGun(g); g.burst--; g.burstT = g.w.gap; } else if (g.ammo <= 0) g.burst = 0; }
       else if (can && (rv.queued || (rv.trig && g.w.auto)) && g.cd <= 0) {
         if (g.w.melee) this.melee(g);
@@ -4356,7 +4430,7 @@ const Rival = {
     if (Math.abs((R.fov || baseFov()) - rv.fovNow) > 0.05) { R.fov = rv.fovNow; resize(); }
     R.sensMul = scoped ? 0.35 : rv.ads ? 0.7 : 1;
     const sc = $('#rv .rv-scope'); if (sc) sc.classList.toggle('on', !!scoped && rv.fovNow < 30);
-    Crosshair.show(!scoped && rv.phase !== 'loadout' && P.alive); $('#slcur').hidden = true;
+    Crosshair.show(!scoped && !rv.menu && P.alive); $('#slcur').hidden = true;
     if (!P.alive) rv.ads = false;
     // the gun in front of the camera (first person)
     if (rv.vm) {
@@ -4378,6 +4452,178 @@ GAMES.push({
   stat: 'KOs', env: ENV_DAY, build: buildRivals,
   thumb: { cam: [26, 15, 44], look: [0, 3, 0], fov: 60 },
   hint: 'Rival Strike! Pick a loadout, then click PLAY. Click to shoot, right-click to aim, R reload, 1-4 weapons, C slide.'
+});
+
+/* ====================== RIVAL STRIKE ONLINE: servers for friends ======================
+   A server is a room on the game server called "rvo-CODE" (public, shown in the server list) or "rvp-CODE" (private:
+   only people with the code can join). The first letter of the code is the mode: D = Deathmatch, R = Rounds.
+   The room's host (the first player in it) runs the match: it starts it, counts knockouts / rounds and tells everyone
+   (a small "rvst" message through the server). Everyone else just follows. Late joiners get the latest state too. */
+const RV_NET_TARGET = 20;                                            // Deathmatch: first to 20 knockouts
+const RV_JOIN = { code: null };                                      // set by an invite link (#/rivals/CODE)
+const RV_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const RV_STREAKS = { 2: 'DOUBLE KILL', 3: 'TRIPLE KILL', 4: 'QUAD KILL', 5: 'RAMPAGE!', 7: 'UNSTOPPABLE!', 10: 'LEGENDARY!' };
+Object.assign(Rival, {
+  /* ---------- the server list + joining ---------- */
+  newCode(mode) { let c = mode === 'rd' ? 'R' : 'D'; for (let i = 0; i < 4; i++) c += RV_CODE_CHARS[(Math.random() * RV_CODE_CHARS.length) | 0]; return c; },
+  servers: [],
+  refreshServers() {
+    const rv = R && R.rv; if (!rv) return;
+    rv.listT = 1; const rows = $('#rv .rv-rows'); if (rows) rows.innerHTML = '<div class="rv-empty">Looking for servers...</div>';
+    Net.stats().then(st => {
+      if (!R || R.rv !== rv) return;
+      this.servers = st && st.games ? Object.keys(st.games).filter(k => /^rvo-[DR][A-Z0-9]{4}$/.test(k) && st.games[k] > 0).map(k => ({ code: k.slice(4), n: st.games[k] })).sort((a, b) => b.n - a.n) : null;
+      const el = $('#rv .rv-rows'); if (el) el.innerHTML = this.serverRows();
+    });
+  },
+  serverRows() {
+    const list = this.servers;
+    if (list === null) return '<div class="rv-empty">Could not reach the game server. It may be waking up: try Refresh in a moment.</div>';
+    if (!list.length) return '<div class="rv-empty">No public servers right now. Create one, or press Quick Match!</div>';
+    return list.slice(0, 8).map(s => `<div class="rv-srv"><b>${esc(s.code)}</b><span>${s.code[0] === 'R' ? 'Rounds' : 'Deathmatch'}</span><i>${s.n} / 16 players</i><button type="button" class="rv-pill go sm" data-srv="${esc(s.code)}"${s.n >= 16 ? ' disabled' : ''}>JOIN</button></div>`).join('');
+  },
+  quickMatch() {
+    if (!Net.enabled) return;
+    showHint('Finding a server...', 2000);
+    Net.stats().then(st => {
+      const open = st && st.games ? Object.keys(st.games).filter(k => /^rvo-D[A-Z0-9]{4}$/.test(k) && st.games[k] > 0 && st.games[k] < 16).sort((a, b) => st.games[b] - st.games[a]) : [];
+      this.goServer(open.length ? open[0].slice(4) : this.newCode('dm'), true);
+    });
+  },
+  joinCode(raw) {
+    const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!/^[DR][A-Z0-9]{4}$/.test(code)) { showHint('Codes have 5 letters and numbers and start with D or R (like D4K2Q).', 3500); return; }
+    if (!Net.enabled) { showHint('Online servers work on your own website.', 3000); return; }
+    Net.stats().then(st => this.goServer(code, !!(st && st.games && st.games['rvo-' + code] > 0)));
+  },
+  // leave this game and start Rival Strike again on a server (code = null: back to the bot lobby)
+  goServer(code, pub) {
+    const base = gameById('rivals'); if (!base || !R) return;
+    const def = code ? Object.assign({}, base, { id: (pub ? 'rvo-' : 'rvp-') + code, online: true, rvNet: { code, pub: !!pub, mode: code[0] === 'R' ? 'rd' : 'dm' } }) : base;
+    const ex = exitCb, er = errorCb;
+    if (code) { try { history.replaceState(null, '', '#/rivals/' + code); } catch (e) { /* ignore */ } }
+    stopRun(); beginRun(def, { onExit: ex, onError: er });
+  },
+  inviteUrl() { return location.href.split('#')[0] + '#/rivals/' + R.rv.net.code; },
+  copyInvite() {
+    const url = this.inviteUrl();
+    const done = () => showHint('Invite link copied! Send it to your friends. (Code: ' + R.rv.net.code + ')', 4000);
+    try { navigator.clipboard.writeText(url).then(done, () => prompt('Copy this invite link:', url)); } catch (e) { prompt('Copy this invite link:', url); }
+  },
+  /* ---------- on a server ---------- */
+  netStart() {
+    const rv = R.rv, n = rv.net;
+    rv.phase = 'warm'; rv.sc = {}; rv.round = 0; rv.autoT = 25; rv.hbT = 0; rv.synced = false; rv.menu = false;
+    R.respawnT = 3; R.world.spawns = RV_SPAWN.ffa.map(p => p.slice());
+    this.loadGuns(); this.placeMe(RV_SPAWN.ffa[(Math.random() * RV_SPAWN.ffa.length) | 0]);
+    const bar = document.createElement('div'); bar.className = 'rv-net'; $('#rv').appendChild(bar);
+    bar.addEventListener('pointerdown', e => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); e.preventDefault(); if (b.dataset.start) this.hostStart(); if (b.dataset.invite) this.copyInvite(); if (b.dataset.load) this.openLoadout(); });
+    $('#rv .rv-load').hidden = true;
+    this.paintHud(); this.paintNet();
+    chatAdd('You are on Rival Strike server <b>' + esc(n.code) + '</b> (' + (n.mode === 'rd' ? 'Rounds' : 'Deathmatch') + ', ' + (n.pub ? 'public' : 'private') + '). Invite friends with the code or the invite link. Press L to change your loadout.', 'sys');
+    if (!Net.enabled) chatAdd('Online play needs the game server: you are alone here.', 'sys');
+  },
+  players() {                                                         // everybody on the server: [{ id, name, alive, me }]
+    const out = [{ id: String(Net.id || 'me'), name: S.user, alive: R.P.alive, me: true }];
+    for (const rp of R.remote.values()) out.push({ id: String(rp.id), name: rp.name, alive: rp.alive, me: false });
+    return out;
+  },
+  nameOf(id) { if (Net.id && String(id) === String(Net.id)) return S.user; const rp = R.remote.get(String(id)); return rp ? rp.name : 'Someone'; },
+  isHost() { return Net.status !== 'online' || Net.isHost(); },
+  encSc(sc) { return Object.keys(sc).filter(k => sc[k] > 0).slice(0, 16).map(k => k + ':' + sc[k]).join(','); },
+  decSc(str) { const o = {}; String(str || '').split(',').forEach(p => { const [k, v] = p.split(':'); if (k && /^\w{1,12}$/.test(k)) o[k] = Math.max(0, Math.min(999, Number(v) || 0)); }); return o; },
+  // the host changes the match state: everyone (including the host) applies it
+  setState(ph, extra) {
+    const rv = R.rv; Object.assign(rv, extra || {}); rv.phase = ph; rv.t = extra && extra.t != null ? extra.t : rv.t;
+    const st = { a: 'rvst', ph, rd: rv.round || 0, sc: this.encSc(rv.sc), w: rv.winner || '', t: Math.round(Math.max(0, rv.t || 0)), tgt: rv.net.mode === 'rd' ? 3 : RV_NET_TARGET };
+    this.applyState(st, true);
+    Net.send({ t: 'sx', a: st, k: 'rvs:1' }); rv.hbT = 2;
+  },
+  netSx(m) {                                                          // a message from the server
+    const a = m && m.a; if (!a || !R || !R.rv) return;
+    if (a.a === 'rvst') { if (!(Net.id && String(m.id) === String(Net.id))) this.applyState(a, false); }
+    else if (a.a === 'rvgun') { const rp = R.remote.get(String(a.pid || m.id)); if (rp && GUN_MODELS[a.g]) { rp.rvGun = a.g; if (rp.alive) Tools.attach(rp.ch, { parts: GUN_MODELS[a.g] }); } }
+  },
+  netLog(list) { for (const a of list || []) { if (a && a.a === 'rvst') this.applyState(a, false); else if (a && a.a === 'rvgun') this.netSx({ a, id: a.pid }); } },
+  netGun() { const rv = R && R.rv; if (!rv || !rv.net || !Net.id) return; const g = rv.guns[rv.slot]; if (g) Net.send({ t: 'sx', a: { a: 'rvgun', g: g.w.model, pid: String(Net.id) }, k: 'rvg:' + String(Net.id).replace(/\D/g, '').slice(0, 7) }); },
+  applyState(st, mine) {
+    const rv = R.rv, prev = rv.phase, first = !rv.synced; rv.synced = true;
+    const ph = ['warm', 'freeze', 'fight', 'end', 'over'].includes(st.ph) ? st.ph : 'warm';
+    rv.phase = ph; rv.round = Number(st.rd) || 0; rv.sc = this.decSc(st.sc); rv.winner = String(st.w || '').slice(0, 24); rv.t = Number(st.t) || 0;
+    const rounds = rv.net.mode === 'rd';
+    if (first && !mine) { R.respawnT = rounds && (ph === 'fight' || ph === 'freeze' || ph === 'end') ? 1e9 : 3; this.paintNet(); this.paintHud(); return; }   // joined in the middle
+    if (ph === prev && ph !== 'freeze') { this.paintNet(); this.paintHud(); return; }
+    if (ph === 'freeze') {                                            // a new round (Rounds) / the start of a match: back to your spawn
+      R.respawnT = rounds ? 1e9 : 3; rv.freezeEnd = R.time + (st.t || 3);
+      respawn(); this.placeMe(this.mySpawn()); this.refill(); this.paintHud();
+      this.big(rounds ? 'ROUND ' + rv.round : 'GET READY', '', 1100); Sfx.play('checkpoint'); KillFeed.clear(); rv.streak = 0;
+    } else if (ph === 'fight') { this.big('FIGHT!', 'go', 900); Sfx.play('bounce'); }
+    else if (ph === 'end') { const w = rv.winner; this.big(w ? (w === S.user ? 'ROUND WON' : w + ' WINS THE ROUND') : 'DRAW', w === S.user ? 'win' : 'lose', 2600); Sfx.play(w === S.user ? 'win' : 'oof'); }
+    else if (ph === 'over') {
+      const w = rv.winner, me = w === S.user, st2 = this.stats();
+      this.big(me ? 'VICTORY!' : (w ? w + ' WINS!' : 'MATCH OVER'), me ? 'win' : 'lose', 5000);
+      if (me) { Sfx.play('win'); confetti(R.P.x, R.P.y + 5, R.P.z, 80); Badges.award('rivals'); st2.wins++; st2.streak++; st2.best = Math.max(st2.best, st2.streak); }
+      else if (prev === 'fight' || prev === 'end') { st2.losses++; st2.streak = 0; }
+      store.set('rivalStats', st2);
+      R.respawnT = 3; if (!R.P.alive) R.timers.push({ t: 1, fn: () => { if (R && !R.P.alive) respawn(); } });
+    } else if (ph === 'warm') { R.respawnT = 3; if (prev === 'over') this.big('WARM-UP', '', 1200); }
+    this.paintNet(); this.paintHud();
+  },
+  mySpawn() {
+    const ids = this.players().map(p => p.id).sort((a, b) => (Number(a) || 0) - (Number(b) || 0)), i = Math.max(0, ids.indexOf(String(Net.id || 'me')));
+    if (ids.length === 2) return (i === 0 ? RV_SPAWN.a[0] : RV_SPAWN.b[0]).slice();
+    return RV_SPAWN.ffa[i % RV_SPAWN.ffa.length].slice();
+  },
+  hostStart() {
+    const rv = R.rv; if (!this.isHost() || !(rv.phase === 'warm' || rv.phase === 'over')) return;
+    rv.sc = {}; rv.winner = ''; rv.round = 1;
+    this.setState('freeze', { t: 3 });
+  },
+  netTick(dt) {
+    const rv = R.rv;
+    if (rv.phase === 'freeze' && rv.freezeEnd && R.time > rv.freezeEnd + 0.4 && !this.isHost()) { /* waiting for the host to say FIGHT */ }
+    if (!this.isHost()) { this.paintNetSoft(dt); return; }
+    rv.hbT -= dt; if (rv.hbT <= 0) { rv.hbT = 2.5; Net.send({ t: 'sx', a: { a: 'rvst', ph: rv.phase, rd: rv.round || 0, sc: this.encSc(rv.sc), w: rv.winner || '', t: Math.round(Math.max(0, rv.t || 0)), tgt: rv.net.mode === 'rd' ? 3 : RV_NET_TARGET }, k: 'rvs:1' }); }
+    const n = this.players().length;
+    rv.t = (rv.t || 0) - dt;
+    if (rv.phase === 'warm') {
+      if (n >= 2) { rv.autoT -= dt; if (rv.autoT <= 0) this.hostStart(); } else rv.autoT = 25;
+    } else if (rv.phase === 'freeze') { if (rv.t <= 0) this.setState('fight', { t: 0 }); }
+    else if (rv.phase === 'fight' && rv.net.mode === 'rd') {
+      const ps = this.players(), alive = ps.filter(p => p.alive);
+      if (ps.length < 2) this.setState('warm', { t: 0 });
+      else if (alive.length <= 1) { const w = alive[0]; if (w) rv.sc[w.id] = (rv.sc[w.id] || 0) + 1; this.setState('end', { winner: w ? w.name : '', t: 3 }); }
+    } else if (rv.phase === 'end') {
+      if (rv.t <= 0) { const best = Object.keys(rv.sc).find(k => rv.sc[k] >= 3); if (best) this.setState('over', { winner: this.nameOf(best), t: 7 }); else { rv.round++; this.setState('freeze', { winner: '', t: 3 }); } }
+    } else if (rv.phase === 'over') { if (rv.t <= 0) { rv.sc = {}; rv.winner = ''; rv.round = 0; rv.autoT = 20; this.setState('warm', { t: 0 }); } }
+    else if (rv.phase === 'fight' && n < 2) this.setState('warm', { t: 0 });
+    this.paintNetSoft(dt);
+  },
+  // the server says someone was knocked out (by = who did it)
+  netDie(id, by) {
+    const rv = R && R.rv; if (!rv || !rv.net) return;
+    const victim = this.nameOf(id), killer = by != null ? this.nameOf(by) : '';
+    const meK = by != null && Net.id && String(by) === String(Net.id);
+    KillFeed.add(killer, victim, false, meK);
+    if (meK) { Crosshair.hit(true, false); rv.streak = (rv.streak || 0) + 1; const s = RV_STREAKS[rv.streak]; if (s) { this.big(s, 'go', 1200); Sfx.play('win'); } const st = this.stats(); st.kos++; store.set('rivalStats', st); }
+    if (Net.id && String(id) === String(Net.id)) rv.streak = 0;
+    if (!this.isHost() || rv.phase !== 'fight' || rv.net.mode !== 'dm' || by == null || String(by) === String(id)) return;
+    const k = String(by); rv.sc[k] = (rv.sc[k] || 0) + 1;
+    if (rv.sc[k] >= RV_NET_TARGET) this.setState('over', { winner: this.nameOf(k), t: 7 }); else this.setState('fight');
+  },
+  paintNetSoft(dt) { const rv = R.rv; rv.pnT = (rv.pnT || 0) - dt; if (rv.pnT <= 0) { rv.pnT = 0.5; this.paintNet(); } },
+  paintNet() {
+    const rv = R.rv, bar = $('#rv .rv-net'); if (!bar || !rv.net) return;
+    const n = rv.net, ps = this.players(), host = this.isHost();
+    let msg = '';
+    if (rv.phase === 'warm') msg = ps.length < 2 ? 'Warm-up: waiting for a friend to join...' : host ? `Match starts in ${Math.max(0, Math.ceil(rv.autoT))}s` : 'Warm-up: the match starts soon';
+    else if (rv.phase === 'freeze') msg = n.mode === 'rd' ? 'Round ' + rv.round + ' is starting' : 'Get ready!';
+    else if (rv.phase === 'fight') msg = n.mode === 'rd' ? 'Round ' + rv.round + ': last one standing wins' : 'First to ' + RV_NET_TARGET + ' knockouts';
+    else if (rv.phase === 'end') msg = 'Next round soon...';
+    else if (rv.phase === 'over') msg = (rv.winner || 'Nobody') + ' won! New match soon...';
+    bar.innerHTML = `<span class="code">${esc(n.code)}</span><span>${n.mode === 'rd' ? 'Rounds' : 'Deathmatch'} &middot; ${n.pub ? 'Public' : 'Private'} &middot; ${ps.length} player${ps.length === 1 ? '' : 's'}${Net.status !== 'online' ? ' &middot; <em>' + (Net.status === 'connecting' ? 'connecting...' : 'offline') + '</em>' : ''}</span><b>${esc(msg)}</b>` +
+      `${host && (rv.phase === 'warm' || rv.phase === 'over') && ps.length >= 2 ? '<button type="button" data-start="1">START MATCH</button>' : ''}<button type="button" data-invite="1">Invite</button><button type="button" data-load="1">Loadout (L)</button>`;
+  }
 });
 
 /* ====================== online: Firebase (messages / feed / community items) ====================== */
@@ -5913,16 +6159,18 @@ function netHandlers() {
       sys(`Connected! ${m.players.length ? plural(m.players.length, 'other player') + ' here.' : 'You are the first one here.'}`);
       if (!(Net.v >= 4)) sys('Heads up: the game server is an old version, so other players will not see your tool effects or server scripts. Redeploy it on Render (see the README).');
       else if (Net.v < 5) sys('Heads up: the game server is one version behind, so script hitboxes do at most 60 damage. Redeploy it on Render (see the README).');
-      if (Array.isArray(m.log)) Scripts.applyLog(m.log);
+      if (Array.isArray(m.log)) { Scripts.applyLog(m.log); if (R.rv) Rival.netLog(m.log); }
+      if (R.rv) Rival.netGun();
       Scripts.onWelcome();
       updatePlist();
     },
-    onJoin(p) { if (!R) return; const rp = addRemote(p); if (rp) { rp.fresh = true; sys(`${esc(p.name)} joined the game.`); } },
+    onJoin(p) { if (!R) return; const rp = addRemote(p); if (rp) { rp.fresh = true; sys(`${esc(p.name)} joined the game.`); if (R.rv) { Rival.netGun(); Rival.paintNet(); Rival.paintHud(); } } },
     onLeave(id) { if (!R) return; const rp = R.remote.get(String(id)); if (rp) { sys(`${esc(rp.name)} left the game.`); removeRemote(id); } },
     onState: onNetState,
     onChat(m) { if (R && !R.cloudChat) chatIncoming({ name: m.name, text: m.text, pid: m.id }); },
     onDie(id, by, kos) {
       if (!R) return;
+      if (R.rv) Rival.netDie(id, by);
       if (Net.id && String(id) === String(Net.id)) { if (R.P.alive) die(by, true); return; }     // the server knocked me out
       const rp = R.remote.get(String(id)); if (!rp || !rp.alive) return;
       rp.alive = false; Tools.detach(rp.ch); rp.toolI = -1; breakApart(rp.ch, 0, 0, 2.3);
@@ -5932,7 +6180,7 @@ function netHandlers() {
     onHurt(m) { if (R && R.bp) Tools.serverHurt(m); },
     onHp(id, hp) { const rp = R && R.remote.get(String(id)); if (rp) rp.hp = clamp(Number(hp) || 0, 0, 100); },
     onHost() { if (R && R.sc) Scripts.onHost(); },
-    onSx(m) { if (R && R.sc) Scripts.remote(m); },
+    onSx(m) { if (R && R.rv) Rival.netSx(m); if (R && R.sc) Scripts.remote(m); },
     onHit(by, d, kb) { if (R && R.bp) Tools.applyDamage(Math.max(0, Math.min(100, Number(d) || 0)), by, Array.isArray(kb) ? kb.map(v => clamp(Number(v) || 0, -200, 200)) : null); },
     onFx(id, m) { Tools.onFx(id, m); },
     onSpawn(id) {
@@ -8937,7 +9185,14 @@ const BRICKS_SVG = '<svg viewBox="0 0 120 92" aria-hidden="true"><defs><linearGr
   brickSVG(6, 62, 108, '#C4281C', [10, 46, 82]) + brickSVG(26, 36, 68, '#F5CD30', [8, 44]) + brickSVG(42, 10, 36, '#0D69AC', [2, 18]) + '</svg>';
 
 /* ---------- small html builders ---------- */
-const playingHTML = id => (ONLINE.ok ? `<div class="gstat live"><i></i>${fmt(ONLINE.games[id] || 0)} playing</div>` : '');
+// players right now (Rival Strike counts every one of its servers)
+const playingNow = id => (id === 'rivals' ? Object.keys(ONLINE.games).filter(k => /^rv[op]-/.test(k)).reduce((n, k) => n + (ONLINE.games[k] || 0), ONLINE.games.rivals || 0) : (ONLINE.games[id] || 0));
+const playingHTML = id => (ONLINE.ok ? `<div class="gstat live"><i></i>${fmt(playingNow(id))} playing</div>` : '');
+function rivalServersBox() {
+  const list = Object.keys(ONLINE.games).filter(k => /^rvo-[DR][A-Z0-9]{4}$/.test(k) && ONLINE.games[k] > 0).sort((a, b) => ONLINE.games[b] - ONLINE.games[a]).slice(0, 8);
+  const rows = !ONLINE.ok ? '<div class="muted small">Server list loads when the game server is online.</div>' : list.length ? list.map(k => `<div class="rvsrv"><b>${k.slice(4)}</b><span>${k[4] === 'R' ? 'Rounds' : 'Deathmatch'}</span><span class="muted">${ONLINE.games[k]} / 16 players</span><a class="btn btn-green btn-sm" href="#/rivals/${k.slice(4)}">Join</a></div>`).join('') : '<div class="muted small">No public servers right now. Press Play, then Play Online to create one!</div>';
+  return `<div class="box"><h2>Rival Strike servers</h2><div class="in">${rows}<p class="muted small" style="margin-top:8px">Got a code from a friend? Press Play, open <b>Play Online</b> and type it in, or open their invite link.</p></div></div>`;
+}
 function gcard(g) {
   const r = ratingOf(g);
   return `<a class="gcard" href="#/game/${g.id}">
@@ -8951,7 +9206,7 @@ function growHTML(g) {
   const r = ratingOf(g);
   return `<div class="grow"><a class="gthumb" href="#/game/${g.id}"><img data-thumb="${g.id}" alt="" hidden><div class="gplay">&#9654; Play</div></a>
     <div class="gi"><h3><a href="#/game/${g.id}">${esc(g.name)}</a></h3><div class="gby">By <a>${esc(g.creator)}</a> &bull; ${esc(g.genre)}</div><p>${esc(g.desc)}</p>
-    <div class="stats">${ONLINE.ok ? `<span class="live"><i></i>${fmt(ONLINE.games[g.id] || 0)} playing</span>` : ''}<span>Visits: ${fmt(visitsOf(g))}</span><span>Favorites: ${fmt(g.favorites)}</span><span>${r.pct}% liked</span></div></div>
+    <div class="stats">${ONLINE.ok ? `<span class="live"><i></i>${fmt(playingNow(g.id))} playing</span>` : ''}<span>Visits: ${fmt(visitsOf(g))}</span><span>Favorites: ${fmt(g.favorites)}</span><span>${r.pct}% liked</span></div></div>
     <a class="btn btn-green" href="#/game/${g.id}">Play</a></div>`;
 }
 function friendHTML(f) {
@@ -9034,9 +9289,9 @@ function viewGame(id) {
       <div class="box"><h2>Game Info</h2><div class="in"><dl class="kv">
         <dt>Created</dt><dd>${esc(g.created)}</dd><dt>Updated</dt><dd>${esc(g.updated)}</dd>
         <dt>Genre</dt><dd>${esc(g.genre)}</dd><dt>Max players</dt><dd>16 per server</dd><dt>Gear</dt><dd>${g.gear ? 'Allowed' : 'Not allowed'}</dd>${g.tools && g.tools.length ? `<dt>Tools</dt><dd>${g.tools.length} included</dd>` : ''}
-        ${ONLINE.ok ? `<dt>Playing now</dt><dd>${fmt(ONLINE.games[g.id] || 0)}</dd>` : ''}
+        ${ONLINE.ok ? `<dt>Playing now</dt><dd>${fmt(playingNow(g.id))}</dd>` : ''}
         <dt>Visits</dt><dd>${fmt(visitsOf(g))}</dd><dt>Favorites</dt><dd>${fmt(g.favorites)}</dd></dl></div></div>
-      <div class="box"><h2>Controls</h2><div class="in"><div class="keys">
+      ${g.id === 'rivals' ? rivalServersBox() : ''}<div class="box"><h2>Controls</h2><div class="in"><div class="keys">
         <span><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></span><span>Move</span>
         <span><kbd>Space</kbd></span><span>Jump</span>
         <span><kbd>Right-drag</kbd></span><span>Rotate the camera</span>
@@ -9232,7 +9487,13 @@ function currentRoute() {
 }
 function closeStudio() { if (STUDIO) STUDIO.destroy(); }
 function render(force) {
-  const rt = currentRoute(), key = rt.name + '/' + (rt.arg || '');
+  let rt = currentRoute();
+  if (rt.name === 'rivals') {                                       // an invite link: #/rivals/CODE
+    RV_JOIN.code = String(rt.arg || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5) || null;
+    try { history.replaceState(null, '', '#/game/rivals'); } catch (e) { window.location.hash = '#/game/rivals'; }
+    rt = currentRoute(); if (!R) setTimeout(() => launch('rivals'), 60);
+  }
+  const key = rt.name + '/' + (rt.arg || '');
   if (!force && key === lastKey) return;
   const changed = key !== lastKey; lastKey = key;
   let html, tab = rt.name, title = 'Home', after = null;
